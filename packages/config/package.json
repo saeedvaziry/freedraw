@@ -1,0 +1,19 @@
+{
+  "name": "@freedraw/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./eslint": "./eslint.config.js",
+    "./tailwind-preset": "./tailwind-preset.js",
+    "./vitest": "./vitest.config.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.4.1",
+    "globals": "^17.6.0",
+    "typescript-eslint": "^8.60.0",
+    "vitest": "^3.2.4"
+  }
+}

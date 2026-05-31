@@ -1,0 +1,5 @@
+export { intersectRay } from './intersect.js'
+export { anchorPoint, anchorFromPoint, createBinding, DEFAULT_GAP } from './binding.js'
+export { resolveArrowPoints, arrowNeedsResolve } from './resolve.js'
+export { spawnConnectedShape } from './spawn.js'
+export type { SpawnDirection } from './spawn.js'

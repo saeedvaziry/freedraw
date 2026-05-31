@@ -1,0 +1,123 @@
+import { useSyncExternalStore } from 'react'
+import type { ArrowElement, Element, SceneStore, SelectionStyle } from '@freedraw/engine'
+import {
+  StylePanel,
+  type ArrowPanelPatch,
+  type ArrowPanelState,
+  type PanelStyle,
+  type PanelStylePatch,
+  type StylePanelSelection,
+} from '@freedraw/ui'
+
+interface StylePanelHostProps {
+  store: SceneStore
+}
+
+interface PanelSnapshot {
+  visible: boolean
+  selection: StylePanelSelection
+  style: PanelStyle
+  arrow: ArrowPanelState
+}
+
+const FILL_LESS = new Set(['arrow', 'line', 'text'])
+
+export function StylePanelHost({ store }: StylePanelHostProps) {
+  const snapshot = useSyncExternalStore(
+    (cb) => store.subscribeStyle(cb),
+    () => readSnapshot(store),
+  )
+
+  if (!snapshot.visible) return null
+
+  const selectedIds = () => store.getUiState().selectedIds
+
+  return (
+    <StylePanel
+      selection={snapshot.selection}
+      style={snapshot.style}
+      arrow={snapshot.arrow}
+      onStyleChange={(patch: PanelStylePatch) => store.updateStyle(selectedIds(), patch)}
+      onArrowChange={(patch: ArrowPanelPatch) => store.updateArrowheads(selectedIds(), patch)}
+      onInteractStart={() => store.stopCapturing()}
+      onInteractEnd={() => store.stopCapturing()}
+    />
+  )
+}
+
+const cache = new WeakMap<SceneStore, { key: string; value: PanelSnapshot }>()
+
+function readSnapshot(store: SceneStore): PanelSnapshot {
+  const ui = store.getUiState()
+  const selectionStyle = store.getSelectionStyle()
+  const selected = [...ui.selectedIds]
+    .map((id) => store.getSnapshot().elements[id])
+    .filter((element): element is Element => Boolean(element))
+
+  const selection = deriveSelection(selected)
+  const arrow = deriveArrow(selected)
+  const key = snapshotKey(selectionStyle, selection, arrow, selected.length > 0)
+
+  const previous = cache.get(store)
+  if (previous && previous.key === key) return previous.value
+
+  const value: PanelSnapshot = {
+    visible: selected.length > 0,
+    selection,
+    style: selectionStyle as PanelStyle,
+    arrow,
+  }
+  cache.set(store, { key, value })
+  return value
+}
+
+function deriveSelection(selected: Element[]): StylePanelSelection {
+  let hasShape = false
+  let hasFill = false
+  let hasRoundness = false
+  let hasText = false
+  let hasArrow = false
+  for (const element of selected) {
+    if (element.type === 'arrow' || element.type === 'line') {
+      hasArrow = true
+      continue
+    }
+    hasShape = true
+    if (!FILL_LESS.has(element.type)) hasFill = true
+    if (element.type !== 'text') hasText = true
+    if (isRoundable(element.type)) hasRoundness = true
+  }
+  return { hasShape, hasFill, hasRoundness, hasText, hasArrow }
+}
+
+function isRoundable(type: string): boolean {
+  return type === 'rect' || type === 'roundRect' || type === 'image' || type === 'sticky'
+}
+
+function deriveArrow(selected: Element[]): ArrowPanelState {
+  const arrows = selected.filter(
+    (element): element is ArrowElement => element.type === 'arrow' || element.type === 'line',
+  )
+  return {
+    startArrowhead: sharedArrowhead(arrows, 'startArrowhead'),
+    endArrowhead: sharedArrowhead(arrows, 'endArrowhead'),
+  }
+}
+
+function sharedArrowhead(
+  arrows: ArrowElement[],
+  key: 'startArrowhead' | 'endArrowhead',
+): ArrowPanelState['startArrowhead'] {
+  if (arrows.length === 0) return 'none'
+  const first = arrows[0]![key]
+  return arrows.every((arrow) => arrow[key] === first) ? first : '__mixed__'
+}
+
+function snapshotKey(
+  style: SelectionStyle,
+  selection: StylePanelSelection,
+  arrow: ArrowPanelState,
+  visible: boolean,
+): string {
+  return JSON.stringify([style, selection, arrow, visible])
+}
