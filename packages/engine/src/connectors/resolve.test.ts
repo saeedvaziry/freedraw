@@ -104,6 +104,20 @@ describe('resolveArrowPoints', () => {
     expect(resolveArrowPoints(arrow, elementsMap([a, b, arrow]))).toHaveLength(2)
   })
 
+  it('keeps a nearly aligned bound arrow straight', () => {
+    const a = createShape({ id: 'a', x: 0, y: 100, width: 100, height: 100 })
+    const arrow = createArrow({
+      id: 'arr',
+      points: [
+        { x: 50, y: 100 },
+        { x: 62, y: 0 },
+      ],
+      start: createBinding(a, { x: 50, y: 100 }, 0),
+    })
+
+    expect(resolveArrowPoints(arrow, elementsMap([a, arrow]))).toHaveLength(2)
+  })
+
   it('routes orthogonally (right angles only) when ports are offset on both axes', () => {
     const a = createShape({ id: 'a', x: 0, y: 0, width: 100, height: 100 })
     const b = createShape({ id: 'b', x: 300, y: 300, width: 100, height: 100 })

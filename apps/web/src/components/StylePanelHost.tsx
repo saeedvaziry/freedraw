@@ -96,6 +96,7 @@ function deriveSelection(selected: Element[]): StylePanelSelection {
   for (const element of selected) {
     if (element.type === 'arrow' || element.type === 'line') {
       hasArrow = true
+      hasRoundness = true
       continue
     }
     hasShape = true

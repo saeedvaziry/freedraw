@@ -124,7 +124,7 @@ export class Renderer {
     if (overlay.ports) paintPorts(ctx, overlay.ports, camera)
     if (overlay.targetHighlight) paintTargetHighlight(ctx, overlay.targetHighlight, camera)
     if (overlay.guides) paintGuides(ctx, overlay.guides, camera)
-    if (overlay.marquee) paintMarquee(ctx, overlay.marquee)
+    if (overlay.marquee) paintMarquee(ctx, overlay.marquee, camera)
   }
 
   private paintGrid(viewport: Rect): void {

@@ -14,14 +14,26 @@ import type { Rect } from '../../geometry/rect.js'
 const ACCENT = '#4f6bff'
 const HANDLE_FILL = '#ffffff'
 
-export function paintMarquee(ctx: CanvasRenderingContext2D, marquee: Rect): void {
+export function marqueeScreenRect(marquee: Rect, camera: Camera): Rect {
+  const a = camera.worldToScreen({ x: marquee.x, y: marquee.y })
+  const b = camera.worldToScreen({ x: marquee.x + marquee.width, y: marquee.y + marquee.height })
+  return {
+    x: Math.min(a.x, b.x),
+    y: Math.min(a.y, b.y),
+    width: Math.abs(b.x - a.x),
+    height: Math.abs(b.y - a.y),
+  }
+}
+
+export function paintMarquee(ctx: CanvasRenderingContext2D, marquee: Rect, camera: Camera): void {
+  const screen = marqueeScreenRect(marquee, camera)
   ctx.save()
   ctx.strokeStyle = ACCENT
   ctx.fillStyle = 'rgba(79, 107, 255, 0.1)'
   ctx.lineWidth = 1
   ctx.setLineDash([])
-  ctx.fillRect(marquee.x, marquee.y, marquee.width, marquee.height)
-  ctx.strokeRect(marquee.x, marquee.y, marquee.width, marquee.height)
+  ctx.fillRect(screen.x, screen.y, screen.width, screen.height)
+  ctx.strokeRect(screen.x, screen.y, screen.width, screen.height)
   ctx.restore()
 }
 

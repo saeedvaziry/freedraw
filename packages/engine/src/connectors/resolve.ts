@@ -4,6 +4,7 @@ import { anchorNormal, anchorPoint } from './binding.js'
 type Elements = Record<ElementId, Element>
 
 const STUB = 20
+const STRAIGHT_TOLERANCE = 48
 
 function pullBack(point: Point, normal: Point, gap: number): Point {
   if (gap <= 0) return point
@@ -27,6 +28,11 @@ function boundEnd(target: Element, binding: Binding): BoundEnd {
 
 function isHorizontal(normal: Point): boolean {
   return Math.abs(normal.x) >= Math.abs(normal.y)
+}
+
+function sign(value: number): number {
+  if (Math.abs(value) < 0.5) return 0
+  return Math.sign(value)
 }
 
 export function resolveArrowPoints(arrow: ArrowElement, elements: Elements): Point[] {
@@ -53,6 +59,9 @@ function orthogonalRoute(
   endPoint: Point,
   endNormal: Point | null,
 ): Point[] {
+  const straight = nearStraightRoute(startPoint, startNormal, endPoint, endNormal)
+  if (straight) return straight
+
   const startStub = startNormal
     ? { x: startPoint.x + startNormal.x * STUB, y: startPoint.y + startNormal.y * STUB }
     : startPoint
@@ -62,6 +71,43 @@ function orthogonalRoute(
 
   const mids = route(startStub, startNormal, endStub, endNormal)
   return simplify([startPoint, startStub, ...mids, endStub, endPoint])
+}
+
+function nearStraightRoute(
+  startPoint: Point,
+  startNormal: Point | null,
+  endPoint: Point,
+  endNormal: Point | null,
+): Point[] | null {
+  const dx = endPoint.x - startPoint.x
+  const dy = endPoint.y - startPoint.y
+  if (
+    Math.abs(dx) <= STRAIGHT_TOLERANCE &&
+    normalAllowsVertical(startNormal, sign(dy)) &&
+    normalAllowsVertical(endNormal, sign(-dy))
+  ) {
+    return [startPoint, endPoint]
+  }
+  if (
+    Math.abs(dy) <= STRAIGHT_TOLERANCE &&
+    normalAllowsHorizontal(startNormal, sign(dx)) &&
+    normalAllowsHorizontal(endNormal, sign(-dx))
+  ) {
+    return [startPoint, endPoint]
+  }
+  return null
+}
+
+function normalAllowsVertical(normal: Point | null, direction: number): boolean {
+  if (!normal) return true
+  if (isHorizontal(normal)) return false
+  return direction === 0 || sign(normal.y) === direction
+}
+
+function normalAllowsHorizontal(normal: Point | null, direction: number): boolean {
+  if (!normal) return true
+  if (!isHorizontal(normal)) return false
+  return direction === 0 || sign(normal.x) === direction
 }
 
 function route(from: Point, fromNormal: Point | null, to: Point, toNormal: Point | null): Point[] {
