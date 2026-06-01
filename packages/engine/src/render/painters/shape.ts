@@ -4,7 +4,7 @@ import { dashPattern } from './dash.js'
 import { paintLabel } from './text.js'
 
 export function paintShape(ctx: CanvasRenderingContext2D, element: Element): void {
-  const outline = getOutline(element.type, element)
+  const outline = getOutline(element.type, element, element.style.roundness)
   if (!outline) return
 
   const { style } = element

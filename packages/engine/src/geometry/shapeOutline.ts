@@ -6,9 +6,11 @@ export type Outline =
   | { kind: 'ellipse'; cx: number; cy: number; rx: number; ry: number }
   | { kind: 'path'; build: (ctx: CanvasRenderingContext2D | Path2D) => void }
 
-type OutlineFn = (bounds: Rect) => Outline
+type OutlineFn = (bounds: Rect, roundness: number) => Outline
 
-function rectPolygon({ x, y, width, height }: Rect): Outline {
+function rectOutline(bounds: Rect, roundness: number): Outline {
+  if (roundness > 0) return roundRectOutline(bounds, roundness)
+  const { x, y, width, height } = bounds
   return {
     kind: 'polygon',
     points: [
@@ -105,8 +107,8 @@ function ellipseOutline({ x, y, width, height }: Rect): Outline {
   }
 }
 
-function roundRectOutline(bounds: Rect): Outline {
-  const radius = Math.min(bounds.width, bounds.height) * 0.2
+function roundRectOutline(bounds: Rect, roundness: number): Outline {
+  const radius = Math.min(roundness, bounds.width / 2, bounds.height / 2)
   return {
     kind: 'path',
     build: (ctx) => traceRoundRect(ctx, bounds, radius),
@@ -165,7 +167,7 @@ function heartOutline(bounds: Rect): Outline {
 }
 
 const outlineFns: Record<string, OutlineFn> = {
-  rect: rectPolygon,
+  rect: rectOutline,
   roundRect: roundRectOutline,
   ellipse: ellipseOutline,
   diamond,
@@ -178,8 +180,8 @@ const outlineFns: Record<string, OutlineFn> = {
   heart: heartOutline,
 }
 
-export function getOutline(type: string, bounds: Rect): Outline | undefined {
-  return outlineFns[type]?.(bounds)
+export function getOutline(type: string, bounds: Rect, roundness = 0): Outline | undefined {
+  return outlineFns[type]?.(bounds, roundness)
 }
 
 export function traceOutline(ctx: CanvasRenderingContext2D | Path2D, outline: Outline): void {

@@ -90,7 +90,7 @@ function hitPolyline(local: Point, points: Point[], element: Element): boolean {
 }
 
 function hitShape(local: Point, element: Element): boolean {
-  const outline = getOutline(element.type, elementBounds(element))
+  const outline = getOutline(element.type, elementBounds(element), element.style.roundness)
   if (!outline) return pointInRect(local, elementBounds(element), HIT_TOLERANCE)
 
   const filled = element.style.fill !== 'transparent'

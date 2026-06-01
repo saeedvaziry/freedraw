@@ -4,7 +4,7 @@ import { dashPattern } from './dash.js'
 import { paintLabel } from './text.js'
 
 export function paintSticky(ctx: CanvasRenderingContext2D, element: Element): void {
-  const outline = getOutline('roundRect', element)
+  const outline = getOutline('roundRect', element, element.style.roundness)
   if (!outline) return
 
   const { style } = element

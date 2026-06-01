@@ -2,9 +2,6 @@ import {
   createSticky,
   STICKY_DEFAULT_HEIGHT,
   STICKY_DEFAULT_WIDTH,
-  STICKY_FILL,
-  STICKY_ROUNDNESS,
-  STICKY_STROKE,
 } from '../model/factory.js'
 import type { PointerInfo, Tool, ToolContext, ToolResult } from './Tool.js'
 
@@ -16,13 +13,7 @@ export class StickyTool implements Tool {
     const element = createSticky({
       x: info.world.x - STICKY_DEFAULT_WIDTH / 2,
       y: info.world.y - STICKY_DEFAULT_HEIGHT / 2,
-      style: {
-        ...ctx.store.getLastUsedStyle(),
-        fill: STICKY_FILL,
-        stroke: STICKY_STROKE,
-        roundness: STICKY_ROUNDNESS,
-        textAlign: 'center',
-      },
+      style: ctx.store.getLastUsedStyle(),
     })
     ctx.store.stopCapturing()
     ctx.store.transact((api) => api.addElement(element))
@@ -38,7 +29,7 @@ export class StickyTool implements Tool {
         height: element.height,
       },
       style: element.style,
-      align: 'center',
+      align: element.style.textAlign,
       verticalAlign: 'middle',
     })
     return { scene: true, overlay: true }

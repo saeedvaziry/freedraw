@@ -208,6 +208,7 @@ export class EditorController {
 
   commitText(elementId: ElementId, target: EditRequest['target'], text: string): void {
     const trimmed = text
+    const request = this.editRequest
     const element = this.store.getSnapshot().elements[elementId]
     this.endEdit()
     if (!element) return
@@ -238,8 +239,8 @@ export class EditorController {
         ? undefined
         : {
             text: trimmed,
-            align: element.label?.align ?? 'center',
-            verticalAlign: element.label?.verticalAlign ?? 'middle',
+            align: element.label?.align ?? request?.align ?? element.style.textAlign,
+            verticalAlign: element.label?.verticalAlign ?? request?.verticalAlign ?? 'middle',
           }
     this.store.transact((api) => api.updateElement(elementId, { label: nextLabel }))
     this.store.stopCapturing()

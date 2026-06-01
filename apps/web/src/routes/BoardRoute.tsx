@@ -43,8 +43,6 @@ interface BoardProps {
 
 function Board({ store }: BoardProps) {
   const [controller, setController] = useState<EditorController | null>(null)
-  useKeyboard(store, controller)
-
   const pickerRef = useRef<(() => void) | null>(null)
   const registerPicker = useCallback((openPicker: () => void) => {
     pickerRef.current = openPicker
@@ -52,15 +50,16 @@ function Board({ store }: BoardProps) {
   const openImagePicker = useCallback(() => {
     pickerRef.current?.()
   }, [])
+  useKeyboard(store, controller, openImagePicker)
 
   return (
     <div className="relative h-full w-full">
       <CanvasHost store={store} onImagePicker={registerPicker} onController={setController} />
       <EmptyState store={store} />
-      <div className="pointer-events-none absolute top-6 left-6 flex justify-start">
+      <div className="pointer-events-none absolute top-6 right-6 flex justify-end">
         <StylePanelHost store={store} />
       </div>
-      <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center">
+      <div className="pointer-events-none absolute top-6 left-6 flex justify-start">
         <ToolbarHost store={store} onImageButton={openImagePicker} />
       </div>
       <div className="pointer-events-none absolute bottom-6 left-6 flex justify-start">

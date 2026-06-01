@@ -10,14 +10,27 @@ const TOOL_HOTKEYS: Record<string, ToolHotkey> = {
   v: { tool: 'select' },
   h: { tool: 'hand' },
   a: { tool: 'arrow' },
-  t: { tool: 'text' },
-  s: { tool: 'sticky' },
+  x: { tool: 'text' },
+  n: { tool: 'sticky' },
+  i: { tool: 'image' },
   r: { tool: 'shape', shapeType: 'rect' },
+  u: { tool: 'shape', shapeType: 'roundRect' },
   o: { tool: 'shape', shapeType: 'ellipse' },
   d: { tool: 'shape', shapeType: 'diamond' },
+  t: { tool: 'shape', shapeType: 'triangle' },
+  c: { tool: 'shape', shapeType: 'cylinder' },
+  g: { tool: 'shape', shapeType: 'hexagon' },
+  p: { tool: 'shape', shapeType: 'parallelogram' },
+  s: { tool: 'shape', shapeType: 'star' },
+  l: { tool: 'shape', shapeType: 'cloud' },
+  e: { tool: 'shape', shapeType: 'heart' },
 }
 
-export function useKeyboard(store: SceneStore, controller: EditorController | null): void {
+export function useKeyboard(
+  store: SceneStore,
+  controller: EditorController | null,
+  onImageButton: () => void,
+): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (isEditableTarget(event.target)) return
@@ -58,8 +71,10 @@ export function useKeyboard(store: SceneStore, controller: EditorController | nu
         return
       }
       if (event.key === 'Escape') {
-        if (store.getUiState().selectedIds.size === 0) return
-        store.setUiState({ selectedIds: new Set() })
+        const selectedIds = store.getUiState().selectedIds
+        if (selectedIds.size === 0 && store.getUiState().activeTool === 'select') return
+        event.preventDefault()
+        store.setUiState({ selectedIds: new Set(), activeTool: 'select' })
         return
       }
 
@@ -67,6 +82,10 @@ export function useKeyboard(store: SceneStore, controller: EditorController | nu
       const hotkey = TOOL_HOTKEYS[key]
       if (!hotkey) return
       event.preventDefault()
+      if (hotkey.tool === 'image') {
+        onImageButton()
+        return
+      }
       store.setUiState({
         activeTool: hotkey.tool,
         ...(hotkey.shapeType ? { activeShapeType: hotkey.shapeType } : {}),
@@ -74,7 +93,7 @@ export function useKeyboard(store: SceneStore, controller: EditorController | nu
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [store, controller])
+  }, [store, controller, onImageButton])
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {

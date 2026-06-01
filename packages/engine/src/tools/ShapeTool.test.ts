@@ -82,6 +82,8 @@ describe('ShapeTool', () => {
     const elements = Object.values(store.getSnapshot().elements)
     expect(elements).toHaveLength(1)
     expect(elements[0]).toMatchObject({ type: 'ellipse', x: 0, y: 0, width: 200, height: 120 })
+    expect(store.getUiState().activeTool).toBe('select')
+    expect(store.getUiState().selectedIds).toEqual(new Set([elements[0]!.id]))
     expect(getPreview()).toBeNull()
   })
 

@@ -14,13 +14,19 @@ interface StylePanelHostProps {
 }
 
 interface PanelSnapshot {
-  visible: boolean
   selection: StylePanelSelection
   style: PanelStyle
   arrow: ArrowPanelState
 }
 
 const FILL_LESS = new Set(['arrow', 'line', 'text'])
+const DEFAULT_SELECTION: StylePanelSelection = {
+  hasShape: true,
+  hasFill: true,
+  hasRoundness: true,
+  hasText: true,
+  hasArrow: false,
+}
 
 export function StylePanelHost({ store }: StylePanelHostProps) {
   const snapshot = useSyncExternalStore(
@@ -28,17 +34,28 @@ export function StylePanelHost({ store }: StylePanelHostProps) {
     () => readSnapshot(store),
   )
 
-  if (!snapshot.visible) return null
+  const updateStyle = (patch: PanelStylePatch): void => {
+    const selectedIds = store.getUiState().selectedIds
+    if (selectedIds.size === 0) {
+      store.updateLastUsedStyle(patch)
+      return
+    }
+    store.updateStyle(selectedIds, patch)
+  }
 
-  const selectedIds = () => store.getUiState().selectedIds
+  const updateArrow = (patch: ArrowPanelPatch): void => {
+    const selectedIds = store.getUiState().selectedIds
+    if (selectedIds.size === 0) return
+    store.updateArrowheads(selectedIds, patch)
+  }
 
   return (
     <StylePanel
       selection={snapshot.selection}
       style={snapshot.style}
       arrow={snapshot.arrow}
-      onStyleChange={(patch: PanelStylePatch) => store.updateStyle(selectedIds(), patch)}
-      onArrowChange={(patch: ArrowPanelPatch) => store.updateArrowheads(selectedIds(), patch)}
+      onStyleChange={updateStyle}
+      onArrowChange={updateArrow}
       onInteractStart={() => store.stopCapturing()}
       onInteractEnd={() => store.stopCapturing()}
     />
@@ -54,15 +71,14 @@ function readSnapshot(store: SceneStore): PanelSnapshot {
     .map((id) => store.getSnapshot().elements[id])
     .filter((element): element is Element => Boolean(element))
 
-  const selection = deriveSelection(selected)
+  const selection = selected.length === 0 ? DEFAULT_SELECTION : deriveSelection(selected)
   const arrow = deriveArrow(selected)
-  const key = snapshotKey(selectionStyle, selection, arrow, selected.length > 0)
+  const key = snapshotKey(selectionStyle, selection, arrow)
 
   const previous = cache.get(store)
   if (previous && previous.key === key) return previous.value
 
   const value: PanelSnapshot = {
-    visible: selected.length > 0,
     selection,
     style: selectionStyle as PanelStyle,
     arrow,
@@ -117,7 +133,6 @@ function snapshotKey(
   style: SelectionStyle,
   selection: StylePanelSelection,
   arrow: ArrowPanelState,
-  visible: boolean,
 ): string {
-  return JSON.stringify([style, selection, arrow, visible])
+  return JSON.stringify([style, selection, arrow])
 }

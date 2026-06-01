@@ -133,7 +133,7 @@ export class SelectTool implements Tool {
       text: label?.text ?? '',
       world: { x: element.x, y: element.y, width: element.width, height: element.height },
       style: element.style,
-      align: label?.align ?? 'center',
+      align: label?.align ?? element.style.textAlign,
       verticalAlign: label?.verticalAlign ?? 'middle',
     })
   }

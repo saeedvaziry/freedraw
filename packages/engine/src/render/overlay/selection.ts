@@ -26,7 +26,8 @@ export function paintMarquee(ctx: CanvasRenderingContext2D, marquee: Rect): void
 }
 
 export function paintHover(ctx: CanvasRenderingContext2D, element: Element, camera: Camera): void {
-  const outline = getOutline(element.type, elementBounds(element))
+  const outlineType = element.type === 'sticky' || element.type === 'image' ? 'roundRect' : element.type
+  const outline = getOutline(outlineType, elementBounds(element), element.style.roundness)
   ctx.save()
   ctx.strokeStyle = ACCENT
   ctx.lineWidth = 1.5

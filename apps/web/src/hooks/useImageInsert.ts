@@ -53,6 +53,7 @@ export function useImageInsert(
         naturalHeight: bitmap.height,
         viewportWidth: viewport.width,
         viewportHeight: viewport.height,
+        style: store.getLastUsedStyle(),
       })
       const centered = {
         ...element,

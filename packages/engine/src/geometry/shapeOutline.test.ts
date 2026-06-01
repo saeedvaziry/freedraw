@@ -57,6 +57,12 @@ describe('shapeOutline', () => {
     expect(getOutline('unknown', bounds)).toBeUndefined()
   })
 
+  it('uses roundness for rectangular outlines', () => {
+    expect(getOutline('rect', bounds, 0)?.kind).toBe('polygon')
+    expect(getOutline('rect', bounds, 12)?.kind).toBe('path')
+    expect(getOutline('roundRect', bounds, 12)?.kind).toBe('path')
+  })
+
   it('point-in-polygon hits inside and misses outside a diamond', () => {
     const diamond = polygonPoints('diamond')
     expect(pointInPolygon({ x: 50, y: 40 }, diamond)).toBe(true)

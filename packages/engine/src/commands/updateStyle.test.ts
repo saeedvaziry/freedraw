@@ -96,6 +96,14 @@ describe('selectionStyle slice', () => {
     expect(store.getSelectionStyle().fill).toBe('#eeeeee')
   })
 
+  it('keeps empty targeted style updates from changing the fallback style', () => {
+    const store = new SceneStore()
+
+    store.updateStyle([], { stroke: '#ff0000' })
+
+    expect(store.getSelectionStyle().stroke).toBe('#1e1e1e')
+  })
+
   it('returns a stable reference until the derived values change', () => {
     const store = new SceneStore()
     const [a] = seed(store, 1)

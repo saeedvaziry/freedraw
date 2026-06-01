@@ -48,6 +48,7 @@ export class ShapeTool implements Tool {
     if (bounds.width < MIN_SIZE || bounds.height < MIN_SIZE) return { overlay: true }
     const element = this.buildElement(bounds, ctx)
     ctx.store.transact((api) => api.addElement(element))
+    ctx.store.setUiState({ selectedIds: new Set([element.id]), activeTool: 'select' })
     return { scene: true, overlay: true }
   }
 

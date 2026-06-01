@@ -5,16 +5,17 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/toolti
 export interface ToolButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   label: string
   active?: boolean
+  shortcut?: string
 }
 
 export const ToolButton = React.forwardRef<HTMLButtonElement, ToolButtonProps>(
-  ({ label, active = false, className, children, ...props }, ref) => (
+  ({ label, active = false, shortcut, className, children, ...props }, ref) => (
     <Tooltip>
       <TooltipTrigger asChild>
         <button
           ref={ref}
           type="button"
-          aria-label={label}
+          aria-label={shortcut ? `${label} (${shortcut})` : label}
           aria-pressed={active}
           className={cn(
             'flex h-11 w-11 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-5',
@@ -26,7 +27,7 @@ export const ToolButton = React.forwardRef<HTMLButtonElement, ToolButtonProps>(
           {children}
         </button>
       </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
+      <TooltipContent>{shortcut ? `${label} (${shortcut})` : label}</TooltipContent>
     </Tooltip>
   ),
 )
