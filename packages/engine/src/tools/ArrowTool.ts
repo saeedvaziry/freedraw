@@ -1,10 +1,12 @@
 import { createBinding } from '../connectors/binding.js'
+import { resolveArrowPoints } from '../connectors/resolve.js'
+import { GRID_SIZE } from '../geometry/grid.js'
 import { snapEndpoint, SNAP_DISTANCE } from '../geometry/snap.js'
-import { createArrow } from '../model/factory.js'
+import { createArrow, pointsBounds } from '../model/factory.js'
 import type { ArrowElement, Binding, Element, Point } from '../model/types.js'
 import type { PointerInfo, Tool, ToolContext, ToolResult } from './Tool.js'
 
-const MIN_LENGTH = 6
+const MIN_LENGTH = GRID_SIZE
 
 export class ArrowTool implements Tool {
   readonly id: 'arrow' | 'line'
@@ -72,13 +74,15 @@ export class ArrowTool implements Tool {
     startBinding?: Binding,
     endBinding?: Binding,
   ): ArrowElement {
-    return createArrow({
+    const arrow = createArrow({
       type: this.id,
       points: [start, end],
       start: startBinding,
       end: endBinding,
       style: ctx.store.getLastUsedStyle(),
     })
+    const points = resolveArrowPoints(arrow, { ...ctx.store.getSnapshot().elements, [arrow.id]: arrow })
+    return { ...arrow, ...pointsBounds(points), points }
   }
 }
 

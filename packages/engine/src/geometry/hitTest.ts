@@ -97,13 +97,13 @@ function hitShape(local: Point, element: Element): boolean {
   if (outline.kind === 'ellipse') {
     const nx = (local.x - outline.cx) / (outline.rx || 1)
     const ny = (local.y - outline.cy) / (outline.ry || 1)
-    if (filled) return nx * nx + ny * ny <= 1
     const distance = Math.abs(Math.hypot(nx, ny) - 1) * Math.min(outline.rx, outline.ry)
+    if (filled) return nx * nx + ny * ny <= 1 || distance <= element.style.strokeWidth / 2 + HIT_TOLERANCE
     return distance <= element.style.strokeWidth / 2 + HIT_TOLERANCE
   }
   if (outline.kind === 'polygon') {
-    if (filled) return pointInPolygon(local, outline.points)
     const edges = [...outline.points, outline.points[0]].filter(Boolean) as Point[]
+    if (filled) return pointInPolygon(local, outline.points) || hitPolyline(local, edges, element)
     if (pointInPolygon(local, outline.points)) return true
     return hitPolyline(local, edges, element)
   }

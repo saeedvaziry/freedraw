@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createArrow, createShape } from '../model/factory.js'
 import type { Element, ElementId } from '../model/types.js'
 import { createBinding } from './binding.js'
-import { resolveArrowPoints } from './resolve.js'
+import { arrowNeedsResolve, resolveArrowPoints } from './resolve.js'
 
 function elementsMap(elements: Element[]): Record<ElementId, Element> {
   const map: Record<ElementId, Element> = {}
@@ -35,8 +35,8 @@ describe('resolveArrowPoints', () => {
       end: createBinding(b, { x: 300, y: 50 }, 0),
     })
     const points = resolveArrowPoints(arrow, elementsMap([a, b, arrow]))
-    expect(points[0]!.x).toBeCloseTo(100)
-    expect(points[1]!.x).toBeCloseTo(300)
+    expect(points[0]!.x).toBeCloseTo(101)
+    expect(points[1]!.x).toBeCloseTo(299)
     expect(points[0]!.y).toBeCloseTo(50)
     expect(points[1]!.y).toBeCloseTo(50)
   })
@@ -55,8 +55,8 @@ describe('resolveArrowPoints', () => {
     })
     const moved = { ...b, y: 200 }
     const points = resolveArrowPoints(arrow, elementsMap([a, moved, arrow]))
-    expect(points[0]).toMatchObject({ x: 100, y: 50 })
-    expect(points[points.length - 1]).toMatchObject({ x: 300, y: 250 })
+    expect(points[0]).toMatchObject({ x: 101, y: 50 })
+    expect(points[points.length - 1]).toMatchObject({ x: 299, y: 250 })
     expect(allAxisAligned(points)).toBe(true)
   })
 
@@ -73,6 +73,20 @@ describe('resolveArrowPoints', () => {
     })
     const points = resolveArrowPoints(arrow, elementsMap([a, b, arrow]))
     expect(points[points.length - 1]).toMatchObject({ x: 290, y: 50 })
+  })
+
+  it('lands bound endpoints on the visible edge for thick strokes', () => {
+    const a = createShape({ id: 'a', x: 0, y: 0, width: 100, height: 100, style: { strokeWidth: 20 } })
+    const arrow = createArrow({
+      id: 'arr',
+      points: [
+        { x: 100, y: 50 },
+        { x: 200, y: 50 },
+      ],
+      start: createBinding(a, { x: 100, y: 50 }, 0),
+    })
+    const points = resolveArrowPoints(arrow, elementsMap([a, arrow]))
+    expect(points[0]).toMatchObject({ x: 110, y: 50 })
   })
 
   it('leaves a free endpoint untouched', () => {
@@ -104,7 +118,7 @@ describe('resolveArrowPoints', () => {
     expect(resolveArrowPoints(arrow, elementsMap([a, b, arrow]))).toHaveLength(2)
   })
 
-  it('keeps a nearly aligned bound arrow straight', () => {
+  it('routes a nearly aligned bound arrow orthogonally', () => {
     const a = createShape({ id: 'a', x: 0, y: 100, width: 100, height: 100 })
     const arrow = createArrow({
       id: 'arr',
@@ -115,7 +129,26 @@ describe('resolveArrowPoints', () => {
       start: createBinding(a, { x: 50, y: 100 }, 0),
     })
 
-    expect(resolveArrowPoints(arrow, elementsMap([a, arrow]))).toHaveLength(2)
+    expect(resolveArrowPoints(arrow, elementsMap([a, arrow]))).toEqual([
+      { x: 50, y: 99 },
+      { x: 50, y: 0 },
+      { x: 62, y: 0 },
+    ])
+  })
+
+  it('routes a free diagonal arrow orthogonally', () => {
+    const arrow = createArrow({
+      id: 'arr',
+      points: [
+        { x: 0, y: 0 },
+        { x: 100, y: 40 },
+      ],
+    })
+    expect(resolveArrowPoints(arrow, elementsMap([arrow]))).toEqual([
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 40 },
+    ])
   })
 
   it('routes orthogonally (right angles only) when ports are offset on both axes', () => {
@@ -132,8 +165,8 @@ describe('resolveArrowPoints', () => {
     })
     const points = resolveArrowPoints(arrow, elementsMap([a, b, arrow]))
     expect(points.length).toBeGreaterThanOrEqual(3)
-    expect(points[0]).toMatchObject({ x: 100, y: 50 })
-    expect(points[points.length - 1]).toMatchObject({ x: 300, y: 350 })
+    expect(points[0]).toMatchObject({ x: 101, y: 50 })
+    expect(points[points.length - 1]).toMatchObject({ x: 299, y: 350 })
     expect(allAxisAligned(points)).toBe(true)
   })
 
@@ -149,7 +182,7 @@ describe('resolveArrowPoints', () => {
     })
     const points = resolveArrowPoints(arrow, elementsMap([a, arrow]))
     expect(allAxisAligned(points)).toBe(true)
-    expect(points[0]).toMatchObject({ x: 400, y: 50 })
+    expect(points[0]).toMatchObject({ x: 401, y: 50 })
     expect(points[points.length - 1]).toMatchObject({ x: 50, y: 400 })
     const second = points[1]!
     expect(second.x).toBeGreaterThanOrEqual(400)
@@ -175,7 +208,7 @@ describe('resolveArrowPoints', () => {
     expect(points[points.length - 2]!.x).toBeLessThan(300)
   })
 
-  it('preserves user waypoints, only re-pinning the bound endpoints', () => {
+  it('uses user waypoints while keeping every segment orthogonal', () => {
     const a = createShape({ id: 'a', x: 0, y: 0, width: 100, height: 100 })
     const arrow = createArrow({
       id: 'arr',
@@ -187,7 +220,70 @@ describe('resolveArrowPoints', () => {
       start: createBinding(a, { x: 100, y: 50 }, 0),
     })
     const points = resolveArrowPoints(arrow, elementsMap([a, arrow]))
-    expect(points).toHaveLength(3)
-    expect(points[1]).toEqual({ x: 200, y: 200 })
+    expect(points[0]).toEqual({ x: 101, y: 50 })
+    expect(points).toContainEqual({ x: 200, y: 200 })
+    expect(points[points.length - 1]).toEqual({ x: 400, y: 50 })
+    expect(allAxisAligned(points)).toBe(true)
+  })
+
+  it('orthogonalizes free arrows with user waypoints', () => {
+    const arrow = createArrow({
+      id: 'arr',
+      points: [
+        { x: 0, y: 0 },
+        { x: 100, y: 40 },
+        { x: 180, y: 10 },
+      ],
+    })
+    const points = resolveArrowPoints(arrow, elementsMap([arrow]))
+    expect(points[0]).toEqual({ x: 0, y: 0 })
+    expect(points).toContainEqual({ x: 100, y: 40 })
+    expect(points[points.length - 1]).toEqual({ x: 180, y: 10 })
+    expect(allAxisAligned(points)).toBe(true)
+  })
+
+  it('routes bound waypoint arrows orthogonally after endpoint recompute', () => {
+    const a = createShape({ id: 'a', x: 0, y: 0, width: 100, height: 100 })
+    const b = createShape({ id: 'b', x: 300, y: 0, width: 100, height: 100 })
+    const arrow = createArrow({
+      id: 'arr',
+      points: [
+        { x: 100, y: 50 },
+        { x: 220, y: 160 },
+        { x: 300, y: 50 },
+      ],
+      start: createBinding(a, { x: 100, y: 50 }, 0),
+      end: createBinding(b, { x: 300, y: 50 }, 0),
+    })
+    const moved = { ...b, y: 200 }
+    const points = resolveArrowPoints(arrow, elementsMap([a, moved, arrow]))
+    expect(points).toContainEqual({ x: 220, y: 160 })
+    expect(points[0]).toMatchObject({ x: 101, y: 50 })
+    expect(points[points.length - 1]).toMatchObject({ x: 299, y: 250 })
+    expect(allAxisAligned(points)).toBe(true)
+  })
+
+  it('reports diagonal free arrows as needing resolution', () => {
+    expect(
+      arrowNeedsResolve(
+        createArrow({
+          points: [
+            { x: 0, y: 0 },
+            { x: 100, y: 40 },
+          ],
+        }),
+      ),
+    ).toBe(true)
+    expect(
+      arrowNeedsResolve(
+        createArrow({
+          points: [
+            { x: 0, y: 0 },
+            { x: 100, y: 0 },
+            { x: 100, y: 40 },
+          ],
+        }),
+      ),
+    ).toBe(false)
   })
 })

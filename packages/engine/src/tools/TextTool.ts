@@ -1,4 +1,5 @@
 import { createText, TEXT_DEFAULT_HEIGHT, TEXT_DEFAULT_WIDTH } from '../model/factory.js'
+import { snapPointToGrid } from '../geometry/grid.js'
 import type { PointerInfo, Tool, ToolContext, ToolResult } from './Tool.js'
 
 export class TextTool implements Tool {
@@ -6,9 +7,10 @@ export class TextTool implements Tool {
 
   onPointerDown(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (info.button !== 0) return {}
+    const center = snapPointToGrid(info.world)
     const element = createText({
-      x: info.world.x - TEXT_DEFAULT_WIDTH / 2,
-      y: info.world.y - TEXT_DEFAULT_HEIGHT / 2,
+      x: center.x - TEXT_DEFAULT_WIDTH / 2,
+      y: center.y - TEXT_DEFAULT_HEIGHT / 2,
       style: ctx.store.getLastUsedStyle(),
     })
     ctx.store.stopCapturing()

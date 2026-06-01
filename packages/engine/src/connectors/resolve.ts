@@ -4,7 +4,7 @@ import { anchorNormal, anchorPoint } from './binding.js'
 type Elements = Record<ElementId, Element>
 
 const STUB = 20
-const STRAIGHT_TOLERANCE = 48
+const AXIS_TOLERANCE = 0.5
 
 function pullBack(point: Point, normal: Point, gap: number): Point {
   if (gap <= 0) return point
@@ -22,12 +22,18 @@ interface BoundEnd {
 
 function boundEnd(target: Element, binding: Binding): BoundEnd {
   const anchor = binding.anchor
-  const normal = anchorNormal(target, anchor)
-  return { port: pullBack(anchorPoint(target, anchor), normal, binding.gap), normal }
+  const rawNormal = anchorNormal(target, anchor)
+  const gap = Math.max(binding.gap, target.style.strokeWidth / 2)
+  return { port: pullBack(anchorPoint(target, anchor), rawNormal, gap), normal: axisNormal(rawNormal) }
 }
 
 function isHorizontal(normal: Point): boolean {
   return Math.abs(normal.x) >= Math.abs(normal.y)
+}
+
+function axisNormal(normal: Point): Point {
+  if (isHorizontal(normal)) return { x: sign(normal.x) || 1, y: 0 }
+  return { x: 0, y: sign(normal.y) || 1 }
 }
 
 function sign(value: number): number {
@@ -44,8 +50,7 @@ export function resolveArrowPoints(arrow: ArrowElement, elements: Elements): Poi
   const start = startTarget && arrow.start ? boundEnd(startTarget, arrow.start) : null
   const end = endTarget && arrow.end ? boundEnd(endTarget, arrow.end) : null
 
-  const bothBound = Boolean(start && end)
-  if (points.length > 2 && !bothBound) return resolveWithWaypoints(points, start, end)
+  if (points.length > 2) return resolveWithWaypoints(points, start, end)
 
   const startPoint = start?.port ?? points[0]!
   const endPoint = end?.port ?? points[points.length - 1]!
@@ -82,14 +87,14 @@ function nearStraightRoute(
   const dx = endPoint.x - startPoint.x
   const dy = endPoint.y - startPoint.y
   if (
-    Math.abs(dx) <= STRAIGHT_TOLERANCE &&
+    Math.abs(dx) <= AXIS_TOLERANCE &&
     normalAllowsVertical(startNormal, sign(dy)) &&
     normalAllowsVertical(endNormal, sign(-dy))
   ) {
     return [startPoint, endPoint]
   }
   if (
-    Math.abs(dy) <= STRAIGHT_TOLERANCE &&
+    Math.abs(dy) <= AXIS_TOLERANCE &&
     normalAllowsHorizontal(startNormal, sign(dx)) &&
     normalAllowsHorizontal(endNormal, sign(-dx))
   ) {
@@ -175,9 +180,51 @@ function resolveWithWaypoints(points: Point[], start: BoundEnd | null, end: Boun
   const next = points.map((point) => ({ ...point }))
   if (start) next[0] = start.port
   if (end) next[next.length - 1] = end.port
-  return next
+  return orthogonalizeSegments(next, start?.normal ?? null, end?.normal ?? null)
+}
+
+function orthogonalizeSegments(points: Point[], startNormal: Point | null, endNormal: Point | null): Point[] {
+  if (points.length < 2) return points
+  let routed: Point[] = [points[0]!]
+  let nextStartNormal = startNormal
+  for (let i = 1; i < points.length; i += 1) {
+    const from = routed[routed.length - 1]!
+    const to = points[i]!
+    const segmentEndNormal = i === points.length - 1 ? endNormal : null
+    const segment = orthogonalRoute(from, nextStartNormal, to, segmentEndNormal)
+    routed = [...routed, ...segment.slice(1)]
+    const previous = segment[segment.length - 2]
+    const axis = previous ? axisBetween(previous, to) : null
+    const next = points[i + 1]
+    nextStartNormal = axis && next ? normalToward(to, next, perpendicularAxis(axis)) : null
+  }
+  return simplify(routed)
+}
+
+type Axis = 'x' | 'y'
+
+function axisBetween(a: Point, b: Point): Axis | null {
+  if (Math.abs(a.x - b.x) <= AXIS_TOLERANCE) return 'y'
+  if (Math.abs(a.y - b.y) <= AXIS_TOLERANCE) return 'x'
+  return null
+}
+
+function perpendicularAxis(axis: Axis): Axis {
+  return axis === 'x' ? 'y' : 'x'
+}
+
+function normalToward(from: Point, to: Point, axis: Axis): Point | null {
+  const delta = axis === 'x' ? to.x - from.x : to.y - from.y
+  const direction = sign(delta)
+  if (!direction) return null
+  return axis === 'x' ? { x: direction, y: 0 } : { x: 0, y: direction }
 }
 
 export function arrowNeedsResolve(arrow: ArrowElement): boolean {
-  return Boolean(arrow.start || arrow.end)
+  if (arrow.start || arrow.end) return true
+  return arrow.points.some((point, index) => {
+    if (index === 0) return false
+    const prev = arrow.points[index - 1]!
+    return Math.abs(prev.x - point.x) > AXIS_TOLERANCE && Math.abs(prev.y - point.y) > AXIS_TOLERANCE
+  })
 }

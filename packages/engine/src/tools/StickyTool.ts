@@ -3,6 +3,7 @@ import {
   STICKY_DEFAULT_HEIGHT,
   STICKY_DEFAULT_WIDTH,
 } from '../model/factory.js'
+import { snapPointToGrid } from '../geometry/grid.js'
 import type { PointerInfo, Tool, ToolContext, ToolResult } from './Tool.js'
 
 export class StickyTool implements Tool {
@@ -10,9 +11,10 @@ export class StickyTool implements Tool {
 
   onPointerDown(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (info.button !== 0) return {}
+    const center = snapPointToGrid(info.world)
     const element = createSticky({
-      x: info.world.x - STICKY_DEFAULT_WIDTH / 2,
-      y: info.world.y - STICKY_DEFAULT_HEIGHT / 2,
+      x: center.x - STICKY_DEFAULT_WIDTH / 2,
+      y: center.y - STICKY_DEFAULT_HEIGHT / 2,
       style: ctx.store.getLastUsedStyle(),
     })
     ctx.store.stopCapturing()

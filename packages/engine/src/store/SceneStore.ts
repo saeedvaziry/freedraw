@@ -100,6 +100,7 @@ export class SceneStore {
     this.yOrder = doc.getArray('elementOrder')
     this.yAppState = doc.getMap('appState')
 
+    this.resolveArrows()
     this.snapshot = this.buildSnapshot()
     this.rebuildBindingIndex()
 
@@ -145,7 +146,7 @@ export class SceneStore {
   transact(fn: (api: TransactionApi) => void): void {
     this.doc.transact(() => {
       fn(this.txnApi)
-      this.resolveBoundArrows()
+      this.resolveArrows()
     }, TRANSACTION_ORIGIN)
   }
 
@@ -316,10 +317,10 @@ export class SceneStore {
     return elements
   }
 
-  private resolveBoundArrows(): void {
+  private resolveArrows(): void {
     const elements = this.readLiveElements()
     for (const element of Object.values(elements)) {
-      if (!isArrow(element) || (!element.start && !element.end)) continue
+      if (!isArrow(element)) continue
       const nextPoints = resolveArrowPoints(element, elements)
       if (pointsEqual(nextPoints, element.points)) continue
       const map = this.yElements.get(element.id)

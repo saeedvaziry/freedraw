@@ -64,12 +64,21 @@ describe('ShapeTool', () => {
   it('previews the in-progress shape on move without committing', () => {
     const { ctx, store, getPreview } = makeContext()
     const tool = new ShapeTool('diamond')
-    tool.onPointerDown(pointer({ x: 10, y: 10 }))
-    tool.onPointerMove(pointer({ x: 90, y: 70 }), ctx)
+    tool.onPointerDown(pointer({ x: 20, y: 20 }))
+    tool.onPointerMove(pointer({ x: 100, y: 80 }), ctx)
 
     const preview = getPreview()
-    expect(preview).toMatchObject({ type: 'diamond', x: 10, y: 10, width: 80, height: 60 })
+    expect(preview).toMatchObject({ type: 'diamond', x: 20, y: 20, width: 80, height: 60 })
     expect(Object.keys(store.getSnapshot().elements)).toHaveLength(0)
+  })
+
+  it('snaps the in-progress shape bounds to half-grid guides', () => {
+    const { ctx, getPreview } = makeContext()
+    const tool = new ShapeTool('rect')
+    tool.onPointerDown(pointer({ x: 13, y: 17 }))
+    tool.onPointerMove(pointer({ x: 94, y: 73 }), ctx)
+
+    expect(getPreview()).toMatchObject({ type: 'rect', x: 15, y: 15, width: 80, height: 60 })
   })
 
   it('commits the element at the dragged bounds on pointer up', () => {
@@ -92,6 +101,24 @@ describe('ShapeTool', () => {
     const tool = new ShapeTool('rect')
     tool.onPointerDown(pointer({ x: 50, y: 50 }))
     tool.onPointerUp(pointer({ x: 51, y: 51 }), ctx)
+    expect(Object.keys(store.getSnapshot().elements)).toHaveLength(0)
+  })
+
+  it('commits one grid cell when the snapped drag spans a cell', () => {
+    const { ctx, store } = makeContext()
+    const tool = new ShapeTool('rect')
+    tool.onPointerDown(pointer({ x: 42, y: 42 }))
+    tool.onPointerUp(pointer({ x: 48, y: 48 }), ctx)
+    const elements = Object.values(store.getSnapshot().elements)
+    expect(elements).toHaveLength(1)
+    expect(elements[0]).toMatchObject({ type: 'rect', x: 40, y: 40, width: 10, height: 10 })
+  })
+
+  it('does not commit a shape below one grid cell', () => {
+    const { ctx, store } = makeContext()
+    const tool = new ShapeTool('rect')
+    tool.onPointerDown(pointer({ x: 13, y: 13 }))
+    tool.onPointerUp(pointer({ x: 14, y: 14 }), ctx)
     expect(Object.keys(store.getSnapshot().elements)).toHaveLength(0)
   })
 })

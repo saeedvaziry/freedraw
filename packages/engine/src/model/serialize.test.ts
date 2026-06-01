@@ -3,8 +3,18 @@ import * as Y from 'yjs'
 import { createBinding } from '../connectors/binding.js'
 import { createArrow, createShape } from '../model/factory.js'
 import { SceneStore } from '../store/SceneStore.js'
+import type { ArrowElement } from './types.js'
 import { applyScene, isValidScene, serializeScene } from './serialize.js'
 import { seedAppState } from './migrations.js'
+
+function allAxisAligned(points: { x: number; y: number }[]): boolean {
+  for (let i = 1; i < points.length; i += 1) {
+    const a = points[i - 1]!
+    const b = points[i]!
+    if (Math.abs(a.x - b.x) > 0.5 && Math.abs(a.y - b.y) > 0.5) return false
+  }
+  return true
+}
 
 function seededStore(): SceneStore {
   const store = new SceneStore()
@@ -62,6 +72,34 @@ describe('serialize round-trip', () => {
     const arrow = restored.getSnapshot().elements.arr
     const points = (arrow as { points: { x: number; y: number }[] }).points
     expect(points[points.length - 1]!.y).toBeGreaterThan(150)
+  })
+
+  it('normalizes diagonal persisted arrows before the first snapshot', () => {
+    const source = new SceneStore()
+    const arrow = createArrow({
+      id: 'arr',
+      points: [
+        { x: 0, y: 0 },
+        { x: 100, y: 40 },
+        { x: 180, y: 10 },
+      ],
+    })
+    source.transact((api) => api.addElement(arrow))
+    const scene = serializeScene(source.getSnapshot())
+    scene.elements.arr = {
+      ...(scene.elements.arr as ArrowElement),
+      points: [
+        { x: 0, y: 0 },
+        { x: 100, y: 40 },
+        { x: 180, y: 10 },
+      ],
+    }
+
+    const target = new Y.Doc()
+    applyScene(target, scene)
+    const restored = new SceneStore(target)
+    const restoredArrow = restored.getSnapshot().elements.arr as ArrowElement
+    expect(allAxisAligned(restoredArrow.points)).toBe(true)
   })
 })
 

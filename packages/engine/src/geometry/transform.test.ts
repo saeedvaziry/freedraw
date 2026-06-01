@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createShape } from '../model/factory.js'
+import { GRID_SIZE } from './grid.js'
 import { selectionFrameFor } from './selectionFrame.js'
 import { resizeElements, resizedBounds, rotationFor } from './transform.js'
 
@@ -19,8 +20,14 @@ describe('resizedBounds', () => {
   it('clamps to a minimum dimension', () => {
     const frame = selectionFrameFor([createShape({ id: 'a', x: 0, y: 0, width: 100, height: 100 })])!
     const next = resizedBounds(frame, 'se', { x: 0, y: 0 })
-    expect(next.width).toBeGreaterThanOrEqual(1)
-    expect(next.height).toBeGreaterThanOrEqual(1)
+    expect(next.width).toBeGreaterThanOrEqual(GRID_SIZE)
+    expect(next.height).toBeGreaterThanOrEqual(GRID_SIZE)
+  })
+
+  it('uses one grid cell as the minimum dimension', () => {
+    const frame = selectionFrameFor([createShape({ id: 'a', x: 0, y: 0, width: 100, height: 100 })])!
+    const next = resizedBounds(frame, 'se', { x: 4, y: 4 })
+    expect(next).toMatchObject({ width: GRID_SIZE, height: GRID_SIZE })
   })
 })
 

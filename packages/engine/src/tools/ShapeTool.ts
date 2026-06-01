@@ -1,9 +1,10 @@
 import type { Rect } from '../geometry/rect.js'
+import { GRID_SIZE, snapPointToGrid } from '../geometry/grid.js'
 import type { Point, ShapeElement, ShapeType } from '../model/types.js'
 import { createShape } from '../model/factory.js'
 import type { PointerInfo, Tool, ToolContext, ToolResult } from './Tool.js'
 
-const MIN_SIZE = 8
+const MIN_SIZE = GRID_SIZE
 
 export function dragBounds(start: Point, current: Point, square = false): Rect {
   let dx = current.x - start.x
@@ -29,20 +30,20 @@ export class ShapeTool implements Tool {
   }
 
   onPointerDown(info: PointerInfo): ToolResult {
-    this.start = { x: info.world.x, y: info.world.y }
+    this.start = snapPointToGrid(info.world)
     return {}
   }
 
   onPointerMove(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (!this.start) return {}
-    const bounds = dragBounds(this.start, info.world, info.shiftKey)
+    const bounds = dragBounds(this.start, snapPointToGrid(info.world), info.shiftKey)
     ctx.setPreview(this.buildElement(bounds, ctx))
     return { overlay: true }
   }
 
   onPointerUp(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (!this.start) return {}
-    const bounds = dragBounds(this.start, info.world, info.shiftKey)
+    const bounds = dragBounds(this.start, snapPointToGrid(info.world), info.shiftKey)
     this.start = null
     ctx.setPreview(null)
     if (bounds.width < MIN_SIZE || bounds.height < MIN_SIZE) return { overlay: true }

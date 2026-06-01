@@ -1,4 +1,5 @@
 import type { Element, Point } from '../model/types.js'
+import { GRID_SIZE } from './grid.js'
 import type { Rect } from './rect.js'
 import type { ResizeHandleId, SelectionFrame } from './handles.js'
 
@@ -7,7 +8,7 @@ export interface ResizeResult {
   patch: Partial<Element>
 }
 
-const MIN_DIMENSION = 1
+const MIN_DIMENSION = GRID_SIZE
 
 function unrotate(point: Point, center: Point, rotation: number): Point {
   if (!rotation) return point

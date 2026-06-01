@@ -47,6 +47,19 @@ export type { Tool, ToolContext, ToolResult, PointerInfo } from './tools/Tool.js
 export { InputManager } from './input/InputManager.js'
 
 export { selectionFrameFor } from './geometry/selectionFrame.js'
+export {
+  GRID_SIZE,
+  GRID_SNAP_SIZE,
+  GRID_MAJOR_EVERY,
+  GRID_MIN_SCREEN_SPACING,
+  defaultGridConfig,
+  gridLineValues,
+  gridStepForZoom,
+  isMajorGridValue,
+  snapPointToGrid,
+  snapValueToGrid,
+} from './geometry/grid.js'
+export type { GridConfig } from './geometry/grid.js'
 export { resizedBounds, resizeElements, rotationFor } from './geometry/transform.js'
 export {
   resizeHandlesScreen,

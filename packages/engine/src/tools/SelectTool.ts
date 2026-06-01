@@ -2,6 +2,7 @@ import { createBinding } from '../connectors/binding.js'
 import { handleAtScreen, type HandleId, type ResizeHandleId } from '../geometry/handles.js'
 import { elementCenter, hitTest, marqueeHits } from '../geometry/hitTest.js'
 import type { Rect } from '../geometry/rect.js'
+import { snapPointToGrid } from '../geometry/grid.js'
 import { snapEndpoint, SNAP_DISTANCE } from '../geometry/snap.js'
 import { resizeElements, resizedBounds, rotationFor } from '../geometry/transform.js'
 import { selectionFrameFor } from '../geometry/selectionFrame.js'
@@ -28,7 +29,7 @@ type Mode =
   | { kind: 'resize'; handle: ResizeHandleId; elements: Element[]; frame: ReturnType<typeof selectionFrameFor> }
   | { kind: 'rotate'; elements: Element[]; center: Point; startAngle: number }
   | { kind: 'portDrag'; arrowId: ElementId; start: Point; startBinding: Binding }
-  | { kind: 'reshape'; arrowId: ElementId; handle: ArrowHandleId; index: number; midInserted: boolean }
+  | { kind: 'reshape'; arrowId: ElementId; handle: ArrowHandleId; index: number; midInserted: boolean; points: Point[] }
 
 export class SelectTool implements Tool {
   readonly id = 'select'
@@ -68,7 +69,7 @@ export class SelectTool implements Tool {
 
     const nextSelection = this.resolveSelection(selected, hit.id, info.shiftKey)
     store.setUiState({ selectedIds: nextSelection })
-    if (nextSelection.has(hit.id)) this.mode = { kind: 'move', last: info.world }
+    if (nextSelection.has(hit.id)) this.mode = { kind: 'move', last: snapPointToGrid(info.world) }
     return { overlay: true }
   }
 
@@ -194,11 +195,12 @@ export class SelectTool implements Tool {
     if (!element || !isArrow(element)) return null
     const handle = arrowHandleAtScreen(info.screen, element, ctx.camera)
     if (!handle) return null
+    const points = element.points.map((point) => ({ ...point }))
     if (handle.id === 'midpoint') {
-      this.mode = { kind: 'reshape', arrowId: element.id, handle: 'midpoint', index: handle.index, midInserted: false }
+      this.mode = { kind: 'reshape', arrowId: element.id, handle: 'midpoint', index: handle.index, midInserted: false, points }
       return { overlay: true }
     }
-    this.mode = { kind: 'reshape', arrowId: element.id, handle: handle.id, index: handle.index, midInserted: false }
+    this.mode = { kind: 'reshape', arrowId: element.id, handle: handle.id, index: handle.index, midInserted: false, points }
     return { overlay: true }
   }
 
@@ -261,12 +263,14 @@ export class SelectTool implements Tool {
 
   private dragMidpoint(info: PointerInfo, ctx: ToolContext, arrow: ArrowElement): ToolResult {
     if (this.mode.kind !== 'reshape') return {}
-    const points = arrow.points.map((point) => ({ ...point }))
+    const points = this.mode.points.map((point) => ({ ...point }))
+    const next = snapPointToGrid(info.world)
     if (!this.mode.midInserted) {
-      points.splice(this.mode.index + 1, 0, info.world)
-      this.mode = { ...this.mode, index: this.mode.index + 1, midInserted: true }
+      points.splice(this.mode.index + 1, 0, next)
+      this.mode = { ...this.mode, index: this.mode.index + 1, midInserted: true, points }
     } else {
-      points[this.mode.index] = info.world
+      points[this.mode.index] = next
+      this.mode = { ...this.mode, points }
     }
     this.writeArrow(ctx, arrow.id, points, {})
     return { scene: true, overlay: true }
@@ -278,7 +282,8 @@ export class SelectTool implements Tool {
     points: Point[],
     bindings: { start?: Binding | null; end?: Binding | null },
   ): void {
-    const patch: Partial<ArrowElement> = { points, ...pointsBounds(points) }
+    const nextPoints = points.map((point) => ({ ...point }))
+    const patch: Partial<ArrowElement> = { points: nextPoints, ...pointsBounds(nextPoints) }
     if ('start' in bindings) patch.start = bindings.start ?? undefined
     if ('end' in bindings) patch.end = bindings.end ?? undefined
     ctx.store.transact((api) => api.updateElement(id, patch))
@@ -294,14 +299,21 @@ export class SelectTool implements Tool {
 
   private dragMove(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (this.mode.kind !== 'move') return {}
-    const dx = info.world.x - this.mode.last.x
-    const dy = info.world.y - this.mode.last.y
-    this.mode.last = info.world
+    const next = snapPointToGrid(info.world)
+    const dx = next.x - this.mode.last.x
+    const dy = next.y - this.mode.last.y
+    this.mode.last = next
     const ids = ctx.store.getUiState().selectedIds
     ctx.store.transact((api) => {
       for (const id of ids) {
         const element = ctx.store.getSnapshot().elements[id]
         if (!element) continue
+        if (isArrow(element)) {
+          const points = element.points.map((point) => ({ x: point.x + dx, y: point.y + dy }))
+          const patch: Partial<ArrowElement> = { points, ...pointsBounds(points) }
+          api.updateElement(id, patch)
+          continue
+        }
         api.updateElement(id, { x: element.x + dx, y: element.y + dy })
       }
     })
@@ -322,7 +334,7 @@ export class SelectTool implements Tool {
 
   private dragResize(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (this.mode.kind !== 'resize' || !this.mode.frame) return {}
-    const next = resizedBounds(this.mode.frame, this.mode.handle, info.world)
+    const next = resizedBounds(this.mode.frame, this.mode.handle, snapPointToGrid(info.world))
     const patches = resizeElements(this.mode.elements, this.mode.frame, next)
     ctx.store.transact((api) => patches.forEach(({ id, patch }) => api.updateElement(id, patch)))
     return { scene: true, overlay: true }

@@ -2,6 +2,13 @@ import { Camera } from '../geometry/Camera.js'
 import { expand, intersects, type Rect } from '../geometry/rect.js'
 import type { SelectionFrame } from '../geometry/handles.js'
 import type { SnapGuide } from '../geometry/snap.js'
+import {
+  defaultGridConfig,
+  gridLineValues,
+  gridStepForZoom,
+  isMajorGridValue,
+  type GridConfig,
+} from '../geometry/grid.js'
 import type { ArrowElement, Element, SceneSnapshot } from '../model/types.js'
 import { getPainter } from './painters/index.js'
 import { paintHover, paintMarquee, paintSelection } from './overlay/selection.js'
@@ -20,18 +27,21 @@ export interface OverlayState {
   marquee?: Rect | null
 }
 
-export interface GridStyle {
-  spacing: number
-  dotRadius: number
+export interface GridStyle extends GridConfig {
+  lineWidth: number
+  majorLineWidth: number
   color: string
+  majorColor: string
   background: string
 }
 
 const defaultGrid: GridStyle = {
-  spacing: 24,
-  dotRadius: 1,
-  color: 'rgba(120, 120, 130, 0.35)',
-  background: '#fafafa',
+  ...defaultGridConfig,
+  lineWidth: 1,
+  majorLineWidth: 1,
+  color: 'rgba(31, 41, 55, 0.035)',
+  majorColor: 'rgba(31, 41, 55, 0.09)',
+  background: '#ffffff',
 }
 
 function elementBounds(element: SceneSnapshot['elements'][string]): Rect {
@@ -100,7 +110,7 @@ export class Renderer {
     ctx.setTransform(scale, 0, 0, scale, -camera.x * scale, -camera.y * scale)
 
     const viewport = camera.viewportWorldRect(cssWidth, cssHeight)
-    this.paintGrid(viewport)
+    this.paintGrid(viewport, camera.zoom)
     this.paintElements(snapshot, viewport, editingId)
   }
 
@@ -127,21 +137,44 @@ export class Renderer {
     if (overlay.marquee) paintMarquee(ctx, overlay.marquee, camera)
   }
 
-  private paintGrid(viewport: Rect): void {
-    const { sceneCtx: ctx, grid } = this
-    const { spacing, dotRadius, color } = grid
-    const startX = Math.floor(viewport.x / spacing) * spacing
-    const startY = Math.floor(viewport.y / spacing) * spacing
+  private paintGrid(viewport: Rect, zoom: number): void {
     const endX = viewport.x + viewport.width
     const endY = viewport.y + viewport.height
-    ctx.fillStyle = color
-    for (let y = startY; y <= endY; y += spacing) {
-      for (let x = startX; x <= endX; x += spacing) {
-        ctx.beginPath()
-        ctx.arc(x, y, dotRadius, 0, Math.PI * 2)
-        ctx.fill()
-      }
+    const step = gridStepForZoom(this.grid, zoom)
+    const xLines = gridLineValues(viewport.x, endX, step)
+    const yLines = gridLineValues(viewport.y, endY, step)
+
+    this.paintGridLines(xLines, yLines, viewport.x, endX, viewport.y, endY, false, zoom)
+    this.paintGridLines(xLines, yLines, viewport.x, endX, viewport.y, endY, true, zoom)
+  }
+
+  private paintGridLines(
+    xLines: number[],
+    yLines: number[],
+    startX: number,
+    endX: number,
+    startY: number,
+    endY: number,
+    major: boolean,
+    zoom: number,
+  ): void {
+    const { sceneCtx: ctx, grid } = this
+    ctx.save()
+    ctx.strokeStyle = major ? grid.majorColor : grid.color
+    ctx.lineWidth = (major ? grid.majorLineWidth : grid.lineWidth) / zoom
+    ctx.beginPath()
+    for (const x of xLines) {
+      if (isMajorGridValue(x, grid) !== major) continue
+      ctx.moveTo(x, startY)
+      ctx.lineTo(x, endY)
     }
+    for (const y of yLines) {
+      if (isMajorGridValue(y, grid) !== major) continue
+      ctx.moveTo(startX, y)
+      ctx.lineTo(endX, y)
+    }
+    ctx.stroke()
+    ctx.restore()
   }
 
   private paintElements(snapshot: SceneSnapshot, viewport: Rect, editingId: string | null): void {

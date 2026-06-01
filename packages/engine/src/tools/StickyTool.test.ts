@@ -49,4 +49,13 @@ describe('StickyTool', () => {
     expect(elements[0]!.style.roundness).toBe(24)
     expect(elements[0]!.style.textAlign).toBe('right')
   })
+
+  it('centers new sticky notes on half-grid guides', () => {
+    const { ctx, store } = makeContext()
+
+    new StickyTool().onPointerDown(pointer({ x: 107, y: 93 }), ctx)
+
+    const elements = Object.values(store.getSnapshot().elements)
+    expect(elements[0]).toMatchObject({ x: 25, y: 35, width: 160, height: 120 })
+  })
 })

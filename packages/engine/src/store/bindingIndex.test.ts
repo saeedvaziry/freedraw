@@ -29,6 +29,15 @@ function arrowPoints(store: SceneStore, id: string) {
   return (store.getSnapshot().elements[id] as ArrowElement).points
 }
 
+function allAxisAligned(points: { x: number; y: number }[]): boolean {
+  for (let i = 1; i < points.length; i += 1) {
+    const a = points[i - 1]!
+    const b = points[i]!
+    if (Math.abs(a.x - b.x) > 0.5 && Math.abs(a.y - b.y) > 0.5) return false
+  }
+  return true
+}
+
 describe('binding index + recompute', () => {
   it('indexes arrows by the shapes they bind to', () => {
     const store = new SceneStore()
@@ -52,7 +61,7 @@ describe('binding index + recompute', () => {
     store.transact((api) => api.updateElement('b', { width: 200 }))
     const points = arrowPoints(store, 'arr')
     const end = points[points.length - 1]!
-    expect(end.x).toBeCloseTo(300)
+    expect(end.x).toBeCloseTo(299)
   })
 
   it('stays attached after a rotate', () => {
@@ -86,5 +95,21 @@ describe('binding index + recompute', () => {
     expect(store.getSnapshot().elements.b?.y).toBe(0)
     const points = arrowPoints(store, 'arr')
     expect(points[points.length - 1]!.y).toBeCloseTo(50)
+  })
+
+  it('normalizes stored waypoint arrows during recompute', () => {
+    const store = new SceneStore()
+    const arrow = createArrow({
+      id: 'arr',
+      points: [
+        { x: 0, y: 0 },
+        { x: 50, y: 40 },
+        { x: 100, y: 0 },
+      ],
+    })
+    store.transact((api) => api.addElement(arrow))
+    const points = arrowPoints(store, 'arr')
+    expect(points).toContainEqual({ x: 50, y: 40 })
+    expect(allAxisAligned(points)).toBe(true)
   })
 })
