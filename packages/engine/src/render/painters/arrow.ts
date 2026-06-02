@@ -1,4 +1,5 @@
 import type { ArrowElement, Arrowhead, Element, Point } from '../../model/types.js'
+import { arrowRoute } from '../../connectors/resolve.js'
 import { polylineMidpoint } from '../../text/arrowLabel.js'
 import { dashPattern } from './dash.js'
 import { paintArrowLabel } from './text.js'
@@ -10,7 +11,7 @@ const BAR_HALF = 7
 
 export function paintArrow(ctx: CanvasRenderingContext2D, element: Element): void {
   const arrow = element as ArrowElement
-  const points = arrow.points
+  const points = arrowRoute(arrow)
   if (points.length < 2) return
   const { style } = arrow
   const scale = headScale(style.strokeWidth)

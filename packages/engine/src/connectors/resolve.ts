@@ -1,10 +1,10 @@
 import type { ArrowElement, Binding, Element, ElementId, Point } from '../model/types.js'
+import { ROUTE_AXIS_TOLERANCE as AXIS_TOLERANCE, simplifyRoute } from '../geometry/arrowGeometry.js'
 import { anchorNormal, anchorPoint } from './binding.js'
 
 type Elements = Record<ElementId, Element>
 
 const STUB = 20
-const AXIS_TOLERANCE = 0.5
 
 function pullBack(point: Point, normal: Point, gap: number): Point {
   if (gap <= 0) return point
@@ -37,8 +37,12 @@ function axisNormal(normal: Point): Point {
 }
 
 function sign(value: number): number {
-  if (Math.abs(value) < 0.5) return 0
+  if (Math.abs(value) < AXIS_TOLERANCE) return 0
   return Math.sign(value)
+}
+
+export function arrowRoute(arrow: ArrowElement): Point[] {
+  return arrow.route.length >= 2 ? arrow.route : arrow.points
 }
 
 export function resolveArrowPoints(arrow: ArrowElement, elements: Elements): Point[] {
@@ -75,7 +79,7 @@ function orthogonalRoute(
     : endPoint
 
   const mids = route(startStub, startNormal, endStub, endNormal)
-  return simplify([startPoint, startStub, ...mids, endStub, endPoint])
+  return simplifyRoute([startPoint, startStub, ...mids, endStub, endPoint])
 }
 
 function nearStraightRoute(
@@ -118,7 +122,7 @@ function normalAllowsHorizontal(normal: Point | null, direction: number): boolea
 function route(from: Point, fromNormal: Point | null, to: Point, toNormal: Point | null): Point[] {
   const dx = to.x - from.x
   const dy = to.y - from.y
-  if (Math.abs(dx) < 0.5 || Math.abs(dy) < 0.5) return []
+  if (Math.abs(dx) < AXIS_TOLERANCE || Math.abs(dy) < AXIS_TOLERANCE) return []
 
   const startH = fromNormal ? isHorizontal(fromNormal) : Math.abs(dx) >= Math.abs(dy)
   const endH = toNormal ? isHorizontal(toNormal) : !startH
@@ -153,29 +157,6 @@ function route(from: Point, fromNormal: Point | null, to: Point, toNormal: Point
   return forwardOut ? [{ x: from.x, y: to.y }] : [{ x: to.x, y: from.y }, { x: to.x, y: to.y }]
 }
 
-function simplify(points: Point[]): Point[] {
-  const deduped: Point[] = []
-  for (const point of points) {
-    const last = deduped[deduped.length - 1]
-    if (last && Math.abs(last.x - point.x) < 0.5 && Math.abs(last.y - point.y) < 0.5) continue
-    deduped.push(point)
-  }
-  const result: Point[] = []
-  for (let i = 0; i < deduped.length; i += 1) {
-    const prev = result[result.length - 1]
-    const curr = deduped[i]!
-    const next = deduped[i + 1]
-    if (prev && next && isCollinear(prev, curr, next)) continue
-    result.push(curr)
-  }
-  return result.length >= 2 ? result : deduped
-}
-
-function isCollinear(a: Point, b: Point, c: Point): boolean {
-  const cross = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
-  return Math.abs(cross) < 0.5
-}
-
 function resolveWithWaypoints(points: Point[], start: BoundEnd | null, end: BoundEnd | null): Point[] {
   const next = points.map((point) => ({ ...point }))
   if (start) next[0] = start.port
@@ -198,7 +179,7 @@ function orthogonalizeSegments(points: Point[], startNormal: Point | null, endNo
     const next = points[i + 1]
     nextStartNormal = axis && next ? normalToward(to, next, perpendicularAxis(axis)) : null
   }
-  return simplify(routed)
+  return simplifyRoute(routed)
 }
 
 type Axis = 'x' | 'y'

@@ -6,10 +6,12 @@ import { snapPointToGrid } from '../geometry/grid.js'
 import { snapEndpoint, SNAP_DISTANCE } from '../geometry/snap.js'
 import { resizeElements, resizedBounds, rotationFor } from '../geometry/transform.js'
 import { selectionFrameFor } from '../geometry/selectionFrame.js'
+import { moveRouteSegment } from '../geometry/arrowGeometry.js'
 import { spawnConnectedShape } from '../connectors/spawn.js'
-import { createArrow, pointsBounds } from '../model/factory.js'
+import { createArrow } from '../model/factory.js'
 import { polylineMidpoint } from '../text/arrowLabel.js'
-import { arrowHandleAtScreen, type ArrowHandleId } from '../render/overlay/arrowHandles.js'
+import { arrowRoute } from '../connectors/resolve.js'
+import { arrowHandleAtScreen, type ArrowHandle } from '../render/overlay/arrowHandles.js'
 import { portAtScreen } from '../render/overlay/ports.js'
 import type { ArrowElement, Binding, Element, ElementId, Point } from '../model/types.js'
 import type { SceneStore } from '../store/SceneStore.js'
@@ -29,7 +31,8 @@ type Mode =
   | { kind: 'resize'; handle: ResizeHandleId; elements: Element[]; frame: ReturnType<typeof selectionFrameFor> }
   | { kind: 'rotate'; elements: Element[]; center: Point; startAngle: number }
   | { kind: 'portDrag'; arrowId: ElementId; start: Point; startBinding: Binding }
-  | { kind: 'reshape'; arrowId: ElementId; handle: ArrowHandleId; index: number; midInserted: boolean; points: Point[] }
+  | { kind: 'reshapeEndpoint'; arrowId: ElementId; handle: 'start' | 'end' }
+  | { kind: 'reshapeSegment'; arrowId: ElementId; segmentIndex: number; route: Point[] }
 
 export class SelectTool implements Tool {
   readonly id = 'select'
@@ -80,7 +83,8 @@ export class SelectTool implements Tool {
     if (this.mode.kind === 'marquee') return this.dragMarquee(info, ctx)
     if (this.mode.kind === 'resize') return this.dragResize(info, ctx)
     if (this.mode.kind === 'portDrag') return this.dragPort(info, ctx)
-    if (this.mode.kind === 'reshape') return this.dragReshape(info, ctx)
+    if (this.mode.kind === 'reshapeEndpoint') return this.dragEndpoint(info, ctx)
+    if (this.mode.kind === 'reshapeSegment') return this.dragSegment(info, ctx)
     return this.dragRotate(info, ctx)
   }
 
@@ -140,7 +144,7 @@ export class SelectTool implements Tool {
   }
 
   private beginArrowLabelEdit(arrow: ArrowElement, ctx: ToolContext): void {
-    const mid = polylineMidpoint(arrow.points)
+    const mid = polylineMidpoint(arrowRoute(arrow))
     const label = arrow.label
     ctx.beginEdit({
       elementId: arrow.id,
@@ -195,29 +199,58 @@ export class SelectTool implements Tool {
     if (!element || !isArrow(element)) return null
     const handle = arrowHandleAtScreen(info.screen, element, ctx.camera)
     if (!handle) return null
-    const points = element.points.map((point) => ({ ...point }))
+    if (this.handleYieldsToPort(handle, element, info, ctx)) return null
     if (handle.id === 'midpoint') {
-      this.mode = { kind: 'reshape', arrowId: element.id, handle: 'midpoint', index: handle.index, midInserted: false, points }
+      this.mode = {
+        kind: 'reshapeSegment',
+        arrowId: element.id,
+        segmentIndex: handle.segmentIndex,
+        route: arrowRoute(element).map((point) => ({ ...point })),
+      }
       return { overlay: true }
     }
-    this.mode = { kind: 'reshape', arrowId: element.id, handle: handle.id, index: handle.index, midInserted: false, points }
+    this.mode = { kind: 'reshapeEndpoint', arrowId: element.id, handle: handle.id }
     return { overlay: true }
   }
 
+  private handleYieldsToPort(
+    handle: ArrowHandle,
+    arrow: ArrowElement,
+    info: PointerInfo,
+    ctx: ToolContext,
+  ): boolean {
+    if (handle.id === 'midpoint') return false
+    const binding = handle.id === 'start' ? arrow.start : arrow.end
+    if (!binding) return false
+    const shape = ctx.store.getSnapshot().elements[binding.elementId]
+    if (!shape || isArrow(shape)) return false
+    return Boolean(portAtScreen(info.screen, shape, ctx.camera))
+  }
+
   private tryPortDrag(info: PointerInfo, ctx: ToolContext): ToolResult | null {
-    const ui = ctx.store.getUiState()
-    const candidateId = ui.hoveredId ?? [...ui.selectedIds][0]
-    if (!candidateId) return null
-    const shape = ctx.store.getSnapshot().elements[candidateId]
-    if (!shape || isArrow(shape)) return null
-    const port = portAtScreen(info.screen, shape, ctx.camera)
-    if (!port) return null
+    const hit = this.portShapeAt(info, ctx)
+    if (!hit) return null
+    const { shape, port } = hit
 
     const arrow = createArrow({ points: [port, port], start: createBinding(shape, port) })
     ctx.store.transact((api) => api.addElement(arrow))
     ctx.store.setUiState({ selectedIds: new Set([arrow.id]) })
     this.mode = { kind: 'portDrag', arrowId: arrow.id, start: port, startBinding: arrow.start! }
     return { overlay: true }
+  }
+
+  private portShapeAt(info: PointerInfo, ctx: ToolContext): { shape: Element; port: Point } | null {
+    const ui = ctx.store.getUiState()
+    const snapshot = ctx.store.getSnapshot()
+    const preferred = [ui.hoveredId, ...ui.selectedIds].filter((id): id is ElementId => Boolean(id))
+    const ordered = [...preferred, ...snapshot.order.filter((id) => !preferred.includes(id))]
+    for (const id of ordered) {
+      const shape = snapshot.elements[id]
+      if (!shape || isArrow(shape)) continue
+      const port = portAtScreen(info.screen, shape, ctx.camera)
+      if (port) return { shape, port }
+    }
+    return null
   }
 
   private dragPort(info: PointerInfo, ctx: ToolContext): ToolResult {
@@ -235,19 +268,13 @@ export class SelectTool implements Tool {
     return { scene: true, overlay: true }
   }
 
-  private dragReshape(info: PointerInfo, ctx: ToolContext): ToolResult {
-    if (this.mode.kind !== 'reshape') return {}
+  private dragEndpoint(info: PointerInfo, ctx: ToolContext): ToolResult {
+    if (this.mode.kind !== 'reshapeEndpoint') return {}
     const arrow = ctx.store.getSnapshot().elements[this.mode.arrowId]
     if (!arrow || !isArrow(arrow)) return {}
-
-    if (this.mode.handle === 'midpoint') return this.dragMidpoint(info, ctx, arrow)
-    return this.dragEndpoint(info, ctx, arrow)
-  }
-
-  private dragEndpoint(info: PointerInfo, ctx: ToolContext, arrow: ArrowElement): ToolResult {
-    if (this.mode.kind !== 'reshape') return {}
     const isStart = this.mode.handle === 'start'
-    const fixedEnd = isStart ? arrow.points[arrow.points.length - 1]! : arrow.points[0]!
+    const route = arrowRoute(arrow)
+    const fixedEnd = isStart ? route[route.length - 1]! : route[0]!
     const snap = snapEndpoint(info.world, ctx.store.getSnapshot(), {
       threshold: SNAP_DISTANCE / ctx.camera.zoom,
       origin: fixedEnd,
@@ -255,23 +282,20 @@ export class SelectTool implements Tool {
     })
     ctx.setGuides(snap.guides)
     ctx.setPortTarget(snap.target?.id ?? null)
-    const points = isStart ? [snap.point, fixedEnd] : [fixedEnd, snap.point]
+    const currentPoints = arrow.points.length >= 2 ? arrow.points : route
+    const points = isStart
+      ? [snap.point, ...currentPoints.slice(1)]
+      : [...currentPoints.slice(0, -1), snap.point]
     const binding = snap.target ? createBinding(snap.target, snap.point) : null
     this.writeArrow(ctx, arrow.id, points, isStart ? { start: binding } : { end: binding })
     return { scene: true, overlay: true }
   }
 
-  private dragMidpoint(info: PointerInfo, ctx: ToolContext, arrow: ArrowElement): ToolResult {
-    if (this.mode.kind !== 'reshape') return {}
-    const points = this.mode.points.map((point) => ({ ...point }))
-    const next = snapPointToGrid(info.world)
-    if (!this.mode.midInserted) {
-      points.splice(this.mode.index + 1, 0, next)
-      this.mode = { ...this.mode, index: this.mode.index + 1, midInserted: true, points }
-    } else {
-      points[this.mode.index] = next
-      this.mode = { ...this.mode, points }
-    }
+  private dragSegment(info: PointerInfo, ctx: ToolContext): ToolResult {
+    if (this.mode.kind !== 'reshapeSegment') return {}
+    const arrow = ctx.store.getSnapshot().elements[this.mode.arrowId]
+    if (!arrow || !isArrow(arrow)) return {}
+    const points = moveRouteSegment(this.mode.route, this.mode.segmentIndex, snapPointToGrid(info.world))
     this.writeArrow(ctx, arrow.id, points, {})
     return { scene: true, overlay: true }
   }
@@ -283,7 +307,7 @@ export class SelectTool implements Tool {
     bindings: { start?: Binding | null; end?: Binding | null },
   ): void {
     const nextPoints = points.map((point) => ({ ...point }))
-    const patch: Partial<ArrowElement> = { points: nextPoints, ...pointsBounds(nextPoints) }
+    const patch: Partial<ArrowElement> = { points: nextPoints }
     if ('start' in bindings) patch.start = bindings.start ?? undefined
     if ('end' in bindings) patch.end = bindings.end ?? undefined
     ctx.store.transact((api) => api.updateElement(id, patch))
@@ -309,9 +333,9 @@ export class SelectTool implements Tool {
         const element = ctx.store.getSnapshot().elements[id]
         if (!element) continue
         if (isArrow(element)) {
-          const points = element.points.map((point) => ({ x: point.x + dx, y: point.y + dy }))
-          const patch: Partial<ArrowElement> = { points, ...pointsBounds(points) }
-          api.updateElement(id, patch)
+          const translate = (point: Point) => ({ x: point.x + dx, y: point.y + dy })
+          const points = element.points.map(translate)
+          api.updateElement(id, { points })
           continue
         }
         api.updateElement(id, { x: element.x + dx, y: element.y + dy })

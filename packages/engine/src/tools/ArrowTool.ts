@@ -81,8 +81,8 @@ export class ArrowTool implements Tool {
       end: endBinding,
       style: ctx.store.getLastUsedStyle(),
     })
-    const points = resolveArrowPoints(arrow, { ...ctx.store.getSnapshot().elements, [arrow.id]: arrow })
-    return { ...arrow, ...pointsBounds(points), points }
+    const route = resolveArrowPoints(arrow, { ...ctx.store.getSnapshot().elements, [arrow.id]: arrow })
+    return { ...arrow, ...pointsBounds(route), route }
   }
 }
 

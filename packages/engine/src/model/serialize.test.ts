@@ -69,9 +69,9 @@ describe('serialize round-trip', () => {
     expect([...restored.arrowsForShape('b')]).toEqual(['arr'])
 
     restored.transact((api) => api.updateElement('b', { x: 300, y: 300 }))
-    const arrow = restored.getSnapshot().elements.arr
-    const points = (arrow as { points: { x: number; y: number }[] }).points
-    expect(points[points.length - 1]!.y).toBeGreaterThan(150)
+    const arrow = restored.getSnapshot().elements.arr as ArrowElement
+    const route = arrow.route
+    expect(route[route.length - 1]!.y).toBeGreaterThan(150)
   })
 
   it('normalizes diagonal persisted arrows before the first snapshot', () => {
@@ -99,7 +99,7 @@ describe('serialize round-trip', () => {
     applyScene(target, scene)
     const restored = new SceneStore(target)
     const restoredArrow = restored.getSnapshot().elements.arr as ArrowElement
-    expect(allAxisAligned(restoredArrow.points)).toBe(true)
+    expect(allAxisAligned(restoredArrow.route)).toBe(true)
   })
 })
 

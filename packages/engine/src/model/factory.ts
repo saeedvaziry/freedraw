@@ -194,6 +194,7 @@ export function createArrow(init: ArrowInit): ArrowElement {
     rotation: 0,
     style: { ...defaultStyle, ...init.style },
     points: init.points,
+    route: init.points,
     start: init.start,
     end: init.end,
     startArrowhead: init.startArrowhead ?? 'none',

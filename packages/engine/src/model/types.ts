@@ -85,6 +85,7 @@ export interface Binding {
 export interface ArrowElement extends BaseElement {
   type: 'arrow' | 'line'
   points: Point[]
+  route: Point[]
   start?: Binding
   end?: Binding
   startArrowhead: Arrowhead

@@ -1,4 +1,5 @@
-import type { Element, Point, SceneSnapshot } from '../model/types.js'
+import type { ArrowElement, Element, Point, SceneSnapshot } from '../model/types.js'
+import { arrowRoute } from '../connectors/resolve.js'
 import { expand, intersects, type Rect } from './rect.js'
 import { getOutline, pointInPolygon } from './shapeOutline.js'
 
@@ -112,7 +113,7 @@ function hitShape(local: Point, element: Element): boolean {
 
 export function hitTestElement(point: Point, element: Element): boolean {
   if (element.type === 'arrow' || element.type === 'line') {
-    return hitPolyline(point, element.points, element)
+    return hitPolyline(point, arrowRoute(element as ArrowElement), element)
   }
   const local = toLocalPoint(point, element)
   if (element.type === 'freedraw') return hitPolyline(local, element.points, element)

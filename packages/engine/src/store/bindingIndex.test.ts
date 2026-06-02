@@ -26,7 +26,7 @@ function seedBound(store: SceneStore) {
 }
 
 function arrowPoints(store: SceneStore, id: string) {
-  return (store.getSnapshot().elements[id] as ArrowElement).points
+  return (store.getSnapshot().elements[id] as ArrowElement).route
 }
 
 function allAxisAligned(points: { x: number; y: number }[]): boolean {
@@ -97,6 +97,20 @@ describe('binding index + recompute', () => {
     expect(points[points.length - 1]!.y).toBeCloseTo(50)
   })
 
+  it('does not accumulate points when a bound shape is dragged repeatedly', () => {
+    const store = new SceneStore()
+    seedBound(store)
+    const before = store.getSnapshot().elements.arr as ArrowElement
+    expect(before.points).toHaveLength(2)
+    for (let i = 0; i < 30; i += 1) {
+      store.transact((api) => api.updateElement('b', { x: 300 + i, y: 200 + i * 5 }))
+    }
+    const after = store.getSnapshot().elements.arr as ArrowElement
+    expect(after.points).toHaveLength(2)
+    expect(after.route.length).toBeLessThanOrEqual(6)
+    expect(allAxisAligned(after.route)).toBe(true)
+  })
+
   it('normalizes stored waypoint arrows during recompute', () => {
     const store = new SceneStore()
     const arrow = createArrow({
@@ -108,8 +122,8 @@ describe('binding index + recompute', () => {
       ],
     })
     store.transact((api) => api.addElement(arrow))
-    const points = arrowPoints(store, 'arr')
-    expect(points).toContainEqual({ x: 50, y: 40 })
-    expect(allAxisAligned(points)).toBe(true)
+    const stored = store.getSnapshot().elements.arr as ArrowElement
+    expect(stored.points).toContainEqual({ x: 50, y: 40 })
+    expect(allAxisAligned(stored.route)).toBe(true)
   })
 })

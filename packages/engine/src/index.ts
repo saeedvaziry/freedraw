@@ -117,6 +117,7 @@ export {
   DEFAULT_GAP,
   resolveArrowPoints,
   arrowNeedsResolve,
+  arrowRoute,
   spawnConnectedShape,
 } from './connectors/index.js'
 export type { SpawnDirection } from './connectors/index.js'

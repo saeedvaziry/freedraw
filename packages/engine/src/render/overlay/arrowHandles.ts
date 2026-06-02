@@ -1,4 +1,6 @@
 import type { Camera } from '../../geometry/Camera.js'
+import { arrowRoute } from '../../connectors/resolve.js'
+import { editableRouteSegments, type RouteSegmentAxis } from '../../geometry/arrowGeometry.js'
 import type { ArrowElement, Point } from '../../model/types.js'
 
 const ACCENT = '#4f6bff'
@@ -8,27 +10,35 @@ const MIDPOINT_HEIGHT = 16
 
 export type ArrowHandleId = 'start' | 'end' | 'midpoint'
 
-export interface ArrowHandle {
-  id: ArrowHandleId
+interface EndpointArrowHandle {
+  id: 'start' | 'end'
   position: Point
-  index: number
 }
 
+interface SegmentArrowHandle {
+  id: 'midpoint'
+  position: Point
+  segmentIndex: number
+  axis: RouteSegmentAxis
+}
+
+export type ArrowHandle = EndpointArrowHandle | SegmentArrowHandle
+
 export function arrowHandlesScreen(arrow: ArrowElement, camera: Camera): ArrowHandle[] {
-  const points = arrow.points
-  if (points.length < 2) return []
+  const route = arrowRoute(arrow)
+  if (route.length < 2) return []
   const handles: ArrowHandle[] = [
-    { id: 'start', index: 0, position: camera.worldToScreen(points[0]!) },
-    { id: 'end', index: points.length - 1, position: camera.worldToScreen(points[points.length - 1]!) },
+    { id: 'start', position: camera.worldToScreen(route[0]!) },
+    { id: 'end', position: camera.worldToScreen(route[route.length - 1]!) },
   ]
-  const midIndex = Math.floor((points.length - 1) / 2)
-  const a = points[midIndex]!
-  const b = points[midIndex + 1] ?? a
-  handles.push({
-    id: 'midpoint',
-    index: midIndex,
-    position: camera.worldToScreen({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }),
-  })
+  for (const segment of editableRouteSegments(route)) {
+    handles.push({
+      id: 'midpoint',
+      segmentIndex: segment.index,
+      axis: segment.axis,
+      position: camera.worldToScreen(segment.midpoint),
+    })
+  }
   return handles
 }
 
@@ -56,7 +66,7 @@ export function paintArrowHandles(
   arrow: ArrowElement,
   camera: Camera,
 ): void {
-  const points = arrow.points
+  const points = arrowRoute(arrow)
   if (points.length < 2) return
   ctx.save()
   ctx.strokeStyle = ACCENT

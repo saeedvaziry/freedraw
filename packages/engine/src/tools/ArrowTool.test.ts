@@ -50,6 +50,10 @@ describe('ArrowTool', () => {
       type: 'arrow',
       points: [
         { x: 0, y: 0 },
+        { x: 100, y: 40 },
+      ],
+      route: [
+        { x: 0, y: 0 },
         { x: 100, y: 0 },
         { x: 100, y: 40 },
       ],
@@ -72,6 +76,10 @@ describe('ArrowTool', () => {
       type: 'line',
       points: [
         { x: 15, y: 15 },
+        { x: 115, y: 45 },
+      ],
+      route: [
+        { x: 15, y: 15 },
         { x: 115, y: 15 },
         { x: 115, y: 45 },
       ],
@@ -91,6 +99,10 @@ describe('ArrowTool', () => {
     expect(elements[0]).toMatchObject({
       type: 'line',
       points: [
+        { x: 0, y: 0 },
+        { x: 10, y: 10 },
+      ],
+      route: [
         { x: 0, y: 0 },
         { x: 10, y: 0 },
         { x: 10, y: 10 },

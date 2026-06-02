@@ -100,6 +100,7 @@ export class SceneStore {
     this.yOrder = doc.getArray('elementOrder')
     this.yAppState = doc.getMap('appState')
 
+    this.migrateArrows()
     this.resolveArrows()
     this.snapshot = this.buildSnapshot()
     this.rebuildBindingIndex()
@@ -317,16 +318,32 @@ export class SceneStore {
     return elements
   }
 
+  private migrateArrows(): void {
+    this.doc.transact(() => {
+      this.yElements.forEach((map) => {
+        const element = fromYElement(map)
+        if (!isArrow(element)) return
+        if (Array.isArray(element.route)) return
+        const collapsed = element.start || element.end
+        const source = collapsed
+          ? [element.points[0]!, element.points[element.points.length - 1]!]
+          : element.points
+        map.set('points', source)
+        map.set('route', [])
+      })
+    }, TRANSACTION_ORIGIN)
+  }
+
   private resolveArrows(): void {
     const elements = this.readLiveElements()
     for (const element of Object.values(elements)) {
       if (!isArrow(element)) continue
-      const nextPoints = resolveArrowPoints(element, elements)
-      if (pointsEqual(nextPoints, element.points)) continue
+      const nextRoute = resolveArrowPoints(element, elements)
+      if (pointsEqual(nextRoute, element.route)) continue
       const map = this.yElements.get(element.id)
       if (!map) continue
-      map.set('points', nextPoints)
-      const bounds = pointsBounds(nextPoints)
+      map.set('route', nextRoute)
+      const bounds = pointsBounds(nextRoute)
       map.set('x', bounds.x)
       map.set('y', bounds.y)
       map.set('width', bounds.width)
