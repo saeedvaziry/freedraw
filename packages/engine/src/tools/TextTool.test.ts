@@ -23,10 +23,12 @@ function makeContext() {
     store,
     camera: new Camera(),
     setPreview: () => {},
+    setSpawnPreview: () => {},
     setMarquee: () => {},
     setGuides: () => {},
     setPortTarget: () => {},
     beginEdit: () => {},
+    requestSpawnMenu: () => {},
   }
   return { store, ctx }
 }

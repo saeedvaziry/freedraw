@@ -7,21 +7,37 @@ import { snapEndpoint, SNAP_DISTANCE } from '../geometry/snap.js'
 import { resizeElements, resizedBounds, rotationFor } from '../geometry/transform.js'
 import { selectionFrameFor } from '../geometry/selectionFrame.js'
 import { moveRouteSegment } from '../geometry/arrowGeometry.js'
-import { spawnConnectedShape } from '../connectors/spawn.js'
+import { planConnectedShape, spawnConnectedShape, type SpawnDirection } from '../connectors/spawn.js'
 import { createArrow } from '../model/factory.js'
 import { polylineMidpoint } from '../text/arrowLabel.js'
 import { arrowRoute } from '../connectors/resolve.js'
 import { arrowHandleAtScreen, type ArrowHandle } from '../render/overlay/arrowHandles.js'
-import { portAtScreen } from '../render/overlay/ports.js'
+import { portAtScreen, shapePortsWorld } from '../render/overlay/ports.js'
 import type { ArrowElement, Binding, Element, ElementId, Point } from '../model/types.js'
 import type { SceneStore } from '../store/SceneStore.js'
 import type { PointerInfo, Tool, ToolContext, ToolResult } from './Tool.js'
 
 const MARQUEE_THRESHOLD = 3
 const ZERO_RECT: Rect = { x: 0, y: 0, width: 0, height: 0 }
+const SPAWN_GHOST_OPACITY = 0.4
+const PORT_DIRECTIONS: SpawnDirection[] = ['up', 'right', 'down', 'left']
 
 function isArrow(element: Element): element is ArrowElement {
   return element.type === 'arrow' || element.type === 'line'
+}
+
+function portDirection(shape: Element, port: Point): SpawnDirection | null {
+  const ports = shapePortsWorld(shape)
+  let bestIndex = -1
+  let bestDistance = Infinity
+  ports.forEach((candidate, index) => {
+    const distance = Math.hypot(candidate.x - port.x, candidate.y - port.y)
+    if (distance < bestDistance) {
+      bestDistance = distance
+      bestIndex = index
+    }
+  })
+  return PORT_DIRECTIONS[bestIndex] ?? null
 }
 
 type Mode =
@@ -30,7 +46,14 @@ type Mode =
   | { kind: 'marquee'; origin: Point; additive: boolean; base: Set<ElementId> }
   | { kind: 'resize'; handle: ResizeHandleId; elements: Element[]; frame: ReturnType<typeof selectionFrameFor> }
   | { kind: 'rotate'; elements: Element[]; center: Point; startAngle: number }
-  | { kind: 'portDrag'; arrowId: ElementId; start: Point; startBinding: Binding }
+  | {
+      kind: 'portDrag'
+      arrowId: ElementId
+      start: Point
+      startBinding: Binding
+      sourceId: ElementId
+      direction: SpawnDirection | null
+    }
   | { kind: 'reshapeEndpoint'; arrowId: ElementId; handle: 'start' | 'end' }
   | { kind: 'reshapeSegment'; arrowId: ElementId; segmentIndex: number; route: Point[] }
 
@@ -38,10 +61,15 @@ export class SelectTool implements Tool {
   readonly id = 'select'
   private mode: Mode = { kind: 'idle' }
   private moved = false
+  private spawnPreviewActive = false
 
   onPointerDown(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (info.button !== 0) return {}
     this.moved = false
+    if (this.spawnPreviewActive) {
+      this.spawnPreviewActive = false
+      ctx.setSpawnPreview(null)
+    }
     ctx.store.stopCapturing()
     const store = ctx.store
     const selected = store.getUiState().selectedIds
@@ -91,14 +119,27 @@ export class SelectTool implements Tool {
   onPointerUp(_info: PointerInfo, ctx: ToolContext): ToolResult {
     const mode = this.mode
     if (mode.kind === 'portDrag' && !this.moved) {
-      ctx.store.deleteElements([mode.arrowId])
+      this.spawnFromPort(mode, ctx)
     }
     this.mode = { kind: 'idle' }
     ctx.setMarquee(null)
     ctx.setGuides([])
     ctx.setPortTarget(null)
+    ctx.setSpawnPreview(null)
     ctx.store.stopCapturing()
     return { scene: true, overlay: true }
+  }
+
+  private spawnFromPort(
+    mode: { arrowId: ElementId; sourceId: ElementId; direction: SpawnDirection | null },
+    ctx: ToolContext,
+  ): void {
+    ctx.store.deleteElements([mode.arrowId])
+    const source = ctx.store.getSnapshot().elements[mode.sourceId]
+    if (!source || !mode.direction) return
+    const targetId = spawnConnectedShape(ctx.store, source, mode.direction)
+    const target = ctx.store.getSnapshot().elements[targetId]
+    if (target) this.beginLabelEdit(target, ctx)
   }
 
   onDoubleClick(info: PointerInfo, ctx: ToolContext): ToolResult | void {
@@ -115,6 +156,17 @@ export class SelectTool implements Tool {
     }
     this.beginLabelEdit(hit, ctx)
     return { overlay: true }
+  }
+
+  onContextMenu(info: PointerInfo, ctx: ToolContext): boolean | void {
+    const hit = this.portShapeAt(info, ctx)
+    if (!hit) return
+    const direction = portDirection(hit.shape, hit.port)
+    if (!direction) return
+    this.spawnPreviewActive = false
+    ctx.setSpawnPreview(null)
+    ctx.requestSpawnMenu({ screen: info.screen, sourceId: hit.shape.id, direction })
+    return true
   }
 
   private beginTextEdit(element: Element, ctx: ToolContext): void {
@@ -172,9 +224,11 @@ export class SelectTool implements Tool {
 
   onDeactivate(ctx: ToolContext): void {
     this.mode = { kind: 'idle' }
+    this.spawnPreviewActive = false
     ctx.setMarquee(null)
     ctx.setGuides([])
     ctx.setPortTarget(null)
+    ctx.setSpawnPreview(null)
     ctx.store.setUiState({ hoveredId: null })
   }
 
@@ -235,7 +289,14 @@ export class SelectTool implements Tool {
     const arrow = createArrow({ points: [port, port], start: createBinding(shape, port) })
     ctx.store.transact((api) => api.addElement(arrow))
     ctx.store.setUiState({ selectedIds: new Set([arrow.id]) })
-    this.mode = { kind: 'portDrag', arrowId: arrow.id, start: port, startBinding: arrow.start! }
+    this.mode = {
+      kind: 'portDrag',
+      arrowId: arrow.id,
+      start: port,
+      startBinding: arrow.start!,
+      sourceId: shape.id,
+      direction: portDirection(shape, port),
+    }
     return { overlay: true }
   }
 
@@ -314,11 +375,30 @@ export class SelectTool implements Tool {
   }
 
   private trackHover(info: PointerInfo, ctx: ToolContext): ToolResult {
+    const spawned = this.trackSpawnPreview(info, ctx)
     const hit = hitTest(info.world, ctx.store.getSnapshot())
     const nextId = hit?.id ?? null
-    if (nextId === ctx.store.getUiState().hoveredId) return {}
+    if (nextId === ctx.store.getUiState().hoveredId) return spawned ? { overlay: true } : {}
     ctx.store.setUiState({ hoveredId: nextId })
     return { overlay: true }
+  }
+
+  private trackSpawnPreview(info: PointerInfo, ctx: ToolContext): boolean {
+    const hit = this.portShapeAt(info, ctx)
+    const direction = hit ? portDirection(hit.shape, hit.port) : null
+    if (!hit || !direction) {
+      const had = this.spawnPreviewActive
+      this.spawnPreviewActive = false
+      if (had) ctx.setSpawnPreview(null)
+      return false
+    }
+    const { target, arrow } = planConnectedShape(hit.shape, direction)
+    ctx.setSpawnPreview({
+      target: { ...target, style: { ...target.style, opacity: target.style.opacity * SPAWN_GHOST_OPACITY } },
+      arrow: { ...arrow, style: { ...arrow.style, opacity: arrow.style.opacity * SPAWN_GHOST_OPACITY } },
+    })
+    this.spawnPreviewActive = true
+    return true
   }
 
   private dragMove(info: PointerInfo, ctx: ToolContext): ToolResult {

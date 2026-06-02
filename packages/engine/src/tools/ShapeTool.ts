@@ -1,27 +1,18 @@
 import type { Rect } from '../geometry/rect.js'
-import { GRID_SIZE, snapPointToGrid } from '../geometry/grid.js'
-import type { Point, ShapeElement, ShapeType } from '../model/types.js'
-import { createShape } from '../model/factory.js'
+import { snapPointToGrid } from '../geometry/grid.js'
+import type { ShapeElement, ShapeType } from '../model/types.js'
+import {
+  createShape,
+  SHAPE_DEFAULT_HEIGHT,
+  SHAPE_DEFAULT_WIDTH,
+} from '../model/factory.js'
 import type { PointerInfo, Tool, ToolContext, ToolResult } from './Tool.js'
 
-const MIN_SIZE = GRID_SIZE
-
-export function dragBounds(start: Point, current: Point, square = false): Rect {
-  let dx = current.x - start.x
-  let dy = current.y - start.y
-  if (square) {
-    const size = Math.max(Math.abs(dx), Math.abs(dy))
-    dx = Math.sign(dx || 1) * size
-    dy = Math.sign(dy || 1) * size
-  }
-  const x = Math.min(start.x, start.x + dx)
-  const y = Math.min(start.y, start.y + dy)
-  return { x, y, width: Math.abs(dx), height: Math.abs(dy) }
-}
+const PLACEHOLDER_TEXT = ''
+const GHOST_OPACITY = 0.4
 
 export class ShapeTool implements Tool {
   readonly id = 'shape'
-  private start: Point | null = null
 
   constructor(private shapeType: ShapeType) {}
 
@@ -29,33 +20,45 @@ export class ShapeTool implements Tool {
     this.shapeType = type
   }
 
-  onPointerDown(info: PointerInfo): ToolResult {
-    this.start = snapPointToGrid(info.world)
-    return {}
-  }
-
   onPointerMove(info: PointerInfo, ctx: ToolContext): ToolResult {
-    if (!this.start) return {}
-    const bounds = dragBounds(this.start, snapPointToGrid(info.world), info.shiftKey)
-    ctx.setPreview(this.buildElement(bounds, ctx))
+    const ghost = this.buildElement(this.bounds(info), ctx)
+    ghost.label = { text: PLACEHOLDER_TEXT, align: 'center', verticalAlign: 'middle' }
+    ghost.style = { ...ghost.style, opacity: ghost.style.opacity * GHOST_OPACITY }
+    ctx.setPreview(ghost)
     return { overlay: true }
   }
 
-  onPointerUp(info: PointerInfo, ctx: ToolContext): ToolResult {
-    if (!this.start) return {}
-    const bounds = dragBounds(this.start, snapPointToGrid(info.world), info.shiftKey)
-    this.start = null
+  onPointerDown(info: PointerInfo, ctx: ToolContext): ToolResult {
+    if (info.button !== 0) return {}
+    const element = this.buildElement(this.bounds(info), ctx)
     ctx.setPreview(null)
-    if (bounds.width < MIN_SIZE || bounds.height < MIN_SIZE) return { overlay: true }
-    const element = this.buildElement(bounds, ctx)
+    ctx.store.stopCapturing()
     ctx.store.transact((api) => api.addElement(element))
     ctx.store.setUiState({ selectedIds: new Set([element.id]), activeTool: 'select' })
+    ctx.beginEdit({
+      elementId: element.id,
+      target: 'label',
+      text: '',
+      world: { x: element.x, y: element.y, width: element.width, height: element.height },
+      style: element.style,
+      align: element.style.textAlign,
+      verticalAlign: 'middle',
+    })
     return { scene: true, overlay: true }
   }
 
   onDeactivate(ctx: ToolContext): void {
-    this.start = null
     ctx.setPreview(null)
+  }
+
+  private bounds(info: PointerInfo): Rect {
+    const center = snapPointToGrid(info.world)
+    return {
+      x: center.x - SHAPE_DEFAULT_WIDTH / 2,
+      y: center.y - SHAPE_DEFAULT_HEIGHT / 2,
+      width: SHAPE_DEFAULT_WIDTH,
+      height: SHAPE_DEFAULT_HEIGHT,
+    }
   }
 
   private buildElement(bounds: Rect, ctx: ToolContext): ShapeElement {

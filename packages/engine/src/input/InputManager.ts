@@ -28,6 +28,7 @@ export class InputManager {
     this.attachWheel()
     this.attachKeyboard()
     this.attachDoubleClick()
+    this.attachContextMenu()
     return () => this.detach()
   }
 
@@ -114,6 +115,18 @@ export class InputManager {
     }
     this.overlay.addEventListener('dblclick', onDoubleClick)
     this.cleanups.push(() => this.overlay.removeEventListener('dblclick', onDoubleClick))
+  }
+
+  private attachContextMenu(): void {
+    const onContextMenu = (event: MouseEvent): void => {
+      const tool = this.handlers.getActiveTool()
+      if (!tool.onContextMenu) return
+      const info = this.info(event)
+      this.handlers.onPointerInfo?.(info)
+      if (tool.onContextMenu(info, this.handlers.context)) event.preventDefault()
+    }
+    this.overlay.addEventListener('contextmenu', onContextMenu)
+    this.cleanups.push(() => this.overlay.removeEventListener('contextmenu', onContextMenu))
   }
 
   private attachKeyboard(): void {

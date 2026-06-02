@@ -17,8 +17,14 @@ import { paintPorts, paintTargetHighlight } from './overlay/ports.js'
 import { paintArrowHandles } from './overlay/arrowHandles.js'
 import { paintGuides } from './overlay/guides.js'
 
+export interface SpawnPreview {
+  target: Element
+  arrow: ArrowElement
+}
+
 export interface OverlayState {
   preview?: Element | null
+  spawnPreview?: SpawnPreview | null
   selection?: SelectionFrame | null
   selectedArrows?: ArrowElement[]
   hover?: Element | null
@@ -55,6 +61,7 @@ export class Renderer {
   private readonly sceneCtx: CanvasRenderingContext2D
   private readonly overlayCtx: CanvasRenderingContext2D
   private readonly invertedSceneCtx: CanvasRenderingContext2D
+  private readonly invertedOverlayCtx: CanvasRenderingContext2D
   private readonly grid: GridStyle
   private dpr = 1
   private cssWidth = 0
@@ -74,6 +81,7 @@ export class Renderer {
     this.sceneCtx = sceneCtx
     this.overlayCtx = overlayCtx
     this.invertedSceneCtx = invertingContext(sceneCtx)
+    this.invertedOverlayCtx = invertingContext(overlayCtx)
     this.grid = { ...defaultGrid, ...grid }
   }
 
@@ -133,9 +141,15 @@ export class Renderer {
     ctx.clearRect(0, 0, cssWidth * dpr, cssHeight * dpr)
 
     const scale = dpr * camera.zoom
+    const worldCtx = this.dark ? this.invertedOverlayCtx : ctx
     if (overlay.preview) {
-      ctx.setTransform(scale, 0, 0, scale, -camera.x * scale, -camera.y * scale)
-      paintElement(ctx, overlay.preview)
+      worldCtx.setTransform(scale, 0, 0, scale, -camera.x * scale, -camera.y * scale)
+      paintElement(worldCtx, overlay.preview)
+    }
+    if (overlay.spawnPreview) {
+      worldCtx.setTransform(scale, 0, 0, scale, -camera.x * scale, -camera.y * scale)
+      paintElement(worldCtx, overlay.spawnPreview.arrow)
+      paintElement(worldCtx, overlay.spawnPreview.target)
     }
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)

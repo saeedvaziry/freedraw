@@ -5,12 +5,17 @@ import { selectionFrameFor } from '../geometry/selectionFrame.js'
 import type { Rect } from '../geometry/rect.js'
 import type { SnapGuide } from '../geometry/snap.js'
 import { InputManager } from '../input/InputManager.js'
-import type { ArrowElement, Element, ElementId, Label, Point } from '../model/types.js'
+import type { ArrowElement, Element, ElementId, Label, Point, ShapeType } from '../model/types.js'
+import {
+  spawnConnectedShape,
+  type SpawnDirection,
+  type SpawnMenuRequest,
+} from '../connectors/spawn.js'
 import type { EditListener, EditRequest } from '../text/edit.js'
 import { measureTextBox, type TextSize } from '../text/size.js'
 import type { Style } from '../model/types.js'
 import { createRenderLoop, type RenderLoopHandle } from '../render/loop.js'
-import { Renderer, type OverlayState } from '../render/Renderer.js'
+import { Renderer, type OverlayState, type SpawnPreview } from '../render/Renderer.js'
 import { setImageCache } from '../render/painters/image.js'
 import type { SceneStore } from '../store/SceneStore.js'
 import { ToolManager } from '../tools/ToolManager.js'
@@ -24,6 +29,7 @@ const ZOOM_SENSITIVITY = 0.0015
 const WHEEL_COMMIT_DELAY = 150
 
 type Cleanup = () => void
+type SpawnMenuListener = (request: SpawnMenuRequest | null) => void
 
 export class EditorController {
   readonly camera: Camera
@@ -34,11 +40,13 @@ export class EditorController {
   private readonly toolContext: ToolContext
   private readonly cleanups: Cleanup[] = []
   private preview: Element | null = null
+  private spawnPreview: SpawnPreview | null = null
   private marquee: Rect | null = null
   private guides: SnapGuide[] = []
   private portTargetId: ElementId | null = null
   private editRequest: EditRequest | null = null
   private readonly editListeners = new Set<EditListener>()
+  private readonly spawnMenuListeners = new Set<SpawnMenuListener>()
   private isSpaceDown = false
   private isSpacePanning = false
   private spacePanLast = { x: 0, y: 0 }
@@ -46,6 +54,7 @@ export class EditorController {
   private readonly imageCache: ImageCache
   private blobLoader: BlobLoader = () => Promise.resolve(undefined)
   private lastPointerScreen: Point | null = null
+  private darkMode = false
 
   constructor(
     private readonly store: SceneStore,
@@ -66,6 +75,9 @@ export class EditorController {
       setPreview: (element) => {
         this.preview = element
       },
+      setSpawnPreview: (preview) => {
+        this.spawnPreview = preview
+      },
       setMarquee: (rect) => {
         this.marquee = rect
       },
@@ -76,6 +88,7 @@ export class EditorController {
         this.portTargetId = id
       },
       beginEdit: (request) => this.beginEdit(request),
+      requestSpawnMenu: (request) => this.openSpawnMenu(request),
     }
     this.tools = new ToolManager(this.toolContext)
     this.input = new InputManager(overlay, this.camera, {
@@ -125,8 +138,14 @@ export class EditorController {
   }
 
   setDark(dark: boolean): void {
+    this.darkMode = dark
     this.renderer.setDark(dark)
     this.loop.markDirty()
+    this.editListeners.forEach((listener) => listener(this.editRequest))
+  }
+
+  get isDark(): boolean {
+    return this.darkMode
   }
 
   setImageBlobLoader(loader: BlobLoader): void {
@@ -153,6 +172,37 @@ export class EditorController {
 
   get activeEdit(): EditRequest | null {
     return this.editRequest
+  }
+
+  subscribeSpawnMenu(listener: SpawnMenuListener): () => void {
+    this.spawnMenuListeners.add(listener)
+    return () => this.spawnMenuListeners.delete(listener)
+  }
+
+  private openSpawnMenu(request: SpawnMenuRequest): void {
+    this.spawnMenuListeners.forEach((listener) => listener(request))
+  }
+
+  closeSpawnMenu(): void {
+    this.spawnMenuListeners.forEach((listener) => listener(null))
+  }
+
+  spawnShapeFromMenu(sourceId: ElementId, direction: SpawnDirection, type: ShapeType): void {
+    this.closeSpawnMenu()
+    const source = this.store.getSnapshot().elements[sourceId]
+    if (!source) return
+    const targetId = spawnConnectedShape(this.store, source, direction, type)
+    const target = this.store.getSnapshot().elements[targetId]
+    if (!target) return
+    this.beginEdit({
+      elementId: target.id,
+      target: 'label',
+      text: '',
+      world: { x: target.x, y: target.y, width: target.width, height: target.height },
+      style: target.style,
+      align: target.style.textAlign,
+      verticalAlign: 'middle',
+    })
   }
 
   worldToScreen(point: { x: number; y: number }): { x: number; y: number } {
@@ -313,6 +363,7 @@ export class EditorController {
     const targetHighlight = this.portTargetId ? snapshot.elements[this.portTargetId] ?? null : null
     return {
       preview: this.preview,
+      spawnPreview: this.spawnPreview,
       selection,
       selectedArrows,
       hover,

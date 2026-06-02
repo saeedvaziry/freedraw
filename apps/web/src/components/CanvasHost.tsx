@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { EditorController, type SceneStore } from '@freedraw/engine'
+import { SpawnMenu } from './SpawnMenu.js'
 import { TextEditorOverlay } from './TextEditorOverlay.js'
 import { useImageInsert } from '../hooks/useImageInsert.js'
 
@@ -48,6 +49,7 @@ export function CanvasHost({ store, onImagePicker, onController }: CanvasHostPro
         className="absolute inset-0 block h-full w-full touch-none"
       />
       {controller && <TextEditorOverlay controller={controller} />}
+      {controller && <SpawnMenu controller={controller} />}
       <input
         ref={fileInputRef}
         type="file"

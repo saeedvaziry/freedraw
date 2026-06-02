@@ -1,5 +1,6 @@
 export { Renderer } from './render/Renderer.js'
-export type { GridStyle } from './render/Renderer.js'
+export type { GridStyle, OverlayState, SpawnPreview } from './render/Renderer.js'
+export { invertColor } from './render/invert.js'
 export { createRenderLoop } from './render/loop.js'
 export type { RenderLoopHandle } from './render/loop.js'
 
@@ -24,7 +25,7 @@ export type { SelectionStyle, StyleValue } from './store/selectionStyle.js'
 export { EditorController } from './controller/EditorController.js'
 
 export { ToolManager } from './tools/ToolManager.js'
-export { ShapeTool, dragBounds } from './tools/ShapeTool.js'
+export { ShapeTool } from './tools/ShapeTool.js'
 export { HandTool } from './tools/HandTool.js'
 export { SelectTool } from './tools/SelectTool.js'
 export { ArrowTool } from './tools/ArrowTool.js'
@@ -130,7 +131,7 @@ export {
   arrowRoute,
   spawnConnectedShape,
 } from './connectors/index.js'
-export type { SpawnDirection } from './connectors/index.js'
+export type { SpawnDirection, SpawnMenuRequest } from './connectors/index.js'
 export { SCHEMA_VERSION, defaultStyle, defaultAppState } from './model/schema.js'
 export { migrateDoc, seedAppState, readSchemaVersion, migrations } from './model/migrations.js'
 export type { Migration } from './model/migrations.js'

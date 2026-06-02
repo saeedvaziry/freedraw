@@ -1,5 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { EditorController, EditRequest } from '@freedraw/engine'
+import { invertColor, type EditorController, type EditRequest } from '@freedraw/engine'
+
+const ARROW_LABEL_BACKGROUND = '#fafafa'
+
+function themed(color: string, dark: boolean): string {
+  return dark ? invertColor(color) : color
+}
 
 interface TextEditorOverlayProps {
   controller: EditorController
@@ -117,7 +123,7 @@ function editorStyle(
         y: world.y + world.height / 2,
       })
     return {
-      ...baseStyle(style, zoom),
+      ...baseStyle(style, zoom, controller.isDark),
       left: `${center.x}px`,
       top: `${center.y}px`,
       width: `${size.width * zoom}px`,
@@ -133,13 +139,13 @@ function editorStyle(
     const width = 120 * zoom
     const screen = controller.worldToScreen({ x: world.x, y: world.y })
     return {
-      ...baseStyle(style, zoom),
+      ...baseStyle(style, zoom, controller.isDark),
       left: `${screen.x - width / 2}px`,
       top: `${screen.y - (lineHeight * zoom) / 2}px`,
       width: `${width}px`,
       height: `${lineHeight * zoom}px`,
       textAlign: 'center',
-      background: '#fafafa',
+      background: themed(ARROW_LABEL_BACKGROUND, controller.isDark),
       whiteSpace: 'pre-wrap',
     }
   }
@@ -150,7 +156,7 @@ function editorStyle(
   const screen = controller.worldToScreen({ x: world.x + TEXT_PADDING, y: world.y })
 
   return {
-    ...baseStyle(style, zoom),
+    ...baseStyle(style, zoom, controller.isDark),
     left: `${screen.x}px`,
     top: `${screen.y + offsetY * zoom}px`,
     width: `${innerWidth * zoom}px`,
@@ -161,12 +167,13 @@ function editorStyle(
   }
 }
 
-function baseStyle(style: EditRequest['style'], zoom: number): React.CSSProperties {
+function baseStyle(style: EditRequest['style'], zoom: number, dark: boolean): React.CSSProperties {
   const lineHeight = style.fontSize * LINE_RATIO
   return {
     fontSize: `${style.fontSize * zoom}px`,
     lineHeight: `${lineHeight * zoom}px`,
     fontFamily: style.fontFamily,
-    color: style.textColor,
+    color: themed(style.textColor, dark),
+    caretColor: themed(style.textColor, dark),
   }
 }

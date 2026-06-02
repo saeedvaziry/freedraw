@@ -26,10 +26,12 @@ function makeContext() {
     setPreview: (element) => {
       preview = element
     },
+    setSpawnPreview: () => {},
     setMarquee: () => {},
     setGuides: () => {},
     setPortTarget: () => {},
     beginEdit: () => {},
+    requestSpawnMenu: () => {},
   }
   return { store, ctx, getPreview: () => preview }
 }

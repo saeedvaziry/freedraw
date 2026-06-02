@@ -1,124 +1,89 @@
 import { describe, expect, it } from 'vitest'
-import { dragBounds, ShapeTool } from './ShapeTool.js'
+import { ShapeTool } from './ShapeTool.js'
 import { Camera } from '../geometry/Camera.js'
 import { SceneStore } from '../store/SceneStore.js'
 import type { Element } from '../model/types.js'
+import type { EditRequest } from '../text/edit.js'
 import type { PointerInfo, ToolContext } from './Tool.js'
 
-function pointer(world: { x: number; y: number }, shiftKey = false): PointerInfo {
+function pointer(world: { x: number; y: number }, button = 0): PointerInfo {
   return {
     world,
     screen: world,
-    shiftKey,
+    shiftKey: false,
     altKey: false,
     ctrlKey: false,
     metaKey: false,
-    button: 0,
+    button,
   }
 }
 
 function makeContext() {
   const store = new SceneStore()
   let preview: Element | null = null
+  let edit: EditRequest | null = null
   const ctx: ToolContext = {
     store,
     camera: new Camera(),
     setPreview: (element) => {
       preview = element
     },
+    setSpawnPreview: () => {},
     setMarquee: () => {},
     setGuides: () => {},
     setPortTarget: () => {},
-    beginEdit: () => {},
+    beginEdit: (request) => {
+      edit = request
+    },
+    requestSpawnMenu: () => {},
   }
-  return { store, ctx, getPreview: () => preview }
+  return { store, ctx, getPreview: () => preview, getEdit: () => edit }
 }
 
-describe('dragBounds', () => {
-  it('computes a normalized rect dragging down-right', () => {
-    expect(dragBounds({ x: 10, y: 20 }, { x: 110, y: 80 })).toEqual({
-      x: 10,
-      y: 20,
-      width: 100,
-      height: 60,
-    })
-  })
-
-  it('normalizes a drag up-left to a positive rect', () => {
-    expect(dragBounds({ x: 100, y: 100 }, { x: 40, y: 60 })).toEqual({
-      x: 40,
-      y: 60,
-      width: 60,
-      height: 40,
-    })
-  })
-
-  it('constrains to a square with shift', () => {
-    const rect = dragBounds({ x: 0, y: 0 }, { x: 120, y: 40 }, true)
-    expect(rect.width).toBe(rect.height)
-    expect(rect.width).toBe(120)
-  })
-})
-
 describe('ShapeTool', () => {
-  it('previews the in-progress shape on move without committing', () => {
+  it('previews a default-sized ghost centered on the cursor', () => {
     const { ctx, store, getPreview } = makeContext()
     const tool = new ShapeTool('diamond')
-    tool.onPointerDown(pointer({ x: 20, y: 20 }))
-    tool.onPointerMove(pointer({ x: 100, y: 80 }), ctx)
+    tool.onPointerMove(pointer({ x: 100, y: 100 }), ctx)
 
-    const preview = getPreview()
-    expect(preview).toMatchObject({ type: 'diamond', x: 20, y: 20, width: 80, height: 60 })
+    expect(getPreview()).toMatchObject({ type: 'diamond', x: 40, y: 60, width: 120, height: 80 })
     expect(Object.keys(store.getSnapshot().elements)).toHaveLength(0)
   })
 
-  it('snaps the in-progress shape bounds to half-grid guides', () => {
-    const { ctx, getPreview } = makeContext()
-    const tool = new ShapeTool('rect')
-    tool.onPointerDown(pointer({ x: 13, y: 17 }))
-    tool.onPointerMove(pointer({ x: 94, y: 73 }), ctx)
-
-    expect(getPreview()).toMatchObject({ type: 'rect', x: 15, y: 15, width: 80, height: 60 })
-  })
-
-  it('commits the element at the dragged bounds on pointer up', () => {
+  it('places a default-sized shape on click and selects it', () => {
     const { ctx, store, getPreview } = makeContext()
     const tool = new ShapeTool('ellipse')
-    tool.onPointerDown(pointer({ x: 0, y: 0 }))
-    tool.onPointerMove(pointer({ x: 200, y: 120 }), ctx)
-    tool.onPointerUp(pointer({ x: 200, y: 120 }), ctx)
+    tool.onPointerDown(pointer({ x: 100, y: 100 }), ctx)
 
     const elements = Object.values(store.getSnapshot().elements)
     expect(elements).toHaveLength(1)
-    expect(elements[0]).toMatchObject({ type: 'ellipse', x: 0, y: 0, width: 200, height: 120 })
+    expect(elements[0]).toMatchObject({ type: 'ellipse', x: 40, y: 60, width: 120, height: 80 })
     expect(store.getUiState().activeTool).toBe('select')
     expect(store.getUiState().selectedIds).toEqual(new Set([elements[0]!.id]))
     expect(getPreview()).toBeNull()
   })
 
-  it('does not commit a click without a meaningful drag', () => {
+  it('begins editing the label of the placed shape', () => {
+    const { ctx, store, getEdit } = makeContext()
+    const tool = new ShapeTool('rect')
+    tool.onPointerDown(pointer({ x: 100, y: 100 }), ctx)
+
+    const element = Object.values(store.getSnapshot().elements)[0]!
+    expect(getEdit()).toMatchObject({ elementId: element.id, target: 'label', text: '' })
+  })
+
+  it('ignores non-primary buttons', () => {
     const { ctx, store } = makeContext()
     const tool = new ShapeTool('rect')
-    tool.onPointerDown(pointer({ x: 50, y: 50 }))
-    tool.onPointerUp(pointer({ x: 51, y: 51 }), ctx)
+    tool.onPointerDown(pointer({ x: 100, y: 100 }, 2), ctx)
     expect(Object.keys(store.getSnapshot().elements)).toHaveLength(0)
   })
 
-  it('commits one grid cell when the snapped drag spans a cell', () => {
-    const { ctx, store } = makeContext()
+  it('clears the preview on deactivate', () => {
+    const { ctx, getPreview } = makeContext()
     const tool = new ShapeTool('rect')
-    tool.onPointerDown(pointer({ x: 42, y: 42 }))
-    tool.onPointerUp(pointer({ x: 48, y: 48 }), ctx)
-    const elements = Object.values(store.getSnapshot().elements)
-    expect(elements).toHaveLength(1)
-    expect(elements[0]).toMatchObject({ type: 'rect', x: 40, y: 40, width: 10, height: 10 })
-  })
-
-  it('does not commit a shape below one grid cell', () => {
-    const { ctx, store } = makeContext()
-    const tool = new ShapeTool('rect')
-    tool.onPointerDown(pointer({ x: 13, y: 13 }))
-    tool.onPointerUp(pointer({ x: 14, y: 14 }), ctx)
-    expect(Object.keys(store.getSnapshot().elements)).toHaveLength(0)
+    tool.onPointerMove(pointer({ x: 100, y: 100 }), ctx)
+    tool.onDeactivate(ctx)
+    expect(getPreview()).toBeNull()
   })
 })

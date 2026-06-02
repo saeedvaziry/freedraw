@@ -32,6 +32,9 @@ export interface ShapeInit {
   style?: Partial<Style>
 }
 
+export const SHAPE_DEFAULT_WIDTH = 120
+export const SHAPE_DEFAULT_HEIGHT = 80
+
 export function createShape(init: ShapeInit): ShapeElement {
   return {
     id: init.id ?? createId(),

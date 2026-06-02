@@ -4,6 +4,9 @@ import { createBinding } from '../connectors/binding.js'
 import { createArrow, createShape } from '../model/factory.js'
 import { SceneStore } from '../store/SceneStore.js'
 import type { ArrowElement, Element } from '../model/types.js'
+import type { SpawnPreview } from '../render/Renderer.js'
+import type { SpawnMenuRequest } from '../connectors/spawn.js'
+import type { EditRequest } from '../text/edit.js'
 import type { PointerInfo, ToolContext } from './Tool.js'
 import { SelectTool } from './SelectTool.js'
 
@@ -21,16 +24,33 @@ function pointer(world: { x: number; y: number }): PointerInfo {
 
 function makeContext() {
   const store = new SceneStore()
+  let spawnPreview: SpawnPreview | null = null
+  let edit: EditRequest | null = null
+  let spawnMenu: SpawnMenuRequest | null = null
   const ctx: ToolContext = {
     store,
     camera: new Camera(),
     setPreview: () => {},
+    setSpawnPreview: (preview) => {
+      spawnPreview = preview
+    },
     setMarquee: () => {},
     setGuides: () => {},
     setPortTarget: () => {},
-    beginEdit: () => {},
+    beginEdit: (request) => {
+      edit = request
+    },
+    requestSpawnMenu: (request) => {
+      spawnMenu = request
+    },
   }
-  return { store, ctx }
+  return {
+    store,
+    ctx,
+    getSpawnPreview: () => spawnPreview,
+    getEdit: () => edit,
+    getSpawnMenu: () => spawnMenu,
+  }
 }
 
 function allAxisAligned(points: { x: number; y: number }[]): boolean {
@@ -247,5 +267,106 @@ describe('SelectTool', () => {
     ]
     expect(reshaped.points).toEqual(expected)
     expect(reshaped.route).toEqual(expected)
+  })
+
+  it('shows a ghost of a connected shape when hovering a port', () => {
+    const { ctx, store, getSpawnPreview } = makeContext()
+    const shape = createShape({ id: 'shape', x: 0, y: 0, width: 100, height: 100 })
+    store.transact((api) => api.addElement(shape))
+    store.setUiState({ hoveredId: 'shape' })
+    const tool = new SelectTool()
+
+    tool.onPointerMove(pointer({ x: 100, y: 50 }), ctx)
+
+    const preview = getSpawnPreview()
+    expect(preview).not.toBeNull()
+    expect(preview!.target).toMatchObject({ type: 'rect', x: 180, y: 0, width: 100, height: 100 })
+    expect(preview!.arrow.start?.elementId).toBe('shape')
+    expect(preview!.arrow.end?.elementId).toBe(preview!.target.id)
+  })
+
+  it('clears the ghost when not hovering a port', () => {
+    const { ctx, store, getSpawnPreview } = makeContext()
+    const shape = createShape({ id: 'shape', x: 0, y: 0, width: 100, height: 100 })
+    store.transact((api) => api.addElement(shape))
+    store.setUiState({ hoveredId: 'shape' })
+    const tool = new SelectTool()
+
+    tool.onPointerMove(pointer({ x: 100, y: 50 }), ctx)
+    tool.onPointerMove(pointer({ x: 50, y: 50 }), ctx)
+
+    expect(getSpawnPreview()).toBeNull()
+  })
+
+  it('spawns and connects a shape on a port click, focusing its text input', () => {
+    const { ctx, store, getEdit } = makeContext()
+    const shape = createShape({ id: 'shape', x: 0, y: 0, width: 100, height: 100 })
+    store.transact((api) => api.addElement(shape))
+    store.setUiState({ hoveredId: 'shape' })
+    const tool = new SelectTool()
+
+    tool.onPointerDown(pointer({ x: 100, y: 50 }), ctx)
+    tool.onPointerUp(pointer({ x: 100, y: 50 }), ctx)
+
+    const shapes = Object.values(store.getSnapshot().elements).filter(
+      (element) => element.type === 'rect',
+    )
+    expect(shapes).toHaveLength(2)
+    const created = shapes.find((element) => element.id !== 'shape')!
+    expect(created).toMatchObject({ x: 180, y: 0 })
+
+    const arrows = Object.values(store.getSnapshot().elements).filter(
+      (element): element is ArrowElement => element.type === 'arrow' || element.type === 'line',
+    )
+    expect(arrows).toHaveLength(1)
+    expect(arrows[0]!.start?.elementId).toBe('shape')
+    expect(arrows[0]!.end?.elementId).toBe(created.id)
+
+    expect(store.getUiState().selectedIds).toEqual(new Set([created.id]))
+    expect(getEdit()).toMatchObject({ elementId: created.id, target: 'label' })
+  })
+
+  it('drags a manual arrow from a port instead of spawning when moved', () => {
+    const { ctx, store, getEdit } = makeContext()
+    const shape = createShape({ id: 'shape', x: 0, y: 0, width: 100, height: 100 })
+    store.transact((api) => api.addElement(shape))
+    store.setUiState({ hoveredId: 'shape' })
+    const tool = new SelectTool()
+
+    tool.onPointerDown(pointer({ x: 100, y: 50 }), ctx)
+    tool.onPointerMove(pointer({ x: 220, y: 50 }), ctx)
+    tool.onPointerUp(pointer({ x: 220, y: 50 }), ctx)
+
+    const shapes = Object.values(store.getSnapshot().elements).filter(
+      (element) => element.type === 'rect',
+    )
+    expect(shapes).toHaveLength(1)
+    expect(getEdit()).toBeNull()
+  })
+
+  it('requests a spawn menu on right-click over a port', () => {
+    const { ctx, store, getSpawnMenu } = makeContext()
+    const shape = createShape({ id: 'shape', x: 0, y: 0, width: 100, height: 100 })
+    store.transact((api) => api.addElement(shape))
+    store.setUiState({ hoveredId: 'shape' })
+    const tool = new SelectTool()
+
+    const handled = tool.onContextMenu(pointer({ x: 100, y: 50 }), ctx)
+
+    expect(handled).toBe(true)
+    expect(getSpawnMenu()).toMatchObject({ sourceId: 'shape', direction: 'right' })
+  })
+
+  it('does not request a spawn menu when not over a port', () => {
+    const { ctx, store, getSpawnMenu } = makeContext()
+    const shape = createShape({ id: 'shape', x: 0, y: 0, width: 100, height: 100 })
+    store.transact((api) => api.addElement(shape))
+    store.setUiState({ hoveredId: 'shape' })
+    const tool = new SelectTool()
+
+    const handled = tool.onContextMenu(pointer({ x: 50, y: 50 }), ctx)
+
+    expect(handled).toBeUndefined()
+    expect(getSpawnMenu()).toBeNull()
   })
 })

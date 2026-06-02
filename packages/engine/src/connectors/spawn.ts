@@ -1,6 +1,6 @@
 import { elementBounds, elementCenter } from '../geometry/hitTest.js'
 import { createArrow, createShape } from '../model/factory.js'
-import type { Element, Point, ShapeType } from '../model/types.js'
+import type { ArrowElement, Element, ElementId, Point, ShapeElement, ShapeType } from '../model/types.js'
 import type { SceneStore } from '../store/SceneStore.js'
 import { anchorFromPoint } from './binding.js'
 
@@ -18,6 +18,12 @@ function shapeTypeOf(element: Element): ShapeType {
 
 export type SpawnDirection = 'left' | 'right' | 'up' | 'down'
 
+export interface SpawnMenuRequest {
+  screen: Point
+  sourceId: ElementId
+  direction: SpawnDirection
+}
+
 const SPAWN_GAP = 80
 
 const vectors: Record<SpawnDirection, Point> = {
@@ -27,7 +33,16 @@ const vectors: Record<SpawnDirection, Point> = {
   down: { x: 0, y: 1 },
 }
 
-export function spawnConnectedShape(store: Store, source: Element, direction: SpawnDirection): string {
+export interface SpawnPlan {
+  target: ShapeElement
+  arrow: ArrowElement
+}
+
+export function planConnectedShape(
+  source: Element,
+  direction: SpawnDirection,
+  typeOverride?: ShapeType,
+): SpawnPlan {
   const vector = vectors[direction]
   const bounds = elementBounds(source)
   const center = elementCenter(source)
@@ -35,7 +50,7 @@ export function spawnConnectedShape(store: Store, source: Element, direction: Sp
   const offsetX = vector.x * (bounds.width + SPAWN_GAP)
   const offsetY = vector.y * (bounds.height + SPAWN_GAP)
   const target = createShape({
-    type: shapeTypeOf(source),
+    type: typeOverride ?? shapeTypeOf(source),
     x: bounds.x + offsetX,
     y: bounds.y + offsetY,
     width: bounds.width,
@@ -59,6 +74,16 @@ export function spawnConnectedShape(store: Store, source: Element, direction: Sp
     end: { elementId: target.id, anchor: anchorFromPoint(target, targetEdge), gap: 6 },
   })
 
+  return { target, arrow }
+}
+
+export function spawnConnectedShape(
+  store: Store,
+  source: Element,
+  direction: SpawnDirection,
+  typeOverride?: ShapeType,
+): string {
+  const { target, arrow } = planConnectedShape(source, direction, typeOverride)
   store.transact((api) => {
     api.addElement(target)
     api.addElement(arrow)
