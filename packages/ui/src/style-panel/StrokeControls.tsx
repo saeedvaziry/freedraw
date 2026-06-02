@@ -6,10 +6,14 @@ import {
   type PanelStyle,
   type PanelStylePatch,
   type StrokeStyle,
+  isMixed,
   pickValue,
   resolveNumber,
   resolveString,
 } from './types.js'
+
+const px = (value: number) => `${value}px`
+const percent = (value: number) => `${Math.round(value * 100)}%`
 
 const STROKE_STYLES = [
   { value: 'solid' as StrokeStyle, label: 'Solid', Icon: Minus },
@@ -39,12 +43,14 @@ export function StrokeControls({
       <ColorPicker
         label="Stroke"
         value={resolveString(style.stroke, '#1e1e1e')}
+        mixed={isMixed(style.stroke)}
         onChange={(stroke) => onChange({ stroke })}
       />
       {showFill && (
         <ColorPicker
           label="Fill"
           value={resolveString(style.fill, 'transparent')}
+          mixed={isMixed(style.fill)}
           allowTransparent
           onChange={(fill) => onChange({ fill })}
         />
@@ -58,6 +64,8 @@ export function StrokeControls({
       <SliderControl
         label="Stroke width"
         value={resolveNumber(style.strokeWidth, 2)}
+        mixed={isMixed(style.strokeWidth)}
+        format={px}
         min={1}
         max={20}
         onChange={(strokeWidth) => onChange({ strokeWidth })}
@@ -67,6 +75,8 @@ export function StrokeControls({
       <SliderControl
         label="Opacity"
         value={resolveNumber(style.opacity, 1)}
+        mixed={isMixed(style.opacity)}
+        format={percent}
         min={0}
         max={1}
         step={0.05}
@@ -78,6 +88,8 @@ export function StrokeControls({
         <SliderControl
           label="Roundness"
           value={resolveNumber(style.roundness, 0)}
+          mixed={isMixed(style.roundness)}
+          format={px}
           min={0}
           max={64}
           onChange={(roundness) => onChange({ roundness })}

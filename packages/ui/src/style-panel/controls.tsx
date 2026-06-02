@@ -1,5 +1,10 @@
 import * as React from 'react'
 import { cn } from '../lib/utils.js'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip.js'
+
+export function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <span className="text-xs font-medium text-muted-foreground">{children}</span>
+}
 
 export interface SliderControlProps {
   label: string
@@ -7,6 +12,8 @@ export interface SliderControlProps {
   min: number
   max: number
   step?: number
+  mixed?: boolean
+  format?(value: number): string
   onChange(value: number): void
   onInteractStart?(): void
   onInteractEnd?(): void
@@ -18,13 +25,20 @@ export function SliderControl({
   min,
   max,
   step = 1,
+  mixed = false,
+  format,
   onChange,
   onInteractStart,
   onInteractEnd,
 }: SliderControlProps) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-foreground/70">{label}</span>
+      <span className="flex items-center justify-between">
+        <FieldLabel>{label}</FieldLabel>
+        <span className="text-xs font-medium tabular-nums text-foreground/80">
+          {mixed ? 'Mixed' : (format ? format(value) : value)}
+        </span>
+      </span>
       <input
         type="range"
         aria-label={label}
@@ -45,6 +59,8 @@ export interface SegmentOption<T extends string> {
   value: T
   label: string
   Icon?: React.ComponentType<{ className?: string }>
+  previewText?: string
+  fontFamily?: string
 }
 
 export interface SegmentedControlProps<T extends string> {
@@ -62,22 +78,28 @@ export function SegmentedControl<T extends string>({
 }: SegmentedControlProps<T>) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-foreground/70">{label}</span>
-      <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-0.5">
+      <FieldLabel>{label}</FieldLabel>
+      <div className="grid grid-flow-col auto-cols-fr gap-1 rounded-lg border bg-muted/40 p-1">
         {options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            aria-label={option.label}
-            aria-pressed={value === option.value}
-            onClick={() => onChange(option.value)}
-            className={cn(
-              'flex h-7 flex-1 items-center justify-center gap-1 rounded-md px-2 text-xs font-medium text-foreground/70 transition-colors hover:bg-accent [&_svg]:size-4',
-              value === option.value && 'bg-background text-foreground shadow-sm',
-            )}
-          >
-            {option.Icon ? <option.Icon /> : option.label}
-          </button>
+          <Tooltip key={option.value}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label={option.label}
+                aria-pressed={value === option.value}
+                onClick={() => onChange(option.value)}
+                style={option.fontFamily ? { fontFamily: option.fontFamily } : undefined}
+                className={cn(
+                  'flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4',
+                  value === option.value &&
+                    'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground',
+                )}
+              >
+                {option.Icon ? <option.Icon /> : (option.previewText ?? option.label)}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{option.label}</TooltipContent>
+          </Tooltip>
         ))}
       </div>
     </div>

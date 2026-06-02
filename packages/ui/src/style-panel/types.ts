@@ -42,6 +42,10 @@ export interface ArrowPanelPatch {
   endArrowhead?: Arrowhead
 }
 
+export function isMixed(value: Mixed<unknown>): boolean {
+  return value === MIXED
+}
+
 export function resolveNumber(value: Mixed<number>, fallback: number): number {
   return value === MIXED ? fallback : value
 }
