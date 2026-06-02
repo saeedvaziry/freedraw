@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   createImage,
+  parseSceneClipboard,
   validateImageInput,
   type EditorController,
   type SceneStore,
 } from '@freedraw/engine'
 import { assetRepo } from '@freedraw/persistence'
+import { BOARD_CLIPBOARD_MIME } from './useBoardClipboard.js'
 
 interface ImageInsertApi {
   openPicker: () => void
@@ -78,6 +80,11 @@ export function useImageInsert(
     if (!controller) return
 
     const onPaste = (event: ClipboardEvent): void => {
+      if (event.defaultPrevented) return
+      const rawBoardClipboard = event.clipboardData?.getData(BOARD_CLIPBOARD_MIME)
+      if (rawBoardClipboard && parseSceneClipboard(rawBoardClipboard)) {
+        return
+      }
       const items = event.clipboardData?.items
       if (!items) return
       for (const item of items) {

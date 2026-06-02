@@ -5,7 +5,7 @@ import { selectionFrameFor } from '../geometry/selectionFrame.js'
 import type { Rect } from '../geometry/rect.js'
 import type { SnapGuide } from '../geometry/snap.js'
 import { InputManager } from '../input/InputManager.js'
-import type { ArrowElement, Element, ElementId, Label } from '../model/types.js'
+import type { ArrowElement, Element, ElementId, Label, Point } from '../model/types.js'
 import type { EditListener, EditRequest } from '../text/edit.js'
 import { measureTextBox, type TextSize } from '../text/size.js'
 import type { Style } from '../model/types.js'
@@ -45,6 +45,7 @@ export class EditorController {
   private wheelCommitTimer: ReturnType<typeof setTimeout> | null = null
   private readonly imageCache: ImageCache
   private blobLoader: BlobLoader = () => Promise.resolve(undefined)
+  private lastPointerScreen: Point | null = null
 
   constructor(
     private readonly store: SceneStore,
@@ -82,6 +83,9 @@ export class EditorController {
       context: this.toolContext,
       onResult: (result) => this.applyResult(result),
       onWheel: (event) => this.onWheel(event),
+      onPointerInfo: (info) => {
+        this.lastPointerScreen = info.screen
+      },
     })
   }
 
@@ -152,6 +156,10 @@ export class EditorController {
 
   get zoom(): number {
     return this.camera.zoom
+  }
+
+  get cursorWorldPoint(): Point | null {
+    return this.lastPointerScreen ? this.camera.screenToWorld(this.lastPointerScreen) : null
   }
 
   zoomToFit(): void {
@@ -333,6 +341,7 @@ export class EditorController {
   private onWheel(event: WheelEvent): void {
     event.preventDefault()
     const point = this.localPoint(event.clientX, event.clientY)
+    this.lastPointerScreen = point
     if (event.ctrlKey || event.metaKey) {
       const factor = Math.exp(-event.deltaY * ZOOM_SENSITIVITY * 4)
       this.camera.zoomToScreenPoint(this.camera.zoom * factor, point)
@@ -373,12 +382,14 @@ export class EditorController {
       }
       this.isSpacePanning = true
       this.spacePanLast = { x: event.clientX, y: event.clientY }
+      this.lastPointerScreen = this.localPoint(event.clientX, event.clientY)
     }
     const onMove = (event: PointerEvent): void => {
       if (!this.isSpacePanning) return
       event.stopImmediatePropagation()
       this.camera.panByScreen(event.clientX - this.spacePanLast.x, event.clientY - this.spacePanLast.y)
       this.spacePanLast = { x: event.clientX, y: event.clientY }
+      this.lastPointerScreen = this.localPoint(event.clientX, event.clientY)
       this.loop.markDirty()
     }
     const onUp = (event: PointerEvent): void => {

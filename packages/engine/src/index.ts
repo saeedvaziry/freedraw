@@ -7,7 +7,17 @@ export { Camera, clampZoom, MIN_ZOOM, MAX_ZOOM } from './geometry/Camera.js'
 export type { CameraState as CameraStateGeom } from './geometry/Camera.js'
 
 export { SceneStore, TRANSACTION_ORIGIN, CAMERA_ORIGIN } from './store/SceneStore.js'
-export type { TransactionApi, UiState, ToolId } from './store/SceneStore.js'
+export type { TransactionApi, UiState, ToolId, PasteElementsOptions } from './store/SceneStore.js'
+export {
+  SCENE_CLIPBOARD_VERSION,
+  clipboardCenter,
+  createSceneClipboard,
+  cloneSceneClipboard,
+  stringifySceneClipboard,
+  parseSceneClipboard,
+  isSceneClipboardPayload,
+} from './store/clipboard.js'
+export type { SceneClipboardPayload, SceneClipboardClone } from './store/clipboard.js'
 export { deriveSelectionStyle, MIXED } from './store/selectionStyle.js'
 export type { SelectionStyle, StyleValue } from './store/selectionStyle.js'
 

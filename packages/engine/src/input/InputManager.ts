@@ -7,6 +7,7 @@ export interface InputHandlers {
   context: ToolContext
   onResult(result: ToolResult | void): void
   onWheel(event: WheelEvent): void
+  onPointerInfo?(info: PointerInfo): void
 }
 
 type Cleanup = () => void
@@ -51,12 +52,16 @@ export class InputManager {
   private attachPointer(): void {
     const onDown = (event: PointerEvent): void => {
       const tool = this.handlers.getActiveTool()
+      const info = this.info(event)
+      this.handlers.onPointerInfo?.(info)
       if (!tool.onPointerDown) return
       this.pendingCaptureId = event.pointerId
-      this.handlers.onResult(tool.onPointerDown(this.info(event), this.handlers.context))
+      this.handlers.onResult(tool.onPointerDown(info, this.handlers.context))
     }
     const onMove = (event: PointerEvent): void => {
       const tool = this.handlers.getActiveTool()
+      const info = this.info(event)
+      this.handlers.onPointerInfo?.(info)
       if (!tool.onPointerMove) return
       if (this.pendingCaptureId === event.pointerId && !this.capturing) {
         try {
@@ -67,17 +72,19 @@ export class InputManager {
         }
         this.pendingCaptureId = null
       }
-      this.handlers.onResult(tool.onPointerMove(this.info(event), this.handlers.context))
+      this.handlers.onResult(tool.onPointerMove(info, this.handlers.context))
     }
     const onUp = (event: PointerEvent): void => {
       const tool = this.handlers.getActiveTool()
+      const info = this.info(event)
+      this.handlers.onPointerInfo?.(info)
       if (this.capturing && this.overlay.hasPointerCapture(event.pointerId)) {
         this.overlay.releasePointerCapture(event.pointerId)
       }
       this.capturing = false
       this.pendingCaptureId = null
       if (!tool.onPointerUp) return
-      this.handlers.onResult(tool.onPointerUp(this.info(event), this.handlers.context))
+      this.handlers.onResult(tool.onPointerUp(info, this.handlers.context))
     }
     this.overlay.addEventListener('pointerdown', onDown)
     this.overlay.addEventListener('pointermove', onMove)
@@ -100,8 +107,10 @@ export class InputManager {
   private attachDoubleClick(): void {
     const onDoubleClick = (event: MouseEvent): void => {
       const tool = this.handlers.getActiveTool()
+      const info = this.info(event)
+      this.handlers.onPointerInfo?.(info)
       if (!tool.onDoubleClick) return
-      this.handlers.onResult(tool.onDoubleClick(this.info(event), this.handlers.context))
+      this.handlers.onResult(tool.onDoubleClick(info, this.handlers.context))
     }
     this.overlay.addEventListener('dblclick', onDoubleClick)
     this.cleanups.push(() => this.overlay.removeEventListener('dblclick', onDoubleClick))

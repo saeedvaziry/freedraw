@@ -1,6 +1,6 @@
 import * as Y from 'yjs'
 import { resolveArrowPoints } from '../connectors/resolve.js'
-import { createId, pointsBounds } from '../model/factory.js'
+import { pointsBounds } from '../model/factory.js'
 import { defaultAppState } from '../model/schema.js'
 import type {
   AppState,
@@ -13,9 +13,16 @@ import type {
   ShapeType,
   Style,
 } from '../model/types.js'
+import {
+  clipboardCenter,
+  cloneSceneClipboard,
+  createSceneClipboard,
+  type SceneClipboardPayload,
+} from './clipboard.js'
 import { deriveSelectionStyle, type SelectionStyle } from './selectionStyle.js'
 
 const DUPLICATE_OFFSET = 16
+const DUPLICATE_OFFSET_POINT = { x: DUPLICATE_OFFSET, y: DUPLICATE_OFFSET }
 
 function isArrow(element: Element): element is ArrowElement {
   return element.type === 'arrow' || element.type === 'line'
@@ -30,6 +37,11 @@ function shallowEqualStyle(a: SelectionStyle, b: SelectionStyle): boolean {
   return (Object.keys(a) as (keyof SelectionStyle)[]).every((key) => a[key] === b[key])
 }
 
+function pasteOffsetForTarget(payload: SceneClipboardPayload, target: Point): Point {
+  const center = clipboardCenter(payload)
+  return { x: target.x - center.x, y: target.y - center.y }
+}
+
 export const TRANSACTION_ORIGIN = 'freedraw'
 export const CAMERA_ORIGIN = 'freedraw:camera'
 
@@ -38,6 +50,11 @@ export interface TransactionApi {
   updateElement(id: ElementId, patch: Partial<Element>): void
   removeElement(id: ElementId): void
   reorder(order: ElementId[]): void
+}
+
+export interface PasteElementsOptions {
+  payload?: SceneClipboardPayload | null
+  target?: Point | null
 }
 
 export type ToolId =
@@ -55,6 +72,7 @@ export interface UiState {
   hoveredId: ElementId | null
   activeTool: ToolId
   activeShapeType: ShapeType
+  clipboardElementCount: number
 }
 
 type Subscriber = () => void
@@ -84,10 +102,13 @@ export class SceneStore {
     hoveredId: null,
     activeTool: 'select',
     activeShapeType: 'rect',
+    clipboardElementCount: 0,
   }
 
   private readonly arrowsByShape = new Map<ElementId, Set<ElementId>>()
   private selectionStyle: SelectionStyle | null = null
+  private clipboard: SceneClipboardPayload | null = null
+  private clipboardPasteCount = 0
 
   private readonly undoManager: Y.UndoManager
   private readonly historySubscribers = new Set<Subscriber>()
@@ -156,32 +177,70 @@ export class SceneStore {
   }
 
   deleteElements(ids: Iterable<ElementId>): void {
-    const direct = [...ids].filter((id) => this.yElements.has(id))
-    if (direct.length === 0) return
-    const removal = new Set(direct)
-    for (const id of direct) {
-      for (const arrowId of this.arrowsForShape(id)) removal.add(arrowId)
-    }
+    const removal = this.removalIdsFor(ids)
+    if (removal.length === 0) return
     this.transact((api) => removal.forEach((id) => api.removeElement(id)))
-    this.deselect([...removal])
+    this.deselect(removal)
   }
 
   duplicateElements(ids: Iterable<ElementId>): ElementId[] {
-    const clones: Element[] = []
-    for (const id of ids) {
-      const source = this.snapshot.elements[id]
-      if (!source) continue
-      clones.push({
-        ...structuredClone(source),
-        id: createId(),
-        x: source.x + DUPLICATE_OFFSET,
-        y: source.y + DUPLICATE_OFFSET,
-      })
-    }
-    if (clones.length === 0) return []
+    const payload = createSceneClipboard(this.snapshot, ids)
+    if (!payload) return []
+    const { elements: clones, ids: cloneIds } = cloneSceneClipboard(payload, DUPLICATE_OFFSET_POINT)
+    this.stopCapturing()
     this.transact((api) => clones.forEach((clone) => api.addElement(clone)))
-    const cloneIds = clones.map((clone) => clone.id)
+    this.stopCapturing()
     this.setUiState({ selectedIds: new Set(cloneIds) })
+    return cloneIds
+  }
+
+  createClipboard(ids: Iterable<ElementId>): SceneClipboardPayload | null {
+    return createSceneClipboard(this.snapshot, ids)
+  }
+
+  copyElements(ids: Iterable<ElementId>): SceneClipboardPayload | null {
+    const payload = this.createClipboard(ids)
+    if (!payload) return null
+    this.clipboard = payload
+    this.clipboardPasteCount = 0
+    this.setUiState({ clipboardElementCount: payload.elements.length })
+    return payload
+  }
+
+  cutElements(ids: Iterable<ElementId>): SceneClipboardPayload | null {
+    const removal = this.removalIdsFor(ids)
+    if (removal.length === 0) return null
+    const payload = createSceneClipboard(this.snapshot, removal)
+    if (!payload) return null
+    this.clipboard = payload
+    this.clipboardPasteCount = 0
+    this.stopCapturing()
+    this.transact((api) => removal.forEach((id) => api.removeElement(id)))
+    this.stopCapturing()
+    this.deselect(removal)
+    this.setUiState({ clipboardElementCount: payload.elements.length, activeTool: 'select' })
+    return payload
+  }
+
+  pasteElements(options: PasteElementsOptions = {}): ElementId[] {
+    const payload = Object.hasOwn(options, 'payload') ? options.payload : this.clipboard
+    if (!payload) return []
+    const pasteCount = this.clipboard?.id === payload.id ? this.clipboardPasteCount + 1 : 1
+    const offset = options.target
+      ? pasteOffsetForTarget(payload, options.target)
+      : { x: DUPLICATE_OFFSET * pasteCount, y: DUPLICATE_OFFSET * pasteCount }
+    const { elements: clones, ids: cloneIds } = cloneSceneClipboard(payload, offset)
+    if (clones.length === 0) return []
+    this.stopCapturing()
+    this.transact((api) => clones.forEach((clone) => api.addElement(clone)))
+    this.stopCapturing()
+    this.clipboard = payload
+    this.clipboardPasteCount = pasteCount
+    this.setUiState({
+      selectedIds: new Set(cloneIds),
+      activeTool: 'select',
+      clipboardElementCount: payload.elements.length,
+    })
     return cloneIds
   }
 
@@ -246,6 +305,16 @@ export class SceneStore {
       if (selected.delete(id)) changed = true
     }
     if (changed) this.setUiState({ selectedIds: selected })
+  }
+
+  private removalIdsFor(ids: Iterable<ElementId>): ElementId[] {
+    const direct = [...ids].filter((id) => this.yElements.has(id))
+    if (direct.length === 0) return []
+    const removal = new Set(direct)
+    for (const id of direct) {
+      for (const arrowId of this.arrowsForShape(id)) removal.add(arrowId)
+    }
+    return [...removal]
   }
 
   stopCapturing(): void {
