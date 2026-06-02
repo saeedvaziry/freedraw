@@ -5,9 +5,11 @@ import { ActionsBar } from '@freedraw/ui'
 interface ActionsBarHostProps {
   store: SceneStore
   controller: EditorController | null
+  theme: 'light' | 'dark'
+  onToggleTheme(): void
 }
 
-export function ActionsBarHost({ store, controller }: ActionsBarHostProps) {
+export function ActionsBarHost({ store, controller, theme, onToggleTheme }: ActionsBarHostProps) {
   const history = useSyncExternalStore(
     (cb) => store.subscribeHistory(cb),
     () => historySnapshot(store),
@@ -30,6 +32,8 @@ export function ActionsBarHost({ store, controller }: ActionsBarHostProps) {
       onCopy={() => store.copyElements(store.getUiState().selectedIds)}
       onCut={() => store.cutElements(store.getUiState().selectedIds)}
       onPaste={() => store.pasteElements({ target: controller?.cursorWorldPoint })}
+      theme={theme}
+      onToggleTheme={onToggleTheme}
     />
   )
 }

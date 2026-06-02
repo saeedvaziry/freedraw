@@ -11,6 +11,7 @@ import {
 } from '../geometry/grid.js'
 import type { ArrowElement, Element, SceneSnapshot } from '../model/types.js'
 import { getPainter } from './painters/index.js'
+import { invertingContext } from './invert.js'
 import { paintHover, paintMarquee, paintSelection } from './overlay/selection.js'
 import { paintPorts, paintTargetHighlight } from './overlay/ports.js'
 import { paintArrowHandles } from './overlay/arrowHandles.js'
@@ -53,10 +54,12 @@ export class Renderer {
   private readonly overlay: HTMLCanvasElement
   private readonly sceneCtx: CanvasRenderingContext2D
   private readonly overlayCtx: CanvasRenderingContext2D
+  private readonly invertedSceneCtx: CanvasRenderingContext2D
   private readonly grid: GridStyle
   private dpr = 1
   private cssWidth = 0
   private cssHeight = 0
+  private dark = false
 
   constructor(
     scene: HTMLCanvasElement,
@@ -70,7 +73,16 @@ export class Renderer {
     this.overlay = overlay
     this.sceneCtx = sceneCtx
     this.overlayCtx = overlayCtx
+    this.invertedSceneCtx = invertingContext(sceneCtx)
     this.grid = { ...defaultGrid, ...grid }
+  }
+
+  setDark(dark: boolean): void {
+    this.dark = dark
+  }
+
+  private get drawCtx(): CanvasRenderingContext2D {
+    return this.dark ? this.invertedSceneCtx : this.sceneCtx
   }
 
   get viewportWidth(): number {
@@ -100,7 +112,8 @@ export class Renderer {
   }
 
   renderScene(snapshot: SceneSnapshot, camera: Camera, editingId: string | null = null): void {
-    const { sceneCtx: ctx, dpr, cssWidth, cssHeight, grid } = this
+    const { dpr, cssWidth, cssHeight, grid } = this
+    const ctx = this.drawCtx
     const scale = dpr * camera.zoom
 
     ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -158,7 +171,8 @@ export class Renderer {
     major: boolean,
     zoom: number,
   ): void {
-    const { sceneCtx: ctx, grid } = this
+    const ctx = this.drawCtx
+    const { grid } = this
     ctx.save()
     ctx.strokeStyle = major ? grid.majorColor : grid.color
     ctx.lineWidth = (major ? grid.majorLineWidth : grid.lineWidth) / zoom
@@ -178,7 +192,7 @@ export class Renderer {
   }
 
   private paintElements(snapshot: SceneSnapshot, viewport: Rect, editingId: string | null): void {
-    const { sceneCtx: ctx } = this
+    const ctx = this.drawCtx
     for (const id of snapshot.order) {
       const element = snapshot.elements[id]
       if (!element) continue

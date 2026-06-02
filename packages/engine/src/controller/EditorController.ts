@@ -124,6 +124,11 @@ export class EditorController {
     this.loop.markDirty()
   }
 
+  setDark(dark: boolean): void {
+    this.renderer.setDark(dark)
+    this.loop.markDirty()
+  }
+
   setImageBlobLoader(loader: BlobLoader): void {
     this.blobLoader = loader
   }

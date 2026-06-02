@@ -9,6 +9,7 @@ import { ZoomIndicator } from '../components/ZoomIndicator.js'
 import { createBoard } from '../board/createBoard.js'
 import { useBoardClipboard } from '../hooks/useBoardClipboard.js'
 import { useKeyboard } from '../hooks/useKeyboard.js'
+import { useTheme } from '../hooks/useTheme.js'
 
 export function BoardRoute() {
   const [store, setStore] = useState<SceneStore | null>(null)
@@ -51,8 +52,13 @@ function Board({ store }: BoardProps) {
   const openImagePicker = useCallback(() => {
     pickerRef.current?.()
   }, [])
+  const { theme, toggle } = useTheme()
   useKeyboard(store, controller, openImagePicker)
   useBoardClipboard(store, controller)
+
+  useEffect(() => {
+    controller?.setDark(theme === 'dark')
+  }, [controller, theme])
 
   return (
     <div className="relative h-full w-full">
@@ -65,7 +71,12 @@ function Board({ store }: BoardProps) {
         <ToolbarHost store={store} onImageButton={openImagePicker} />
       </div>
       <div className="pointer-events-none absolute bottom-6 left-6 flex justify-start">
-        <ActionsBarHost store={store} controller={controller} />
+        <ActionsBarHost
+          store={store}
+          controller={controller}
+          theme={theme}
+          onToggleTheme={toggle}
+        />
       </div>
       <div className="pointer-events-none absolute right-6 bottom-6 flex justify-end">
         <ZoomIndicator store={store} />

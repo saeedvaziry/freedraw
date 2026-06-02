@@ -3,9 +3,11 @@ import {
   ClipboardCopy,
   ClipboardPaste,
   CopyPlus,
+  Moon,
   MoreHorizontal,
   Redo2,
   Scissors,
+  Sun,
   Trash2,
   Undo2,
 } from 'lucide-react'
@@ -24,6 +26,8 @@ export interface ActionsBarProps {
   onCopy(): void
   onCut(): void
   onPaste(): void
+  theme: 'light' | 'dark'
+  onToggleTheme(): void
 }
 
 interface ActionDef {
@@ -46,6 +50,8 @@ export function ActionsBar({
   onCopy,
   onCut,
   onPaste,
+  theme,
+  onToggleTheme,
 }: ActionsBarProps) {
   const actions: ActionDef[] = [
     { key: 'undo', label: 'Undo', Icon: Undo2, onClick: onUndo, disabled: !canUndo },
@@ -66,6 +72,12 @@ export function ActionsBar({
           </ActionButton>
         ))}
         <div className="mx-1 h-7 w-px bg-border" />
+        <ActionButton
+          label={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+          onClick={onToggleTheme}
+        >
+          {theme === 'dark' ? <Sun /> : <Moon />}
+        </ActionButton>
         <ActionButton label="More" disabled>
           <MoreHorizontal />
         </ActionButton>
