@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  createFreedraw,
   createImage,
   createSticky,
   fitToViewport,
@@ -32,6 +33,21 @@ describe('fitToViewport', () => {
     const { width, height } = fitToViewport(100, 50, 1000, 800)
     expect(width).toBe(100)
     expect(height).toBe(50)
+  })
+})
+
+describe('createFreedraw', () => {
+  it('derives the AABB from the captured points', () => {
+    const freedraw = createFreedraw({
+      points: [
+        { x: 10, y: 20 },
+        { x: 40, y: 5 },
+        { x: 25, y: 50 },
+      ],
+    })
+    expect(freedraw.type).toBe('freedraw')
+    expect(freedraw).toMatchObject({ x: 10, y: 5, width: 30, height: 45, rotation: 0 })
+    expect(freedraw.points).toHaveLength(3)
   })
 })
 

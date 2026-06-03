@@ -8,7 +8,7 @@ import { resizeElements, resizedBounds, rotationFor } from '../geometry/transfor
 import { selectionFrameFor } from '../geometry/selectionFrame.js'
 import { moveRouteSegment } from '../geometry/arrowGeometry.js'
 import { planConnectedShape, spawnConnectedShape, type SpawnDirection } from '../connectors/spawn.js'
-import { createArrow } from '../model/factory.js'
+import { createArrow, pointsBounds } from '../model/factory.js'
 import { polylineMidpoint } from '../text/arrowLabel.js'
 import { arrowRoute } from '../connectors/resolve.js'
 import { arrowHandleAtScreen, type ArrowHandle } from '../render/overlay/arrowHandles.js'
@@ -420,6 +420,11 @@ export class SelectTool implements Tool {
           const translate = (point: Point) => ({ x: point.x + dx, y: point.y + dy })
           const points = element.points.map(translate)
           api.updateElement(id, { points })
+          continue
+        }
+        if (element.type === 'freedraw') {
+          const points = element.points.map((point) => ({ x: point.x + dx, y: point.y + dy }))
+          api.updateElement(id, { points, ...pointsBounds(points) })
           continue
         }
         api.updateElement(id, { x: element.x + dx, y: element.y + dy })

@@ -4,6 +4,7 @@ import type {
   ArrowElement,
   Binding,
   ElementId,
+  FreedrawElement,
   ImageElement,
   Point,
   ShapeElement,
@@ -174,6 +175,23 @@ export function pointsBounds(points: Point[]): {
     maxY = Math.max(maxY, point.y)
   }
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+}
+
+export interface FreedrawInit {
+  id?: ElementId
+  points: Point[]
+  style?: Partial<Style>
+}
+
+export function createFreedraw(init: FreedrawInit): FreedrawElement {
+  return {
+    id: init.id ?? createId(),
+    type: 'freedraw',
+    ...pointsBounds(init.points),
+    rotation: 0,
+    style: { ...defaultStyle, ...init.style },
+    points: init.points,
+  }
 }
 
 export interface ArrowInit {

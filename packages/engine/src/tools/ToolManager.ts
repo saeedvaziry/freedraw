@@ -1,6 +1,7 @@
 import type { ShapeType } from '../model/types.js'
 import type { ToolId } from '../store/SceneStore.js'
 import { ArrowTool } from './ArrowTool.js'
+import { FreedrawTool } from './FreedrawTool.js'
 import { HandTool } from './HandTool.js'
 import { SelectTool } from './SelectTool.js'
 import { ShapeTool } from './ShapeTool.js'
@@ -20,6 +21,7 @@ export class ToolManager {
   private readonly lineTool = new ArrowTool('line')
   private readonly textTool = new TextTool()
   private readonly stickyTool = new StickyTool()
+  private readonly freedrawTool = new FreedrawTool()
   private active: Tool
 
   constructor(private readonly ctx: ToolContext) {
@@ -46,6 +48,7 @@ export class ToolManager {
     if (toolId === 'line') return this.lineTool
     if (toolId === 'text') return this.textTool
     if (toolId === 'sticky') return this.stickyTool
+    if (toolId === 'freedraw') return this.freedrawTool
     if (toolId === 'shape') {
       if (options.shapeType) this.shapeTool.setShapeType(options.shapeType)
       return this.shapeTool

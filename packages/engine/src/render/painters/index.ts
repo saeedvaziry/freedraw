@@ -1,5 +1,6 @@
 import type { Element, ShapeType } from '../../model/types.js'
 import { paintArrow } from './arrow.js'
+import { paintFreedraw } from './freedraw.js'
 import { paintImage } from './image.js'
 import { paintShape } from './shape.js'
 import { paintSticky } from './sticky.js'
@@ -28,6 +29,7 @@ const painters: Partial<Record<string, Painter>> = {
   text: paintText,
   sticky: paintSticky,
   image: paintImage,
+  freedraw: paintFreedraw,
 }
 
 export function getPainter(type: string): Painter | undefined {

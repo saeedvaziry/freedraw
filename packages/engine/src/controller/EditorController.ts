@@ -503,7 +503,8 @@ function elementsFor(ids: Set<ElementId>, elements: Record<ElementId, Element>):
 
 function cursorFor(toolId: string): string {
   if (toolId === 'hand') return 'grab'
-  if (toolId === 'shape' || toolId === 'arrow' || toolId === 'line') return 'crosshair'
+  if (toolId === 'shape' || toolId === 'arrow' || toolId === 'line' || toolId === 'freedraw')
+    return 'crosshair'
   return 'default'
 }
 

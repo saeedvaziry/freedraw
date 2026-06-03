@@ -55,15 +55,20 @@ export function resizeElements(
 ): ResizeResult[] {
   const sx = next.width / frame.bounds.width
   const sy = next.height / frame.bounds.height
-  return elements.map((element) => ({
-    id: element.id,
-    patch: {
-      x: next.x + (element.x - frame.bounds.x) * sx,
-      y: next.y + (element.y - frame.bounds.y) * sy,
-      width: Math.max(MIN_DIMENSION, element.width * sx),
-      height: Math.max(MIN_DIMENSION, element.height * sy),
-    },
-  }))
+  return elements.map((element) => {
+    const x = next.x + (element.x - frame.bounds.x) * sx
+    const y = next.y + (element.y - frame.bounds.y) * sy
+    const width = Math.max(MIN_DIMENSION, element.width * sx)
+    const height = Math.max(MIN_DIMENSION, element.height * sy)
+    if (element.type === 'freedraw') {
+      const points = element.points.map((point) => ({
+        x: x + (point.x - element.x) * sx,
+        y: y + (point.y - element.y) * sy,
+      }))
+      return { id: element.id, patch: { x, y, width, height, points } }
+    }
+    return { id: element.id, patch: { x, y, width, height } }
+  })
 }
 
 export function rotationFor(frame: SelectionFrame, pointer: Point): number {

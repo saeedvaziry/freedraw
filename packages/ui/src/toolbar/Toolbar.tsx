@@ -3,6 +3,7 @@ import {
   Image as ImageIcon,
   MousePointer2,
   MoveUpRight,
+  Pencil,
   StickyNote,
   Type,
   type LucideIcon,
@@ -15,6 +16,7 @@ export type ToolKey =
   | 'select'
   | 'hand'
   | 'arrow'
+  | 'freedraw'
   | 'text'
   | 'sticky'
   | 'image'
@@ -31,6 +33,7 @@ const TOOLS: ToolDef[] = [
   { key: 'select', label: 'Select', Icon: MousePointer2, shortcut: 'V' },
   { key: 'hand', label: 'Hand', Icon: Hand, shortcut: 'H' },
   { key: 'arrow', label: 'Arrow', Icon: MoveUpRight, shortcut: 'A' },
+  { key: 'freedraw', label: 'Draw', Icon: Pencil, shortcut: 'B' },
   { key: 'text', label: 'Text', Icon: Type, shortcut: 'X' },
   { key: 'sticky', label: 'Sticky note', Icon: StickyNote, shortcut: 'N' },
   { key: 'image', label: 'Image', Icon: ImageIcon, shortcut: 'I' },

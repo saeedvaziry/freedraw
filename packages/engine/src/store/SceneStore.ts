@@ -65,6 +65,7 @@ export type ToolId =
   | 'text'
   | 'sticky'
   | 'image'
+  | 'freedraw'
   | 'shape'
 
 export interface UiState {

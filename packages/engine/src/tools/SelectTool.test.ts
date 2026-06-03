@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Camera } from '../geometry/Camera.js'
 import { createBinding } from '../connectors/binding.js'
-import { createArrow, createShape } from '../model/factory.js'
+import { createArrow, createFreedraw, createShape } from '../model/factory.js'
 import { SceneStore } from '../store/SceneStore.js'
 import type { ArrowElement, Element } from '../model/types.js'
 import type { SpawnPreview } from '../render/Renderer.js'
@@ -386,5 +386,34 @@ describe('SelectTool', () => {
 
     expect(handled).toBeUndefined()
     expect(getSpawnMenu()).toBeNull()
+  })
+
+  it('moves a freedraw stroke by translating its points and keeps the bounds in sync', () => {
+    const { ctx, store } = makeContext()
+    const draw = createFreedraw({
+      id: 'draw',
+      points: [
+        { x: 0, y: 0 },
+        { x: 200, y: 200 },
+      ],
+    })
+    store.transact((api) => api.addElement(draw))
+    store.setUiState({ selectedIds: new Set(['draw']) })
+    const tool = new SelectTool()
+
+    tool.onPointerDown(pointer({ x: 100, y: 100 }), ctx)
+    tool.onPointerMove(pointer({ x: 140, y: 120 }), ctx)
+    tool.onPointerUp(pointer({ x: 140, y: 120 }), ctx)
+
+    const moved = store.getSnapshot().elements['draw']!
+    if (moved.type !== 'freedraw') throw new Error('expected freedraw')
+    const dx = moved.points[0]!.x
+    const dy = moved.points[0]!.y
+    expect(dx).toBeGreaterThan(0)
+    expect(moved.points).toEqual([
+      { x: dx, y: dy },
+      { x: dx + 200, y: dy + 200 },
+    ])
+    expect(moved).toMatchObject({ x: dx, y: dy, width: 200, height: 200 })
   })
 })

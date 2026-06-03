@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createShape } from '../model/factory.js'
+import { createFreedraw, createShape } from '../model/factory.js'
 import { GRID_SIZE } from './grid.js'
 import { selectionFrameFor } from './selectionFrame.js'
 import { resizeElements, resizedBounds, rotationFor } from './transform.js'
@@ -39,6 +39,25 @@ describe('resizeElements', () => {
     const results = resizeElements([a, b], frame, { x: 0, y: 0, width: 200, height: 200 })
     expect(results[0]?.patch).toMatchObject({ x: 0, y: 0, width: 100, height: 100 })
     expect(results[1]?.patch).toMatchObject({ x: 100, y: 100, width: 100, height: 100 })
+  })
+
+  it('scales the points of a freedraw element along with its bounds', () => {
+    const draw = createFreedraw({
+      id: 'd',
+      points: [
+        { x: 0, y: 0 },
+        { x: 50, y: 100 },
+        { x: 100, y: 0 },
+      ],
+    })
+    const frame = selectionFrameFor([draw])!
+    const results = resizeElements([draw], frame, { x: 0, y: 0, width: 200, height: 200 })
+    expect(results[0]?.patch).toMatchObject({ x: 0, y: 0, width: 200, height: 200 })
+    expect((results[0]?.patch as { points: { x: number; y: number }[] }).points).toEqual([
+      { x: 0, y: 0 },
+      { x: 100, y: 200 },
+      { x: 200, y: 0 },
+    ])
   })
 })
 

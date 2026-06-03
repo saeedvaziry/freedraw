@@ -10,6 +10,7 @@ const TOOL_HOTKEYS: Record<string, ToolHotkey> = {
   v: { tool: 'select' },
   h: { tool: 'hand' },
   a: { tool: 'arrow' },
+  b: { tool: 'freedraw' },
   x: { tool: 'text' },
   n: { tool: 'sticky' },
   i: { tool: 'image' },

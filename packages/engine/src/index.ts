@@ -30,6 +30,7 @@ export { HandTool } from './tools/HandTool.js'
 export { SelectTool } from './tools/SelectTool.js'
 export { ArrowTool } from './tools/ArrowTool.js'
 export { TextTool } from './tools/TextTool.js'
+export { FreedrawTool } from './tools/FreedrawTool.js'
 
 export {
   layoutText,
@@ -99,6 +100,7 @@ export {
   createText,
   createSticky,
   createImage,
+  createFreedraw,
   createId,
   pointsBounds,
   fitToViewport,
@@ -107,7 +109,14 @@ export {
   STICKY_DEFAULT_WIDTH,
   STICKY_DEFAULT_HEIGHT,
 } from './model/factory.js'
-export type { ShapeInit, ArrowInit, TextInit, StickyInit, ImageInit } from './model/factory.js'
+export type {
+  ShapeInit,
+  ArrowInit,
+  TextInit,
+  StickyInit,
+  ImageInit,
+  FreedrawInit,
+} from './model/factory.js'
 
 export { ImageCache } from './assets/imageCache.js'
 export type {
