@@ -8,6 +8,7 @@ import { ToolbarHost } from '../components/ToolbarHost.js'
 import { ZoomIndicator } from '../components/ZoomIndicator.js'
 import { createBoard } from '../board/createBoard.js'
 import { useBoardClipboard } from '../hooks/useBoardClipboard.js'
+import { useExport } from '../hooks/useExport.js'
 import { useKeyboard } from '../hooks/useKeyboard.js'
 import { useTheme } from '../hooks/useTheme.js'
 
@@ -53,7 +54,8 @@ function Board({ store }: BoardProps) {
     pickerRef.current?.()
   }, [])
   const { theme, toggle } = useTheme()
-  useKeyboard(store, controller, openImagePicker)
+  const boardExport = useExport(controller)
+  useKeyboard(store, controller, openImagePicker, boardExport)
   useBoardClipboard(store, controller)
 
   useEffect(() => {
@@ -74,6 +76,7 @@ function Board({ store }: BoardProps) {
         <ActionsBarHost
           store={store}
           controller={controller}
+          boardExport={boardExport}
           theme={theme}
           onToggleTheme={toggle}
         />

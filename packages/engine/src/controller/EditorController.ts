@@ -16,6 +16,12 @@ import { measureTextBox, type TextSize } from '../text/size.js'
 import type { Style } from '../model/types.js'
 import { createRenderLoop, type RenderLoopHandle } from '../render/loop.js'
 import { Renderer, type OverlayState, type SpawnPreview } from '../render/Renderer.js'
+import {
+  canvasToBlob,
+  exportImageAssetIds,
+  renderSceneToCanvas,
+  type ExportFormat,
+} from '../render/exportScene.js'
 import { setImageCache } from '../render/painters/image.js'
 import { clearTextLayoutCache } from '../render/painters/text.js'
 import { HANDWRITTEN_FONT_FAMILY } from '../text/measure.js'
@@ -233,6 +239,32 @@ export class EditorController {
     const center = this.camera.screenToWorld({ x: width / 2, y: height / 2 })
     this.camera.zoomToScreenPoint(1, this.camera.worldToScreen(center))
     this.commitCamera()
+  }
+
+  async exportImage(options: ExportImageOptions): Promise<Blob | null> {
+    const snapshot = this.store.getSnapshot()
+    await this.imageCache.ensureBitmaps(exportImageAssetIds(snapshot))
+    const canvas = renderSceneToCanvas(snapshot, {
+      format: options.format,
+      scale: options.scale,
+      background: exportBackground(options),
+      dark: options.dark,
+    })
+    if (!canvas) return null
+    return canvasToBlob(canvas, { format: options.format })
+  }
+
+  async copyImageToClipboard(options?: Partial<ExportImageOptions>): Promise<boolean> {
+    const blob = await this.exportImage({
+      format: 'png',
+      transparent: false,
+      dark: this.darkMode,
+      ...options,
+    })
+    if (!blob) return false
+    if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) return false
+    await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })])
+    return true
   }
 
   measureTextSize(text: string, style: Style): TextSize {
@@ -490,6 +522,20 @@ export class EditorController {
     const rect = this.overlay.getBoundingClientRect()
     return { x: clientX - rect.left, y: clientY - rect.top }
   }
+}
+
+export interface ExportImageOptions {
+  format: ExportFormat
+  transparent: boolean
+  dark?: boolean
+  scale?: number
+}
+
+const EXPORT_BASE_BACKGROUND = '#ffffff'
+
+function exportBackground(options: ExportImageOptions): string | null {
+  if (options.format === 'png' && options.transparent) return null
+  return EXPORT_BASE_BACKGROUND
 }
 
 function elementsFor(ids: Set<ElementId>, elements: Record<ElementId, Element>): Element[] {

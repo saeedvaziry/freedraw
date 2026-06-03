@@ -34,6 +34,18 @@ export class ImageCache {
     this.bitmaps.set(assetId, bitmap)
   }
 
+  async ensureBitmaps(assetIds: Iterable<string>): Promise<void> {
+    const decodes = [...assetIds].map((assetId) => {
+      if (this.bitmaps.has(assetId)) return Promise.resolve()
+      const existing = this.pending.get(assetId)
+      if (existing) return existing
+      const task = this.load(assetId).finally(() => this.pending.delete(assetId))
+      this.pending.set(assetId, task)
+      return task
+    })
+    await Promise.all(decodes)
+  }
+
   private requestDecode(assetId: string): void {
     if (this.pending.has(assetId)) return
     const task = this.load(assetId).finally(() => this.pending.delete(assetId))

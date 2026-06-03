@@ -23,6 +23,16 @@ export { deriveSelectionStyle, MIXED } from './store/selectionStyle.js'
 export type { SelectionStyle, StyleValue } from './store/selectionStyle.js'
 
 export { EditorController } from './controller/EditorController.js'
+export type { ExportImageOptions } from './controller/EditorController.js'
+export {
+  renderSceneToCanvas,
+  canvasToBlob,
+  exportImageAssetIds,
+  EXPORT_DEFAULT_PADDING,
+  EXPORT_DEFAULT_SCALE,
+  EXPORT_JPG_QUALITY,
+} from './render/exportScene.js'
+export type { ExportFormat, ExportOptions } from './render/exportScene.js'
 
 export { ToolManager } from './tools/ToolManager.js'
 export { ShapeTool } from './tools/ShapeTool.js'

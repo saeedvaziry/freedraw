@@ -4,7 +4,6 @@ import {
   ClipboardPaste,
   CopyPlus,
   Moon,
-  MoreHorizontal,
   Redo2,
   Scissors,
   Sun,
@@ -13,12 +12,14 @@ import {
 } from 'lucide-react'
 import { cn } from '../lib/utils.js'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip.js'
+import { ExportMenu, type ExportFormat } from '../export-menu/ExportMenu.js'
 
 export interface ActionsBarProps {
   canUndo: boolean
   canRedo: boolean
   hasSelection: boolean
   hasClipboard: boolean
+  canExport: boolean
   onUndo(): void
   onRedo(): void
   onDelete(): void
@@ -26,6 +27,8 @@ export interface ActionsBarProps {
   onCopy(): void
   onCut(): void
   onPaste(): void
+  onExport(format: ExportFormat, transparent: boolean, dark: boolean): void
+  onCopyToClipboard(): void
   theme: 'light' | 'dark'
   onToggleTheme(): void
 }
@@ -43,6 +46,7 @@ export function ActionsBar({
   canRedo,
   hasSelection,
   hasClipboard,
+  canExport,
   onUndo,
   onRedo,
   onDelete,
@@ -50,6 +54,8 @@ export function ActionsBar({
   onCopy,
   onCut,
   onPaste,
+  onExport,
+  onCopyToClipboard,
   theme,
   onToggleTheme,
 }: ActionsBarProps) {
@@ -78,9 +84,12 @@ export function ActionsBar({
         >
           {theme === 'dark' ? <Sun /> : <Moon />}
         </ActionButton>
-        <ActionButton label="More" disabled>
-          <MoreHorizontal />
-        </ActionButton>
+        <ExportMenu
+          disabled={!canExport}
+          theme={theme}
+          onExport={onExport}
+          onCopyToClipboard={onCopyToClipboard}
+        />
       </div>
     </TooltipProvider>
   )

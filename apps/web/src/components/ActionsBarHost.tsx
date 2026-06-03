@@ -1,15 +1,23 @@
 import { useSyncExternalStore } from 'react'
 import type { EditorController, SceneStore } from '@freedraw/engine'
 import { ActionsBar } from '@freedraw/ui'
+import type { BoardExport } from '../hooks/useExport.js'
 
 interface ActionsBarHostProps {
   store: SceneStore
   controller: EditorController | null
+  boardExport: BoardExport
   theme: 'light' | 'dark'
   onToggleTheme(): void
 }
 
-export function ActionsBarHost({ store, controller, theme, onToggleTheme }: ActionsBarHostProps) {
+export function ActionsBarHost({
+  store,
+  controller,
+  boardExport,
+  theme,
+  onToggleTheme,
+}: ActionsBarHostProps) {
   const history = useSyncExternalStore(
     (cb) => store.subscribeHistory(cb),
     () => historySnapshot(store),
@@ -18,6 +26,11 @@ export function ActionsBarHost({ store, controller, theme, onToggleTheme }: Acti
     (cb) => store.subscribeUi(cb),
     () => store.getUiState(),
   )
+  const snapshot = useSyncExternalStore(
+    (cb) => store.subscribe(cb),
+    () => store.getSnapshot(),
+  )
+  const { exportImage, copyImage } = boardExport
 
   return (
     <ActionsBar
@@ -25,6 +38,7 @@ export function ActionsBarHost({ store, controller, theme, onToggleTheme }: Acti
       canRedo={history.canRedo}
       hasSelection={ui.selectedIds.size > 0}
       hasClipboard={ui.clipboardElementCount > 0}
+      canExport={snapshot.order.length > 0}
       onUndo={() => store.undo()}
       onRedo={() => store.redo()}
       onDelete={() => store.deleteElements(store.getUiState().selectedIds)}
@@ -32,6 +46,8 @@ export function ActionsBarHost({ store, controller, theme, onToggleTheme }: Acti
       onCopy={() => store.copyElements(store.getUiState().selectedIds)}
       onCut={() => store.cutElements(store.getUiState().selectedIds)}
       onPaste={() => store.pasteElements({ target: controller?.cursorWorldPoint })}
+      onExport={(format, transparent, dark) => void exportImage(format, transparent, dark)}
+      onCopyToClipboard={() => void copyImage()}
       theme={theme}
       onToggleTheme={onToggleTheme}
     />

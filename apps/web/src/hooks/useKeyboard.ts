@@ -27,16 +27,33 @@ const TOOL_HOTKEYS: Record<string, ToolHotkey> = {
   e: { tool: 'shape', shapeType: 'heart' },
 }
 
+interface KeyboardExport {
+  exportImage(format: 'png' | 'jpg', transparent: boolean, dark: boolean): void | Promise<void>
+  copyImage(): void | Promise<void>
+}
+
 export function useKeyboard(
   store: SceneStore,
   controller: EditorController | null,
   onImageButton: () => void,
+  exportActions: KeyboardExport,
 ): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (isEditableTarget(event.target)) return
       const mod = event.metaKey || event.ctrlKey
       const key = event.key.toLowerCase()
+
+      if (mod && key === 's') {
+        event.preventDefault()
+        void exportActions.exportImage('png', false, controller?.isDark ?? false)
+        return
+      }
+      if (mod && event.shiftKey && key === 'c') {
+        event.preventDefault()
+        void exportActions.copyImage()
+        return
+      }
 
       if (mod && key === 'z') {
         event.preventDefault()
@@ -94,7 +111,7 @@ export function useKeyboard(
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [store, controller, onImageButton])
+  }, [store, controller, onImageButton, exportActions])
 }
 
 export function isEditableTarget(target: EventTarget | null): boolean {

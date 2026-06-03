@@ -10,7 +10,7 @@ import {
   type GridConfig,
 } from '../geometry/grid.js'
 import type { ArrowElement, Element, SceneSnapshot } from '../model/types.js'
-import { getPainter } from './painters/index.js'
+import { paintElement } from './painters/index.js'
 import { invertingContext } from './invert.js'
 import { paintHover, paintMarquee, paintSelection } from './overlay/selection.js'
 import { paintPorts, paintTargetHighlight } from './overlay/ports.js'
@@ -221,21 +221,4 @@ function withoutText(element: Element): Element {
   if (element.type === 'text') return { ...element, text: '' }
   if (element.label) return { ...element, label: undefined }
   return element
-}
-
-function paintElement(ctx: CanvasRenderingContext2D, element: Element): void {
-  const painter = getPainter(element.type)
-  if (!painter) return
-  if (!element.rotation) {
-    painter(ctx, element)
-    return
-  }
-  const cx = element.x + element.width / 2
-  const cy = element.y + element.height / 2
-  ctx.save()
-  ctx.translate(cx, cy)
-  ctx.rotate(element.rotation)
-  ctx.translate(-cx, -cy)
-  painter(ctx, element)
-  ctx.restore()
 }
