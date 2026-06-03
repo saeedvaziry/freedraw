@@ -6,6 +6,7 @@ import { snapPointToGrid } from '../geometry/grid.js'
 import { snapEndpoint, SNAP_DISTANCE } from '../geometry/snap.js'
 import { resizeElements, resizedBounds, rotationFor } from '../geometry/transform.js'
 import { selectionFrameFor } from '../geometry/selectionFrame.js'
+import { labelRect } from '../geometry/shapeOutline.js'
 import { moveRouteSegment } from '../geometry/arrowGeometry.js'
 import { planConnectedShape, spawnConnectedShape, type SpawnDirection } from '../connectors/spawn.js'
 import { createArrow, pointsBounds } from '../model/factory.js'
@@ -188,7 +189,7 @@ export class SelectTool implements Tool {
       elementId: element.id,
       target: 'label',
       text: label?.text ?? '',
-      world: { x: element.x, y: element.y, width: element.width, height: element.height },
+      world: labelRect(element.type, element),
       style: element.style,
       align: label?.align ?? element.style.textAlign,
       verticalAlign: label?.verticalAlign ?? 'middle',

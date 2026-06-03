@@ -2,6 +2,7 @@ import { ImageCache, type BlobLoader } from '../assets/imageCache.js'
 import { Camera } from '../geometry/Camera.js'
 import { contentBounds, fitCamera } from '../geometry/fit.js'
 import { selectionFrameFor } from '../geometry/selectionFrame.js'
+import { labelRect } from '../geometry/shapeOutline.js'
 import type { Rect } from '../geometry/rect.js'
 import type { SnapGuide } from '../geometry/snap.js'
 import { InputManager } from '../input/InputManager.js'
@@ -207,7 +208,7 @@ export class EditorController {
       elementId: target.id,
       target: 'label',
       text: '',
-      world: { x: target.x, y: target.y, width: target.width, height: target.height },
+      world: labelRect(target.type, target),
       style: target.style,
       align: target.style.textAlign,
       verticalAlign: 'middle',
@@ -361,7 +362,10 @@ export class EditorController {
 
   private syncTool(): void {
     const ui = this.store.getUiState()
-    this.tools.setActive(ui.activeTool, { shapeType: ui.activeShapeType })
+    this.tools.setActive(ui.activeTool, {
+      shapeType: ui.activeShapeType,
+      stickyColor: ui.activeStickyColor,
+    })
     this.overlay.style.cursor = cursorFor(ui.activeTool)
   }
 

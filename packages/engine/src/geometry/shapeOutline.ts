@@ -139,20 +139,27 @@ function roundRectOutline(bounds: Rect, roundness: number): Outline {
   }
 }
 
+function cylinderCapRadius(width: number, height: number): number {
+  return Math.min(height * 0.18, width * 0.35)
+}
+
 function cylinderOutline(bounds: Rect): Outline {
   const { x, y, width, height } = bounds
-  const ellipseHeight = Math.min(height * 0.25, width * 0.5)
-  const ry = ellipseHeight / 2
   const rx = width / 2
+  const ry = cylinderCapRadius(width, height)
   const cx = x + width / 2
+  const topCy = y + ry
+  const bottomCy = y + height - ry
   return {
     kind: 'path',
     build: (ctx) => {
-      ctx.moveTo(x, y + ry)
-      ctx.ellipse(cx, y + ry, rx, ry, 0, Math.PI, Math.PI * 2)
-      ctx.lineTo(x + width, y + height - ry)
-      ctx.ellipse(cx, y + height - ry, rx, ry, 0, 0, Math.PI)
-      ctx.lineTo(x, y + ry)
+      ctx.moveTo(x, topCy)
+      ctx.ellipse(cx, topCy, rx, ry, 0, Math.PI, Math.PI * 2)
+      ctx.lineTo(x + width, bottomCy)
+      ctx.ellipse(cx, bottomCy, rx, ry, 0, 0, Math.PI)
+      ctx.lineTo(x, topCy)
+      ctx.moveTo(x + width, topCy)
+      ctx.ellipse(cx, topCy, rx, ry, 0, 0, Math.PI)
     },
   }
 }
@@ -206,6 +213,17 @@ const outlineFns: Record<string, OutlineFn> = {
 
 export function getOutline(type: string, bounds: Rect, roundness = 0): Outline | undefined {
   return outlineFns[type]?.(bounds, roundness)
+}
+
+export function labelRect(type: string, bounds: Rect): Rect {
+  if (type !== 'cylinder') return bounds
+  const capDepth = cylinderCapRadius(bounds.width, bounds.height) * 2
+  return {
+    x: bounds.x,
+    y: bounds.y + capDepth,
+    width: bounds.width,
+    height: Math.max(0, bounds.height - capDepth),
+  }
 }
 
 export function outlinePathD(outline: Outline): string {

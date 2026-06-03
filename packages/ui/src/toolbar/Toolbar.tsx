@@ -1,15 +1,15 @@
+import { useState } from 'react'
 import {
   Hand,
-  Image as ImageIcon,
   MousePointer2,
   MoveUpRight,
   Pencil,
-  StickyNote,
   Type,
   type LucideIcon,
 } from 'lucide-react'
 import { TooltipProvider } from '../components/ui/tooltip.js'
 import { ToolButton } from './ToolButton.js'
+import { StickyPopover, type StickyColorKey } from './StickyPopover.js'
 import { SHAPES, type ShapeType } from './shapes.js'
 
 export type ToolKey =
@@ -35,8 +35,6 @@ const TOOLS: ToolDef[] = [
   { key: 'arrow', label: 'Arrow', Icon: MoveUpRight, shortcut: 'A' },
   { key: 'freedraw', label: 'Draw', Icon: Pencil, shortcut: 'B' },
   { key: 'text', label: 'Text', Icon: Type, shortcut: 'T' },
-  { key: 'sticky', label: 'Sticky note', Icon: StickyNote, shortcut: 'N' },
-  { key: 'image', label: 'Image', Icon: ImageIcon, shortcut: 'I' },
 ]
 
 const SHAPE_SHORTCUTS: Record<ShapeType, string> = {
@@ -56,16 +54,21 @@ const SHAPE_SHORTCUTS: Record<ShapeType, string> = {
 export interface ToolbarProps {
   activeTool: ToolKey
   activeShapeType: ShapeType
+  activeStickyColor: StickyColorKey
   onSelectTool(tool: ToolKey): void
   onSelectShape(type: ShapeType): void
+  onSelectStickyColor(color: StickyColorKey): void
 }
 
 export function Toolbar({
   activeTool,
   activeShapeType,
+  activeStickyColor,
   onSelectTool,
   onSelectShape,
+  onSelectStickyColor,
 }: ToolbarProps) {
+  const [stickyOpen, setStickyOpen] = useState(false)
   return (
     <TooltipProvider delayDuration={300}>
       <div className="pointer-events-auto grid max-h-[calc(100vh-3rem)] grid-cols-2 gap-1 overflow-y-auto rounded-2xl border bg-background/95 p-1.5 shadow-lg backdrop-blur">
@@ -80,6 +83,16 @@ export function Toolbar({
             <Icon />
           </ToolButton>
         ))}
+        <StickyPopover
+          open={stickyOpen}
+          onOpenChange={setStickyOpen}
+          active={activeTool === 'sticky'}
+          activeColor={activeStickyColor}
+          onSelectColor={(color) => {
+            onSelectStickyColor(color)
+            setStickyOpen(false)
+          }}
+        />
         <div className="col-span-2 my-1 h-px bg-border" />
         {SHAPES.map(({ type, label, Icon }) => (
           <ToolButton

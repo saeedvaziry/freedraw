@@ -1,11 +1,8 @@
 import type { Rect } from '../geometry/rect.js'
 import { snapPointToGrid } from '../geometry/grid.js'
 import type { Point, ShapeElement, ShapeType } from '../model/types.js'
-import {
-  createShape,
-  SHAPE_DEFAULT_HEIGHT,
-  SHAPE_DEFAULT_WIDTH,
-} from '../model/factory.js'
+import { createShape, defaultShapeSize } from '../model/factory.js'
+import { labelRect } from '../geometry/shapeOutline.js'
 import type { PointerInfo, Tool, ToolContext, ToolResult } from './Tool.js'
 
 const PLACEHOLDER_TEXT = ''
@@ -54,7 +51,7 @@ export class ShapeTool implements Tool {
       elementId: element.id,
       target: 'label',
       text: '',
-      world: { x: element.x, y: element.y, width: element.width, height: element.height },
+      world: labelRect(element.type, element),
       style: element.style,
       align: element.style.textAlign,
       verticalAlign: 'middle',
@@ -69,11 +66,12 @@ export class ShapeTool implements Tool {
 
   private defaultBounds(world: Point): Rect {
     const center = snapPointToGrid(world)
+    const { width, height } = defaultShapeSize(this.shapeType)
     return {
-      x: center.x - SHAPE_DEFAULT_WIDTH / 2,
-      y: center.y - SHAPE_DEFAULT_HEIGHT / 2,
-      width: SHAPE_DEFAULT_WIDTH,
-      height: SHAPE_DEFAULT_HEIGHT,
+      x: center.x - width / 2,
+      y: center.y - height / 2,
+      width,
+      height,
     }
   }
 

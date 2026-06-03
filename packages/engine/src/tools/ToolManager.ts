@@ -1,3 +1,4 @@
+import type { StickyColor } from '../model/factory.js'
 import type { ShapeType } from '../model/types.js'
 import type { ToolId } from '../store/SceneStore.js'
 import { ArrowTool } from './ArrowTool.js'
@@ -11,6 +12,7 @@ import type { Tool, ToolContext } from './Tool.js'
 
 export interface SetActiveOptions {
   shapeType?: ShapeType
+  stickyColor?: StickyColor
 }
 
 export class ToolManager {
@@ -47,7 +49,10 @@ export class ToolManager {
     if (toolId === 'arrow') return this.arrowTool
     if (toolId === 'line') return this.lineTool
     if (toolId === 'text') return this.textTool
-    if (toolId === 'sticky') return this.stickyTool
+    if (toolId === 'sticky') {
+      if (options.stickyColor) this.stickyTool.setColor(options.stickyColor)
+      return this.stickyTool
+    }
     if (toolId === 'freedraw') return this.freedrawTool
     if (toolId === 'shape') {
       if (options.shapeType) this.shapeTool.setShapeType(options.shapeType)

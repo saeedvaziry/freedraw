@@ -41,7 +41,7 @@ export function ShapesPopover({
               aria-pressed={shapeToolActive && activeShapeType === type}
               onClick={() => onSelectShape(type)}
               className={cn(
-                'flex h-11 w-11 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-5',
+                'flex h-9 w-9 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4',
                 shapeToolActive &&
                   activeShapeType === type &&
                   'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground',

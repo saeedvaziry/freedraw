@@ -118,12 +118,15 @@ export {
   TEXT_DEFAULT_HEIGHT,
   STICKY_DEFAULT_WIDTH,
   STICKY_DEFAULT_HEIGHT,
+  STICKY_COLORS,
+  DEFAULT_STICKY_COLOR,
 } from './model/factory.js'
 export type {
   ShapeInit,
   ArrowInit,
   TextInit,
   StickyInit,
+  StickyColor,
   ImageInit,
   FreedrawInit,
 } from './model/factory.js'

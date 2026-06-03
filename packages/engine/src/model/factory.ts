@@ -36,6 +36,14 @@ export interface ShapeInit {
 export const SHAPE_DEFAULT_WIDTH = 120
 export const SHAPE_DEFAULT_HEIGHT = 80
 
+const SHAPE_DEFAULT_SIZES: Partial<Record<ShapeType, { width: number; height: number }>> = {
+  cylinder: { width: 100, height: 120 },
+}
+
+export function defaultShapeSize(type: ShapeType): { width: number; height: number } {
+  return SHAPE_DEFAULT_SIZES[type] ?? { width: SHAPE_DEFAULT_WIDTH, height: SHAPE_DEFAULT_HEIGHT }
+}
+
 export function createShape(init: ShapeInit): ShapeElement {
   return {
     id: init.id ?? createId(),
@@ -77,10 +85,28 @@ export function createText(init: TextInit): TextElement {
 }
 
 export const STICKY_DEFAULT_WIDTH = 160
-export const STICKY_DEFAULT_HEIGHT = 120
-export const STICKY_FILL = '#fef08a'
-export const STICKY_STROKE = '#eab308'
-export const STICKY_ROUNDNESS = 12
+export const STICKY_DEFAULT_HEIGHT = 160
+export const STICKY_ROUNDNESS = 4
+export const STICKY_TEXT_COLOR = '#1e1e1e'
+
+export type StickyColor =
+  | 'yellow'
+  | 'green'
+  | 'blue'
+  | 'pink'
+  | 'orange'
+  | 'purple'
+
+export const STICKY_COLORS: Record<StickyColor, string> = {
+  yellow: '#fdf08a',
+  green: '#b9f6ca',
+  blue: '#a7d8ff',
+  pink: '#ffc4dd',
+  orange: '#ffd8a8',
+  purple: '#e0c3fc',
+}
+
+export const DEFAULT_STICKY_COLOR: StickyColor = 'yellow'
 
 export interface StickyInit {
   id?: ElementId
@@ -88,10 +114,12 @@ export interface StickyInit {
   y: number
   width?: number
   height?: number
+  color?: StickyColor
   style?: Partial<Style>
 }
 
 export function createSticky(init: StickyInit): StickyElement {
+  const fill = STICKY_COLORS[init.color ?? DEFAULT_STICKY_COLOR]
   return {
     id: init.id ?? createId(),
     type: 'sticky',
@@ -102,11 +130,15 @@ export function createSticky(init: StickyInit): StickyElement {
     rotation: 0,
     style: {
       ...defaultStyle,
-      fill: STICKY_FILL,
-      stroke: STICKY_STROKE,
-      roundness: STICKY_ROUNDNESS,
-      textAlign: 'center',
       ...init.style,
+      fill,
+      stroke: fill,
+      strokeWidth: 0,
+      strokeStyle: 'solid',
+      sloppiness: 0,
+      roundness: STICKY_ROUNDNESS,
+      textColor: STICKY_TEXT_COLOR,
+      textAlign: 'center',
     },
   }
 }

@@ -4,20 +4,23 @@ import {
   createImage,
   createSticky,
   fitToViewport,
-  STICKY_FILL,
-  STICKY_STROKE,
+  STICKY_COLORS,
 } from './factory.js'
 
 describe('createSticky', () => {
-  it('uses yellow defaults and a centered label-ready style', () => {
+  it('uses the yellow color by default with a borderless, centered style', () => {
     const sticky = createSticky({ x: 10, y: 20 })
     expect(sticky.type).toBe('sticky')
-    expect(sticky.style.fill).toBe(STICKY_FILL)
-    expect(sticky.style.stroke).toBe(STICKY_STROKE)
+    expect(sticky.style.fill).toBe(STICKY_COLORS.yellow)
+    expect(sticky.style.strokeWidth).toBe(0)
     expect(sticky.style.textAlign).toBe('center')
-    expect(sticky.style.roundness).toBeGreaterThan(0)
     expect(sticky.width).toBeGreaterThan(0)
     expect(sticky.height).toBeGreaterThan(0)
+  })
+
+  it('applies the requested color and ignores any inherited fill', () => {
+    const sticky = createSticky({ x: 0, y: 0, color: 'blue', style: { fill: '#ff0000' } })
+    expect(sticky.style.fill).toBe(STICKY_COLORS.blue)
   })
 })
 

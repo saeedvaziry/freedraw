@@ -70,7 +70,7 @@ function Board({ store }: BoardProps) {
         <StylePanelHost store={store} />
       </div>
       <div className="pointer-events-none absolute top-6 left-6 flex justify-start">
-        <ToolbarHost store={store} onImageButton={openImagePicker} />
+        <ToolbarHost store={store} />
       </div>
       <div className="pointer-events-none absolute bottom-6 left-6 flex justify-start">
         <ActionsBarHost

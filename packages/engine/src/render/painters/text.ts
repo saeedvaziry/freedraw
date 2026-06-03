@@ -1,6 +1,7 @@
 import { LayoutCache } from '../../text/cache.js'
 import { canvasMeasureContext, fontString } from '../../text/measure.js'
 import type { TextAlign, TextLayout, VerticalAlign } from '../../text/layout.js'
+import { labelRect } from '../../geometry/shapeOutline.js'
 import type { Element, Style, TextElement } from '../../model/types.js'
 
 const layoutCache = new LayoutCache()
@@ -62,11 +63,12 @@ export function paintText(ctx: CanvasRenderingContext2D, element: Element): void
 export function paintLabel(ctx: CanvasRenderingContext2D, element: Element): void {
   const label = element.label
   if (!label || !label.text) return
+  const rect = labelRect(element.type, element)
   paintTextBlock(ctx, `${element.id}:label`, label.text, {
-    x: element.x + TEXT_PADDING,
-    y: element.y,
-    width: Math.max(0, element.width - TEXT_PADDING * 2),
-    height: element.height,
+    x: rect.x + TEXT_PADDING,
+    y: rect.y,
+    width: Math.max(0, rect.width - TEXT_PADDING * 2),
+    height: rect.height,
     align: label.align,
     verticalAlign: label.verticalAlign,
     style: element.style,

@@ -1,6 +1,6 @@
 import * as Y from 'yjs'
 import { resolveArrowPoints } from '../connectors/resolve.js'
-import { pointsBounds } from '../model/factory.js'
+import { DEFAULT_STICKY_COLOR, pointsBounds, type StickyColor } from '../model/factory.js'
 import { defaultAppState } from '../model/schema.js'
 import type {
   AppState,
@@ -73,6 +73,7 @@ export interface UiState {
   hoveredId: ElementId | null
   activeTool: ToolId
   activeShapeType: ShapeType
+  activeStickyColor: StickyColor
   clipboardElementCount: number
 }
 
@@ -103,6 +104,7 @@ export class SceneStore {
     hoveredId: null,
     activeTool: 'select',
     activeShapeType: 'rect',
+    activeStickyColor: DEFAULT_STICKY_COLOR,
     clipboardElementCount: 0,
   }
 
