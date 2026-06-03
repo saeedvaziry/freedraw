@@ -41,5 +41,9 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    ({ addVariant }) => {
+      addVariant('coarse', '@media (pointer: coarse)')
+    },
+  ],
 }

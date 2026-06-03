@@ -6,6 +6,7 @@ import { labelRect } from '../geometry/shapeOutline.js'
 import type { Rect } from '../geometry/rect.js'
 import type { SnapGuide } from '../geometry/snap.js'
 import { InputManager } from '../input/InputManager.js'
+import type { PinchDelta } from '../input/pinch.js'
 import type { ArrowElement, Element, ElementId, Label, Point, ShapeType } from '../model/types.js'
 import {
   spawnConnectedShape,
@@ -105,6 +106,8 @@ export class EditorController {
       context: this.toolContext,
       onResult: (result) => this.applyResult(result),
       onWheel: (event) => this.onWheel(event),
+      onGesture: (delta) => this.onGesture(delta),
+      onGestureEnd: () => this.commitCamera(),
       onPointerInfo: (info) => {
         this.lastPointerScreen = info.screen
       },
@@ -454,6 +457,15 @@ export class EditorController {
     }
     this.loop.markDirty()
     this.scheduleCameraCommit()
+  }
+
+  private onGesture(delta: PinchDelta): void {
+    this.lastPointerScreen = delta.center
+    this.camera.panByScreen(delta.panX, delta.panY)
+    if (delta.scale !== 1) {
+      this.camera.zoomToScreenPoint(this.camera.zoom * delta.scale, delta.center)
+    }
+    this.loop.markDirty()
   }
 
   private scheduleCameraCommit(): void {

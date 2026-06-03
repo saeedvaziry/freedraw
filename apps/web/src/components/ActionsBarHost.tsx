@@ -9,6 +9,7 @@ interface ActionsBarHostProps {
   boardExport: BoardExport
   theme: 'light' | 'dark'
   onToggleTheme(): void
+  compact?: boolean
 }
 
 export function ActionsBarHost({
@@ -17,6 +18,7 @@ export function ActionsBarHost({
   boardExport,
   theme,
   onToggleTheme,
+  compact,
 }: ActionsBarHostProps) {
   const history = useSyncExternalStore(
     (cb) => store.subscribeHistory(cb),
@@ -50,6 +52,7 @@ export function ActionsBarHost({
       onCopyToClipboard={() => void copyImage()}
       theme={theme}
       onToggleTheme={onToggleTheme}
+      compact={compact}
     />
   )
 }

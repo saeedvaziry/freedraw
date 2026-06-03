@@ -31,6 +31,7 @@ export interface ActionsBarProps {
   onCopyToClipboard(): void
   theme: 'light' | 'dark'
   onToggleTheme(): void
+  compact?: boolean
 }
 
 interface ActionDef {
@@ -58,6 +59,7 @@ export function ActionsBar({
   onCopyToClipboard,
   theme,
   onToggleTheme,
+  compact = false,
 }: ActionsBarProps) {
   const actions: ActionDef[] = [
     { key: 'undo', label: 'Undo', Icon: Undo2, onClick: onUndo, disabled: !canUndo },
@@ -71,13 +73,18 @@ export function ActionsBar({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="pointer-events-auto flex items-center gap-1 rounded-2xl border bg-background/95 p-1.5 shadow-lg backdrop-blur">
+      <div
+        className={cn(
+          'pointer-events-auto flex items-center gap-1 rounded-2xl border bg-background/95 p-1.5 shadow-lg backdrop-blur',
+          compact && 'max-w-full overflow-x-auto',
+        )}
+      >
         {actions.map(({ key, label, Icon, onClick, disabled }) => (
           <ActionButton key={key} label={label} onClick={onClick} disabled={disabled}>
             <Icon />
           </ActionButton>
         ))}
-        <div className="mx-1 h-7 w-px bg-border" />
+        <div className="mx-1 h-7 w-px shrink-0 bg-border" />
         <ActionButton
           label={theme === 'dark' ? 'Light mode' : 'Dark mode'}
           onClick={onToggleTheme}
@@ -107,7 +114,7 @@ function ActionButton({ label, className, children, ...props }: ActionButtonProp
           type="button"
           aria-label={label}
           className={cn(
-            'flex h-9 w-9 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4',
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40 coarse:h-11 coarse:w-11 [&_svg]:size-4',
             className,
           )}
           {...props}

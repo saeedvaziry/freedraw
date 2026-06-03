@@ -7,8 +7,10 @@ import {
   Type,
   type LucideIcon,
 } from 'lucide-react'
+import { cn } from '../lib/utils.js'
 import { TooltipProvider } from '../components/ui/tooltip.js'
 import { ToolButton } from './ToolButton.js'
+import { ShapesPopover } from './ShapesPopover.js'
 import { StickyPopover, type StickyColorKey } from './StickyPopover.js'
 import { SHAPES, type ShapeType } from './shapes.js'
 
@@ -21,6 +23,8 @@ export type ToolKey =
   | 'sticky'
   | 'image'
   | 'shape'
+
+export type ToolbarLayout = 'vertical' | 'horizontal'
 
 interface ToolDef {
   key: ToolKey
@@ -55,6 +59,7 @@ export interface ToolbarProps {
   activeTool: ToolKey
   activeShapeType: ShapeType
   activeStickyColor: StickyColorKey
+  layout?: ToolbarLayout
   onSelectTool(tool: ToolKey): void
   onSelectShape(type: ShapeType): void
   onSelectStickyColor(color: StickyColorKey): void
@@ -64,14 +69,25 @@ export function Toolbar({
   activeTool,
   activeShapeType,
   activeStickyColor,
+  layout = 'vertical',
   onSelectTool,
   onSelectShape,
   onSelectStickyColor,
 }: ToolbarProps) {
   const [stickyOpen, setStickyOpen] = useState(false)
+  const [shapesOpen, setShapesOpen] = useState(false)
+  const horizontal = layout === 'horizontal'
+
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="pointer-events-auto grid max-h-[calc(100vh-3rem)] grid-cols-2 gap-1 overflow-y-auto rounded-2xl border bg-background/95 p-1.5 shadow-lg backdrop-blur">
+      <div
+        className={cn(
+          'pointer-events-auto rounded-2xl border bg-background/95 p-1.5 shadow-lg backdrop-blur',
+          horizontal
+            ? 'flex max-w-full items-center gap-1 overflow-x-auto'
+            : 'grid max-h-[calc(100vh-3rem)] grid-cols-2 gap-1 overflow-y-auto',
+        )}
+      >
         {TOOLS.map(({ key, label, Icon, shortcut }) => (
           <ToolButton
             key={key}
@@ -86,6 +102,7 @@ export function Toolbar({
         <StickyPopover
           open={stickyOpen}
           onOpenChange={setStickyOpen}
+          side={horizontal ? 'top' : 'right'}
           active={activeTool === 'sticky'}
           activeColor={activeStickyColor}
           onSelectColor={(color) => {
@@ -93,19 +110,37 @@ export function Toolbar({
             setStickyOpen(false)
           }}
         />
-        <div className="col-span-2 my-1 h-px bg-border" />
-        {SHAPES.map(({ type, label, Icon }) => (
-          <ToolButton
-            key={type}
-            label={label}
-            shortcut={SHAPE_SHORTCUTS[type]}
-            active={activeTool === 'shape' && activeShapeType === type}
-            onClick={() => onSelectShape(type)}
-          >
-            <Icon />
-          </ToolButton>
-        ))}
+        <Divider horizontal={horizontal} />
+        {horizontal ? (
+          <ShapesPopover
+            open={shapesOpen}
+            onOpenChange={setShapesOpen}
+            activeShapeType={activeShapeType}
+            shapeToolActive={activeTool === 'shape'}
+            onSelectShape={(type) => {
+              onSelectShape(type)
+              setShapesOpen(false)
+            }}
+          />
+        ) : (
+          SHAPES.map(({ type, label, Icon }) => (
+            <ToolButton
+              key={type}
+              label={label}
+              shortcut={SHAPE_SHORTCUTS[type]}
+              active={activeTool === 'shape' && activeShapeType === type}
+              onClick={() => onSelectShape(type)}
+            >
+              <Icon />
+            </ToolButton>
+          ))
+        )}
       </div>
     </TooltipProvider>
   )
+}
+
+function Divider({ horizontal }: { horizontal: boolean }) {
+  if (horizontal) return <div className="mx-0.5 h-7 w-px shrink-0 bg-border" />
+  return <div className="col-span-2 my-1 h-px bg-border" />
 }

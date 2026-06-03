@@ -18,7 +18,7 @@ export const ToolButton = React.forwardRef<HTMLButtonElement, ToolButtonProps>(
           aria-label={shortcut ? `${label} (${shortcut})` : label}
           aria-pressed={active}
           className={cn(
-            'flex h-9 w-9 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4',
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-accent hover:text-foreground coarse:h-11 coarse:w-11 [&_svg]:size-4',
             active && 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground',
             className,
           )}

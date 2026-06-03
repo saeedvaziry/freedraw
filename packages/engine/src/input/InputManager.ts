@@ -1,5 +1,6 @@
 import type { Camera } from '../geometry/Camera.js'
 import type { Point } from '../model/types.js'
+import { pinchDelta, pinchSample, type PinchDelta, type PinchSample } from './pinch.js'
 import type { PointerInfo, Tool, ToolContext, ToolResult } from '../tools/Tool.js'
 
 export interface InputHandlers {
@@ -7,6 +8,8 @@ export interface InputHandlers {
   context: ToolContext
   onResult(result: ToolResult | void): void
   onWheel(event: WheelEvent): void
+  onGesture(delta: PinchDelta): void
+  onGestureEnd(): void
   onPointerInfo?(info: PointerInfo): void
 }
 
@@ -16,6 +19,11 @@ export class InputManager {
   private readonly cleanups: Cleanup[] = []
   private capturing = false
   private pendingCaptureId: number | null = null
+  private readonly activePointers = new Map<number, Point>()
+  private gesturePointers: [number, number] | null = null
+  private gestureSample: PinchSample | null = null
+  private toolPointerId: number | null = null
+  private lastToolInfo: PointerInfo | null = null
 
   constructor(
     private readonly overlay: HTMLCanvasElement,
@@ -52,17 +60,33 @@ export class InputManager {
 
   private attachPointer(): void {
     const onDown = (event: PointerEvent): void => {
+      this.activePointers.set(event.pointerId, this.localPoint(event.clientX, event.clientY))
+      if (this.activePointers.size >= 2) {
+        this.beginGesture()
+        return
+      }
       const tool = this.handlers.getActiveTool()
       const info = this.info(event)
       this.handlers.onPointerInfo?.(info)
       if (!tool.onPointerDown) return
+      this.toolPointerId = event.pointerId
       this.pendingCaptureId = event.pointerId
+      this.lastToolInfo = info
       this.handlers.onResult(tool.onPointerDown(info, this.handlers.context))
     }
     const onMove = (event: PointerEvent): void => {
+      if (this.activePointers.has(event.pointerId)) {
+        this.activePointers.set(event.pointerId, this.localPoint(event.clientX, event.clientY))
+      }
+      if (this.gesturePointers) {
+        this.updateGesture()
+        return
+      }
+      if (this.toolPointerId !== null && event.pointerId !== this.toolPointerId) return
       const tool = this.handlers.getActiveTool()
       const info = this.info(event)
       this.handlers.onPointerInfo?.(info)
+      this.lastToolInfo = info
       if (!tool.onPointerMove) return
       if (this.pendingCaptureId === event.pointerId && !this.capturing) {
         try {
@@ -76,6 +100,12 @@ export class InputManager {
       this.handlers.onResult(tool.onPointerMove(info, this.handlers.context))
     }
     const onUp = (event: PointerEvent): void => {
+      this.activePointers.delete(event.pointerId)
+      if (this.gesturePointers) {
+        this.endGesture()
+        return
+      }
+      if (this.toolPointerId !== null && event.pointerId !== this.toolPointerId) return
       const tool = this.handlers.getActiveTool()
       const info = this.info(event)
       this.handlers.onPointerInfo?.(info)
@@ -84,6 +114,7 @@ export class InputManager {
       }
       this.capturing = false
       this.pendingCaptureId = null
+      this.toolPointerId = null
       if (!tool.onPointerUp) return
       this.handlers.onResult(tool.onPointerUp(info, this.handlers.context))
     }
@@ -97,6 +128,58 @@ export class InputManager {
       this.overlay.removeEventListener('pointerup', onUp)
       this.overlay.removeEventListener('pointercancel', onUp)
     })
+  }
+
+  private beginGesture(): void {
+    if (this.toolPointerId !== null) {
+      this.cancelToolGesture()
+    }
+    const ids = [...this.activePointers.keys()].slice(0, 2) as [number, number]
+    this.gesturePointers = ids
+    this.gestureSample = this.sampleFor(ids)
+  }
+
+  private updateGesture(): void {
+    if (!this.gesturePointers || !this.gestureSample) return
+    const next = this.sampleFor(this.gesturePointers)
+    if (!next) return
+    this.handlers.onGesture(pinchDelta(this.gestureSample, next))
+    this.gestureSample = next
+  }
+
+  private endGesture(): void {
+    if (this.activePointers.size >= 2) {
+      this.gesturePointers = [...this.activePointers.keys()].slice(0, 2) as [number, number]
+      this.gestureSample = this.sampleFor(this.gesturePointers)
+      return
+    }
+    this.gesturePointers = null
+    this.gestureSample = null
+    this.handlers.onGestureEnd()
+  }
+
+  private sampleFor(ids: [number, number]): PinchSample | null {
+    const a = this.activePointers.get(ids[0])
+    const b = this.activePointers.get(ids[1])
+    if (!a || !b) return null
+    return pinchSample(a, b)
+  }
+
+  private cancelToolGesture(): void {
+    const tool = this.handlers.getActiveTool()
+    if (this.toolPointerId !== null && this.capturing) {
+      try {
+        this.overlay.releasePointerCapture(this.toolPointerId)
+      } catch {
+        // capture already released
+      }
+    }
+    if (tool.onPointerUp && this.lastToolInfo) {
+      this.handlers.onResult(tool.onPointerUp(this.lastToolInfo, this.handlers.context))
+    }
+    this.capturing = false
+    this.pendingCaptureId = null
+    this.toolPointerId = null
   }
 
   private attachWheel(): void {

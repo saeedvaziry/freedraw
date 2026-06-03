@@ -32,7 +32,7 @@ export function ExportMenu({ disabled, theme, onExport, onCopyToClipboard }: Exp
               type="button"
               aria-label="Export"
               disabled={disabled}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40 coarse:h-11 coarse:w-11 [&_svg]:size-4"
             >
               <ImageDown />
             </button>

@@ -26,6 +26,7 @@ export interface StickyPopoverProps {
   active: boolean
   activeColor: StickyColorKey
   onSelectColor(color: StickyColorKey): void
+  side?: 'right' | 'top'
 }
 
 export function StickyPopover({
@@ -34,6 +35,7 @@ export function StickyPopover({
   active,
   activeColor,
   onSelectColor,
+  side = 'right',
 }: StickyPopoverProps) {
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -42,7 +44,7 @@ export function StickyPopover({
           <StickyNote />
         </ToolButton>
       </PopoverTrigger>
-      <PopoverContent side="right" align="start" sideOffset={12} className="w-auto rounded-2xl p-2">
+      <PopoverContent side={side} align="start" sideOffset={12} className="w-auto rounded-2xl p-2">
         <div className="grid grid-cols-3 gap-1.5">
           {STICKY_COLOR_ENTRIES.map(({ key, label, swatch }) => (
             <button

@@ -68,6 +68,8 @@ export { snapEndpoint, snapToShapes, shapeAnchors, SNAP_DISTANCE } from './geome
 export type { SnapGuide, SnapResult } from './geometry/snap.js'
 export type { Tool, ToolContext, ToolResult, PointerInfo } from './tools/Tool.js'
 export { InputManager } from './input/InputManager.js'
+export { pinchSample, pinchDelta } from './input/pinch.js'
+export type { PinchSample, PinchDelta } from './input/pinch.js'
 
 export { selectionFrameFor } from './geometry/selectionFrame.js'
 export {

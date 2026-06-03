@@ -1,12 +1,13 @@
 import { useSyncExternalStore } from 'react'
 import type { SceneStore, ShapeType, StickyColor, ToolId } from '@freedraw/engine'
-import { Toolbar, type StickyColorKey, type ToolKey } from '@freedraw/ui'
+import { Toolbar, type StickyColorKey, type ToolbarLayout, type ToolKey } from '@freedraw/ui'
 
 interface ToolbarHostProps {
   store: SceneStore
+  layout?: ToolbarLayout
 }
 
-export function ToolbarHost({ store }: ToolbarHostProps) {
+export function ToolbarHost({ store, layout }: ToolbarHostProps) {
   const ui = useSyncExternalStore(
     (cb) => store.subscribeUi(cb),
     () => store.getUiState(),
@@ -26,6 +27,7 @@ export function ToolbarHost({ store }: ToolbarHostProps) {
 
   return (
     <Toolbar
+      layout={layout}
       activeTool={ui.activeTool as ToolKey}
       activeShapeType={ui.activeShapeType as ShapeType}
       activeStickyColor={ui.activeStickyColor as StickyColorKey}

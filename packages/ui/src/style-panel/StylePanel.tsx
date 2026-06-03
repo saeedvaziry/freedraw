@@ -33,7 +33,7 @@ export function StylePanel({
 }: StylePanelProps) {
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="pointer-events-auto flex max-h-[calc(100vh-3rem)] w-64 flex-col gap-3 overflow-y-auto rounded-2xl border bg-background/95 p-4 shadow-lg backdrop-blur">
+      <div className="pointer-events-auto flex max-h-[50vh] w-full max-w-sm flex-col gap-3 overflow-y-auto rounded-2xl border bg-background/95 p-4 shadow-lg backdrop-blur sm:max-h-[calc(100vh-3rem)] sm:w-64">
         <StrokeControls
           style={style}
           showFill={selection.hasFill}

@@ -16,7 +16,7 @@ export {
 } from './components/ui/tooltip.js'
 
 export { Toolbar } from './toolbar/Toolbar.js'
-export type { ToolbarProps, ToolKey } from './toolbar/Toolbar.js'
+export type { ToolbarProps, ToolKey, ToolbarLayout } from './toolbar/Toolbar.js'
 export { ToolButton } from './toolbar/ToolButton.js'
 export type { ToolButtonProps } from './toolbar/ToolButton.js'
 export { ShapesPopover } from './toolbar/ShapesPopover.js'
