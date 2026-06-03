@@ -1,23 +1,20 @@
-# Deployment — Cloudflare Pages
+# Deployment — Netlify
 
-FreeDraw is a static SPA. It deploys to Cloudflare Pages as a Git-connected project.
+FreeDraw is a static SPA. It deploys to Netlify as a Git-connected site.
+All settings are checked in via `netlify.toml`, so the Netlify UI needs no
+manual build configuration.
 
-## Project settings
+## Configuration (`netlify.toml`)
 
-| Setting                  | Value                  |
-| ------------------------ | ---------------------- |
-| Production branch        | `main`                 |
-| Build command            | `npm run build`        |
-| Build output directory   | `apps/web/dist`        |
-| Root directory           | `/` (repo root)        |
-| Node version             | `20` (from `.nvmrc`)   |
+| Setting          | Value             | Source                  |
+| ---------------- | ----------------- | ----------------------- |
+| Build command    | `npm run build`   | `[build]`               |
+| Publish directory | `apps/web/dist`  | `[build]`               |
+| Node version     | `20`              | `NODE_VERSION`          |
+| Install flags    | `--ignore-scripts`| `NPM_FLAGS`             |
 
-`wrangler.toml` at the repo root declares `pages_build_output_dir`, so the
-output directory is also picked up by the Wrangler CLI and CI.
-
-> The build runs `npm install` automatically. To match the project policy of
-> installing without lifecycle scripts, set the environment variable
-> `NPM_FLAGS = --ignore-scripts` in the Pages project settings.
+`NPM_FLAGS = --ignore-scripts` honors the project policy of installing without
+lifecycle scripts.
 
 ## SPA routing & headers
 
@@ -27,13 +24,14 @@ client-side `createBrowserRouter` handles deep links without 404s.
 `apps/web/public/_headers` sets baseline security headers and long-lived,
 immutable caching for hashed assets under `/assets`.
 
-Both files are copied verbatim into `apps/web/dist` by Vite at build time.
+Both are Netlify-native files. Vite copies them from `public/` into
+`apps/web/dist/` (the publish directory) at build time, where Netlify reads them.
 
 ## Custom domain
 
-Add `freedraw.dev` as a custom domain in the Pages project. Cloudflare issues
-the certificate and provisions the DNS records automatically when the domain's
-nameservers are on Cloudflare.
+Add `freedraw.dev` as a custom domain in **Site settings → Domain management**.
+Point the domain's DNS to Netlify (or use Netlify DNS); Netlify provisions the
+TLS certificate automatically.
 
 ## Local production preview
 
