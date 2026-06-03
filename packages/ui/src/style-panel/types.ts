@@ -13,6 +13,7 @@ export interface PanelStyle {
   strokeStyle: Mixed<StrokeStyle>
   opacity: Mixed<number>
   roundness: Mixed<number>
+  sloppiness: Mixed<number>
   fontSize: Mixed<number>
   fontFamily: Mixed<string>
   textColor: Mixed<string>
@@ -26,6 +27,7 @@ export interface PanelStylePatch {
   strokeStyle?: StrokeStyle
   opacity?: number
   roundness?: number
+  sloppiness?: number
   fontSize?: number
   fontFamily?: string
   textColor?: string

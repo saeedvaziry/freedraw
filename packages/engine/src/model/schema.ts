@@ -1,6 +1,6 @@
 import type { AppState, CameraState, Style } from './types.js'
 
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 export const defaultStyle: Style = {
   stroke: '#1e1e1e',
@@ -9,6 +9,7 @@ export const defaultStyle: Style = {
   strokeStyle: 'solid',
   opacity: 1,
   roundness: 0,
+  sloppiness: 0,
   fontSize: 16,
   fontFamily: 'Inter, system-ui, sans-serif',
   textColor: '#1e1e1e',

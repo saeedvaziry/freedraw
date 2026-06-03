@@ -17,6 +17,8 @@ import type { Style } from '../model/types.js'
 import { createRenderLoop, type RenderLoopHandle } from '../render/loop.js'
 import { Renderer, type OverlayState, type SpawnPreview } from '../render/Renderer.js'
 import { setImageCache } from '../render/painters/image.js'
+import { clearTextLayoutCache } from '../render/painters/text.js'
+import { SKETCH_FONT_FAMILY } from '../text/measure.js'
 import type { SceneStore } from '../store/SceneStore.js'
 import { ToolManager } from '../tools/ToolManager.js'
 import type { ToolContext, ToolResult } from '../tools/Tool.js'
@@ -122,6 +124,7 @@ export class EditorController {
     this.attachDprWatch()
     this.cleanups.push(this.input.attach())
     this.attachSpacePan()
+    this.attachFontWatch()
 
     return () => this.unmount()
   }
@@ -377,6 +380,15 @@ export class EditorController {
   private commitCamera(): void {
     this.store.commitCamera(this.camera.state)
     this.loop.markDirty()
+  }
+
+  private attachFontWatch(): void {
+    const fonts = typeof document !== 'undefined' ? document.fonts : null
+    if (!fonts) return
+    fonts.load(`16px ${SKETCH_FONT_FAMILY}`).then(() => {
+      clearTextLayoutCache()
+      this.loop.markDirty()
+    })
   }
 
   private attachDprWatch(): void {

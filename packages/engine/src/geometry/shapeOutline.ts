@@ -1,10 +1,34 @@
 import type { Rect } from './rect.js'
 import type { Point } from '../model/types.js'
 
+export interface PathSink {
+  moveTo(x: number, y: number): void
+  lineTo(x: number, y: number): void
+  arcTo(x1: number, y1: number, x2: number, y2: number, radius: number): void
+  bezierCurveTo(
+    cp1x: number,
+    cp1y: number,
+    cp2x: number,
+    cp2y: number,
+    x: number,
+    y: number,
+  ): void
+  ellipse(
+    x: number,
+    y: number,
+    radiusX: number,
+    radiusY: number,
+    rotation: number,
+    startAngle: number,
+    endAngle: number,
+  ): void
+  closePath(): void
+}
+
 export type Outline =
   | { kind: 'polygon'; points: Point[] }
   | { kind: 'ellipse'; cx: number; cy: number; rx: number; ry: number }
-  | { kind: 'path'; build: (ctx: CanvasRenderingContext2D | Path2D) => void }
+  | { kind: 'path'; build: (ctx: PathSink) => void }
 
 type OutlineFn = (bounds: Rect, roundness: number) => Outline
 
@@ -184,7 +208,91 @@ export function getOutline(type: string, bounds: Rect, roundness = 0): Outline |
   return outlineFns[type]?.(bounds, roundness)
 }
 
-export function traceOutline(ctx: CanvasRenderingContext2D | Path2D, outline: Outline): void {
+export function outlinePathD(outline: Outline): string {
+  const recorder = new SvgPathRecorder()
+  traceOutline(recorder, outline)
+  return recorder.toString()
+}
+
+class SvgPathRecorder implements PathSink {
+  private readonly commands: string[] = []
+  private last: Point = { x: 0, y: 0 }
+
+  moveTo(x: number, y: number): void {
+    this.last = { x, y }
+    this.commands.push(`M ${x} ${y}`)
+  }
+
+  lineTo(x: number, y: number): void {
+    this.last = { x, y }
+    this.commands.push(`L ${x} ${y}`)
+  }
+
+  bezierCurveTo(
+    cp1x: number,
+    cp1y: number,
+    cp2x: number,
+    cp2y: number,
+    x: number,
+    y: number,
+  ): void {
+    this.last = { x, y }
+    this.commands.push(`C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${x} ${y}`)
+  }
+
+  arcTo(x1: number, y1: number, x2: number, y2: number, radius: number): void {
+    const corner = { x: x1, y: y1 }
+    const start = pointTowards(corner, this.last, radius)
+    const end = pointTowards(corner, { x: x2, y: y2 }, radius)
+    this.commands.push(`L ${start.x} ${start.y}`)
+    this.commands.push(`Q ${corner.x} ${corner.y}, ${end.x} ${end.y}`)
+    this.last = end
+  }
+
+  ellipse(
+    cx: number,
+    cy: number,
+    rx: number,
+    ry: number,
+    _rotation: number,
+    startAngle: number,
+    endAngle: number,
+  ): void {
+    const segments = Math.max(2, Math.ceil((Math.abs(endAngle - startAngle) / Math.PI) * 4))
+    const step = (endAngle - startAngle) / segments
+    const start = { x: cx + rx * Math.cos(startAngle), y: cy + ry * Math.sin(startAngle) }
+    this.commands.push(`L ${start.x} ${start.y}`)
+    const kappa = (4 / 3) * Math.tan(step / 4)
+    for (let i = 0; i < segments; i += 1) {
+      const a0 = startAngle + step * i
+      const a1 = a0 + step
+      const p0 = { x: cx + rx * Math.cos(a0), y: cy + ry * Math.sin(a0) }
+      const p1 = { x: cx + rx * Math.cos(a1), y: cy + ry * Math.sin(a1) }
+      const c1 = { x: p0.x - kappa * rx * Math.sin(a0), y: p0.y + kappa * ry * Math.cos(a0) }
+      const c2 = { x: p1.x + kappa * rx * Math.sin(a1), y: p1.y - kappa * ry * Math.cos(a1) }
+      this.commands.push(`C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${p1.x} ${p1.y}`)
+    }
+    this.last = { x: cx + rx * Math.cos(endAngle), y: cy + ry * Math.sin(endAngle) }
+  }
+
+  closePath(): void {
+    this.commands.push('Z')
+  }
+
+  toString(): string {
+    return this.commands.join(' ')
+  }
+}
+
+function pointTowards(from: Point, to: Point, distance: number): Point {
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  const length = Math.hypot(dx, dy) || 1
+  const ratio = Math.min(distance, length) / length
+  return { x: from.x + dx * ratio, y: from.y + dy * ratio }
+}
+
+export function traceOutline(ctx: PathSink, outline: Outline): void {
   if (outline.kind === 'polygon') {
     outline.points.forEach((point, index) => {
       if (index === 0) ctx.moveTo(point.x, point.y)
@@ -201,7 +309,7 @@ export function traceOutline(ctx: CanvasRenderingContext2D | Path2D, outline: Ou
 }
 
 function traceRoundRect(
-  ctx: CanvasRenderingContext2D | Path2D,
+  ctx: PathSink,
   { x, y, width, height }: Rect,
   radius: number,
 ): void {

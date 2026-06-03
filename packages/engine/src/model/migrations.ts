@@ -3,7 +3,29 @@ import { SCHEMA_VERSION, defaultAppState } from './schema.js'
 
 export type Migration = (doc: Y.Doc) => void
 
-export const migrations: Migration[] = []
+const addSloppiness: Migration = (doc) => {
+  const elements = doc.getMap('elements')
+  elements.forEach((value) => {
+    if (!(value instanceof Y.Map)) return
+    const style = value.get('style')
+    if (isStyleObject(style) && style.sloppiness === undefined) {
+      value.set('style', { ...style, sloppiness: 0 })
+    }
+  })
+  const appState = doc.getMap('appState')
+  const lastUsedStyle = appState.get('lastUsedStyle')
+  if (isStyleObject(lastUsedStyle) && lastUsedStyle.sloppiness === undefined) {
+    appState.set('lastUsedStyle', { ...lastUsedStyle, sloppiness: 0 })
+  }
+}
+
+function isStyleObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+const noop: Migration = () => {}
+
+export const migrations: Migration[] = [noop, addSloppiness]
 
 export function readSchemaVersion(doc: Y.Doc): number {
   const version = doc.getMap('appState').get('schemaVersion')

@@ -1,6 +1,7 @@
 import type { Element } from '../../model/types.js'
 import { getOutline, traceOutline } from '../../geometry/shapeOutline.js'
 import { dashPattern } from './dash.js'
+import { strokeOutline } from './sketch.js'
 import { paintLabel } from './text.js'
 
 export function paintShape(ctx: CanvasRenderingContext2D, element: Element): void {
@@ -11,10 +12,9 @@ export function paintShape(ctx: CanvasRenderingContext2D, element: Element): voi
   ctx.save()
   ctx.globalAlpha = style.opacity
 
-  ctx.beginPath()
-  traceOutline(ctx, outline)
-
   if (style.fill !== 'transparent') {
+    ctx.beginPath()
+    traceOutline(ctx, outline)
     ctx.fillStyle = style.fill
     ctx.fill()
   }
@@ -23,7 +23,7 @@ export function paintShape(ctx: CanvasRenderingContext2D, element: Element): voi
   ctx.strokeStyle = style.stroke
   ctx.lineJoin = 'round'
   ctx.setLineDash(dashPattern(style.strokeStyle))
-  ctx.stroke()
+  strokeOutline(ctx, outline, element)
   ctx.restore()
 
   paintLabel(ctx, element)

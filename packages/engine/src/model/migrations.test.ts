@@ -45,6 +45,37 @@ describe('migrateDoc', () => {
   })
 })
 
+describe('sloppiness migration', () => {
+  it('backfills sloppiness on elements and lastUsedStyle from version 1', () => {
+    const doc = docAtVersion(1)
+    const elements = doc.getMap('elements')
+    const element = new Y.Map<unknown>()
+    element.set('style', { stroke: '#000', strokeWidth: 2 })
+    elements.set('a', element)
+    doc.getMap('appState').set('lastUsedStyle', { stroke: '#000', strokeWidth: 2 })
+
+    migrateDoc(doc)
+
+    const migrated = (elements.get('a') as Y.Map<unknown>).get('style') as Record<string, unknown>
+    expect(migrated.sloppiness).toBe(0)
+    const lastUsed = doc.getMap('appState').get('lastUsedStyle') as Record<string, unknown>
+    expect(lastUsed.sloppiness).toBe(0)
+  })
+
+  it('preserves an existing sloppiness value', () => {
+    const doc = docAtVersion(1)
+    const elements = doc.getMap('elements')
+    const element = new Y.Map<unknown>()
+    element.set('style', { stroke: '#000', sloppiness: 0.5 })
+    elements.set('a', element)
+
+    migrateDoc(doc)
+
+    const migrated = (elements.get('a') as Y.Map<unknown>).get('style') as Record<string, unknown>
+    expect(migrated.sloppiness).toBe(0.5)
+  })
+})
+
 describe('seedAppState', () => {
   it('seeds defaults only for missing fields', () => {
     const doc = new Y.Doc()

@@ -38,6 +38,7 @@ export {
   LayoutCache,
   layoutKey,
   fontString,
+  renderFontFamily,
   canvasMeasureContext,
   approximateMeasureContext,
   offscreenMeasureContext,

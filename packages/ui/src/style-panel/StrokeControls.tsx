@@ -84,6 +84,18 @@ export function StrokeControls({
         onInteractStart={onInteractStart}
         onInteractEnd={onInteractEnd}
       />
+      <SliderControl
+        label="Sloppiness"
+        value={resolveNumber(style.sloppiness, 0)}
+        mixed={isMixed(style.sloppiness)}
+        format={percent}
+        min={0}
+        max={1}
+        step={0.05}
+        onChange={(sloppiness) => onChange({ sloppiness })}
+        onInteractStart={onInteractStart}
+        onInteractEnd={onInteractEnd}
+      />
       {showRoundness && (
         <SliderControl
           label="Roundness"

@@ -14,6 +14,7 @@ export interface Style {
   strokeStyle: StrokeStyle
   opacity: number
   roundness: number
+  sloppiness: number
   fontSize: number
   fontFamily: string
   textColor: string

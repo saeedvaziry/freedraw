@@ -1,5 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { invertColor, type EditorController, type EditRequest } from '@freedraw/engine'
+import {
+  invertColor,
+  renderFontFamily,
+  type EditorController,
+  type EditRequest,
+} from '@freedraw/engine'
 
 const ARROW_LABEL_BACKGROUND = '#fafafa'
 
@@ -172,7 +177,7 @@ function baseStyle(style: EditRequest['style'], zoom: number, dark: boolean): Re
   return {
     fontSize: `${style.fontSize * zoom}px`,
     lineHeight: `${lineHeight * zoom}px`,
-    fontFamily: style.fontFamily,
+    fontFamily: renderFontFamily(style.fontFamily, style.sloppiness),
     color: themed(style.textColor, dark),
     caretColor: themed(style.textColor, dark),
   }

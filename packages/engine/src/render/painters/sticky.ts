@@ -1,6 +1,7 @@
 import type { Element } from '../../model/types.js'
 import { getOutline, traceOutline } from '../../geometry/shapeOutline.js'
 import { dashPattern } from './dash.js'
+import { strokeOutline } from './sketch.js'
 import { paintLabel } from './text.js'
 
 export function paintSticky(ctx: CanvasRenderingContext2D, element: Element): void {
@@ -20,7 +21,7 @@ export function paintSticky(ctx: CanvasRenderingContext2D, element: Element): vo
   ctx.strokeStyle = style.stroke
   ctx.lineJoin = 'round'
   ctx.setLineDash(dashPattern(style.strokeStyle))
-  ctx.stroke()
+  strokeOutline(ctx, outline, element)
   ctx.restore()
 
   paintLabel(ctx, element)

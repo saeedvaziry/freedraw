@@ -2,6 +2,7 @@ import type { ArrowElement, Arrowhead, Element, Point } from '../../model/types.
 import { arrowRoute } from '../../connectors/resolve.js'
 import { polylineMidpoint } from '../../text/arrowLabel.js'
 import { dashPattern } from './dash.js'
+import { isSloppy, strokeSloppyPath } from './sketch.js'
 import { paintArrowLabel } from './text.js'
 
 const ARROWHEAD_LENGTH = 12
@@ -29,13 +30,17 @@ export function paintArrow(ctx: CanvasRenderingContext2D, element: Element): voi
   ctx.lineJoin = style.roundness > 0 ? 'round' : 'miter'
   ctx.lineCap = style.roundness > 0 ? 'round' : 'butt'
 
-  ctx.beginPath()
   ctx.setLineDash(dashPattern(style.strokeStyle))
-  shaftPoints.forEach((point, index) => {
-    if (index === 0) ctx.moveTo(point.x, point.y)
-    else ctx.lineTo(point.x, point.y)
-  })
-  ctx.stroke()
+  if (isSloppy(arrow)) {
+    strokeSloppyPath(ctx, shaftPoints, arrow)
+  } else {
+    ctx.beginPath()
+    shaftPoints.forEach((point, index) => {
+      if (index === 0) ctx.moveTo(point.x, point.y)
+      else ctx.lineTo(point.x, point.y)
+    })
+    ctx.stroke()
+  }
 
   ctx.setLineDash([])
   const first = points[0]

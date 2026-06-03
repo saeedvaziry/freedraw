@@ -17,6 +17,7 @@ export function deriveSelectionStyle(elements: Element[], fallback: Style): Sele
     strokeStyle: sharedValue(elements, 'strokeStyle'),
     opacity: sharedValue(elements, 'opacity'),
     roundness: sharedValue(elements, 'roundness'),
+    sloppiness: sharedValue(elements, 'sloppiness'),
     fontSize: sharedValue(elements, 'fontSize'),
     fontFamily: sharedValue(elements, 'fontFamily'),
     textColor: sharedValue(elements, 'textColor'),

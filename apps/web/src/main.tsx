@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App.js'
+import '@fontsource/architects-daughter/400.css'
 import './index.css'
 
 const container = document.getElementById('root')

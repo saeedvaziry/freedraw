@@ -11,6 +11,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@fontsource/architects-daughter": "^5.2.7",
     "@freedraw/engine": "*",
     "@freedraw/persistence": "*",
     "@freedraw/ui": "*",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getOutline, pointInPolygon } from './shapeOutline.js'
+import { getOutline, outlinePathD, pointInPolygon } from './shapeOutline.js'
 import type { Rect } from './rect.js'
 
 const bounds: Rect = { x: 0, y: 0, width: 100, height: 80 }
@@ -73,5 +73,31 @@ describe('shapeOutline', () => {
     const triangle = polygonPoints('triangle')
     expect(pointInPolygon({ x: 50, y: 60 }, triangle)).toBe(true)
     expect(pointInPolygon({ x: 5, y: 5 }, triangle)).toBe(false)
+  })
+})
+
+describe('outlinePathD', () => {
+  it('builds a closed SVG path for a polygon', () => {
+    const d = outlinePathD(getOutline('rect', bounds)!)
+    expect(d.startsWith('M ')).toBe(true)
+    expect(d.endsWith('Z')).toBe(true)
+    expect(d).toContain('L ')
+  })
+
+  it('emits curve commands for a path outline (cloud)', () => {
+    const d = outlinePathD(getOutline('cloud', bounds)!)
+    expect(d).toContain('C ')
+  })
+
+  it('uses quadratic corners (not arcs) for a rounded rect', () => {
+    const d = outlinePathD(getOutline('roundRect', bounds, 12)!)
+    expect(d).toContain('Q ')
+    expect(d).not.toContain('A ')
+  })
+
+  it('approximates cylinder caps with cubic curves (not arcs)', () => {
+    const d = outlinePathD(getOutline('cylinder', bounds)!)
+    expect(d).toContain('C ')
+    expect(d).not.toContain('A ')
   })
 })

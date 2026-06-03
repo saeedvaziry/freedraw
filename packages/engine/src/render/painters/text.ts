@@ -1,9 +1,13 @@
 import { LayoutCache } from '../../text/cache.js'
-import { canvasMeasureContext, fontString } from '../../text/measure.js'
+import { canvasMeasureContext, fontString, renderFontFamily } from '../../text/measure.js'
 import type { TextAlign, TextLayout, VerticalAlign } from '../../text/layout.js'
 import type { Element, Style, TextElement } from '../../model/types.js'
 
 const layoutCache = new LayoutCache()
+
+export function clearTextLayoutCache(): void {
+  layoutCache.clear()
+}
 
 export const TEXT_PADDING = 6
 export const ARROW_LABEL_PADDING_X = 6
@@ -27,10 +31,11 @@ function measure(
   width: number,
   style: Style,
 ): TextLayout {
-  const measureCtx = canvasMeasureContext(ctx, style.fontSize, style.fontFamily)
+  const fontFamily = renderFontFamily(style.fontFamily, style.sloppiness)
+  const measureCtx = canvasMeasureContext(ctx, style.fontSize, fontFamily)
   return layoutCache.get(
     id,
-    { text, width, fontSize: style.fontSize, fontFamily: style.fontFamily },
+    { text, width, fontSize: style.fontSize, fontFamily },
     measureCtx,
   )
 }
@@ -126,7 +131,7 @@ function paintLayout(
   ctx.save()
   ctx.globalAlpha = style.opacity
   ctx.fillStyle = style.textColor
-  ctx.font = fontString(style.fontSize, style.fontFamily)
+  ctx.font = fontString(style.fontSize, renderFontFamily(style.fontFamily, style.sloppiness))
   ctx.textBaseline = 'middle'
   ctx.textAlign = canvasAlign(box.align)
   const anchorX = alignX(box, canvasAlign(box.align))
