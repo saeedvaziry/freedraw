@@ -38,6 +38,17 @@ function sketchOptions(sloppiness: number, seed: number): Options {
   }
 }
 
+export function strokeRoughPolygon(
+  ctx: CanvasRenderingContext2D,
+  points: Point[],
+  sloppiness: number,
+  seed: number,
+): void {
+  if (points.length < 2) return
+  const drawable = roughGenerator().polygon(points.map(toPair), sketchOptions(sloppiness, seed))
+  paintDrawable(ctx, drawable)
+}
+
 export function strokeRoughOutline(
   ctx: CanvasRenderingContext2D,
   outline: Outline,

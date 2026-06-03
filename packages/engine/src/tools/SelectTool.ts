@@ -286,7 +286,11 @@ export class SelectTool implements Tool {
     if (!hit) return null
     const { shape, port } = hit
 
-    const arrow = createArrow({ points: [port, port], start: createBinding(shape, port) })
+    const arrow = createArrow({
+      points: [port, port],
+      start: createBinding(shape, port),
+      style: ctx.store.getLastUsedStyle(),
+    })
     ctx.store.transact((api) => api.addElement(arrow))
     ctx.store.setUiState({ selectedIds: new Set([arrow.id]) })
     this.mode = {
@@ -392,7 +396,7 @@ export class SelectTool implements Tool {
       if (had) ctx.setSpawnPreview(null)
       return false
     }
-    const { target, arrow } = planConnectedShape(hit.shape, direction)
+    const { target, arrow } = planConnectedShape(hit.shape, direction, ctx.store.getLastUsedStyle())
     ctx.setSpawnPreview({
       target: { ...target, style: { ...target.style, opacity: target.style.opacity * SPAWN_GHOST_OPACITY } },
       arrow: { ...arrow, style: { ...arrow.style, opacity: arrow.style.opacity * SPAWN_GHOST_OPACITY } },

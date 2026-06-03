@@ -35,6 +35,19 @@ describe('spawnConnectedShape', () => {
     expect(store.getSnapshot().elements[newId]!.y).toBeLessThan(200)
   })
 
+  it('gives the bound arrow the last used style', () => {
+    const store = new SceneStore()
+    const source = createShape({ id: 'src', x: 0, y: 0, width: 100, height: 100 })
+    store.transact((api) => api.addElement(source))
+    store.updateLastUsedStyle({ sloppiness: 0.8 })
+    store.stopCapturing()
+
+    spawnConnectedShape(store, source, 'right')
+    const arrow = nonSource(store, 'src').find((element) => element.type === 'arrow') as ArrowElement
+
+    expect(arrow.style.sloppiness).toBe(0.8)
+  })
+
   it('is a single undo step', () => {
     const store = new SceneStore()
     const source = createShape({ id: 'src', x: 0, y: 0, width: 100, height: 100 })

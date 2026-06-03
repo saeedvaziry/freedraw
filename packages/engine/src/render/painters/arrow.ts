@@ -2,7 +2,7 @@ import type { ArrowElement, Arrowhead, Element, Point } from '../../model/types.
 import { arrowRoute } from '../../connectors/resolve.js'
 import { polylineMidpoint } from '../../text/arrowLabel.js'
 import { dashPattern } from './dash.js'
-import { isSloppy, strokeSloppyPath } from './sketch.js'
+import { isSloppy, strokeSloppyPath, strokeSloppyPolygon } from './sketch.js'
 import { paintArrowLabel } from './text.js'
 
 const ARROWHEAD_LENGTH = 12
@@ -47,8 +47,8 @@ export function paintArrow(ctx: CanvasRenderingContext2D, element: Element): voi
   const second = points[1]
   const last = points[points.length - 1]
   const beforeLast = points[points.length - 2]
-  if (first && second) paintHead(ctx, arrow.startArrowhead, first, second, style.strokeWidth, style.roundness)
-  if (last && beforeLast) paintHead(ctx, arrow.endArrowhead, last, beforeLast, style.strokeWidth, style.roundness)
+  if (first && second) paintHead(ctx, arrow.startArrowhead, first, second, arrow, 1)
+  if (last && beforeLast) paintHead(ctx, arrow.endArrowhead, last, beforeLast, arrow, 2)
   ctx.restore()
 
   paintArrowLabel(ctx, arrow, polylineMidpoint(points))
@@ -89,21 +89,33 @@ function paintHead(
   head: Arrowhead,
   tip: Point,
   from: Point,
-  strokeWidth: number,
-  roundness: number,
+  arrow: ArrowElement,
+  seedOffset: number,
 ): void {
   if (head === 'none') return
+  const { strokeWidth, roundness } = arrow.style
   const angle = Math.atan2(tip.y - from.y, tip.x - from.x)
   ctx.save()
   ctx.translate(tip.x, tip.y)
   ctx.rotate(angle)
   const scale = headScale(strokeWidth)
+  const sloppy = isSloppy(arrow)
 
   if (head === 'triangle') {
+    const vertices = [
+      { x: 0, y: 0 },
+      { x: -ARROWHEAD_LENGTH * scale, y: -ARROWHEAD_WIDTH * scale * 0.5 },
+      { x: -ARROWHEAD_LENGTH * scale, y: ARROWHEAD_WIDTH * scale * 0.5 },
+    ]
+    if (sloppy) {
+      strokeSloppyPolygon(ctx, vertices, arrow, seedOffset)
+      ctx.restore()
+      return
+    }
     ctx.beginPath()
-    ctx.moveTo(0, 0)
-    ctx.lineTo(-ARROWHEAD_LENGTH * scale, -ARROWHEAD_WIDTH * scale * 0.5)
-    ctx.lineTo(-ARROWHEAD_LENGTH * scale, ARROWHEAD_WIDTH * scale * 0.5)
+    vertices.forEach((point, index) =>
+      index === 0 ? ctx.moveTo(point.x, point.y) : ctx.lineTo(point.x, point.y),
+    )
     ctx.closePath()
     ctx.fill()
     if (roundness > 0) {
@@ -121,10 +133,19 @@ function paintHead(
     ctx.restore()
     return
   }
+  const bar = [
+    { x: 0, y: -BAR_HALF * scale },
+    { x: 0, y: BAR_HALF * scale },
+  ]
+  if (sloppy) {
+    strokeSloppyPath(ctx, bar, arrow)
+    ctx.restore()
+    return
+  }
   ctx.lineWidth = strokeWidth
   ctx.beginPath()
-  ctx.moveTo(0, -BAR_HALF * scale)
-  ctx.lineTo(0, BAR_HALF * scale)
+  ctx.moveTo(bar[0]!.x, bar[0]!.y)
+  ctx.lineTo(bar[1]!.x, bar[1]!.y)
   ctx.stroke()
   ctx.restore()
 }

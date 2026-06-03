@@ -344,6 +344,24 @@ describe('SelectTool', () => {
     expect(getEdit()).toBeNull()
   })
 
+  it('gives a port-dragged arrow the last used style', () => {
+    const { ctx, store } = makeContext()
+    const shape = createShape({ id: 'shape', x: 0, y: 0, width: 100, height: 100 })
+    store.transact((api) => api.addElement(shape))
+    store.updateLastUsedStyle({ sloppiness: 0.8 })
+    store.setUiState({ hoveredId: 'shape' })
+    const tool = new SelectTool()
+
+    tool.onPointerDown(pointer({ x: 100, y: 50 }), ctx)
+    tool.onPointerMove(pointer({ x: 220, y: 50 }), ctx)
+    tool.onPointerUp(pointer({ x: 220, y: 50 }), ctx)
+
+    const arrow = Object.values(store.getSnapshot().elements).find(
+      (element): element is ArrowElement => element.type === 'arrow' || element.type === 'line',
+    )!
+    expect(arrow.style.sloppiness).toBe(0.8)
+  })
+
   it('requests a spawn menu on right-click over a port', () => {
     const { ctx, store, getSpawnMenu } = makeContext()
     const shape = createShape({ id: 'shape', x: 0, y: 0, width: 100, height: 100 })

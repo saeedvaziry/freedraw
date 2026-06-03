@@ -1,10 +1,10 @@
 import { elementBounds, elementCenter } from '../geometry/hitTest.js'
 import { createArrow, createShape } from '../model/factory.js'
-import type { ArrowElement, Element, ElementId, Point, ShapeElement, ShapeType } from '../model/types.js'
+import type { ArrowElement, Element, ElementId, Point, ShapeElement, ShapeType, Style } from '../model/types.js'
 import type { SceneStore } from '../store/SceneStore.js'
 import { anchorFromPoint } from './binding.js'
 
-type Store = Pick<SceneStore, 'transact' | 'stopCapturing' | 'setUiState'>
+type Store = Pick<SceneStore, 'transact' | 'stopCapturing' | 'setUiState' | 'getLastUsedStyle'>
 
 const SHAPE_FALLBACK: ShapeType = 'rect'
 
@@ -41,6 +41,7 @@ export interface SpawnPlan {
 export function planConnectedShape(
   source: Element,
   direction: SpawnDirection,
+  arrowStyle: Style,
   typeOverride?: ShapeType,
 ): SpawnPlan {
   const vector = vectors[direction]
@@ -72,6 +73,7 @@ export function planConnectedShape(
     points: [sourceEdge, targetEdge],
     start: { elementId: source.id, anchor: anchorFromPoint(source, sourceEdge), gap: 6 },
     end: { elementId: target.id, anchor: anchorFromPoint(target, targetEdge), gap: 6 },
+    style: arrowStyle,
   })
 
   return { target, arrow }
@@ -83,7 +85,7 @@ export function spawnConnectedShape(
   direction: SpawnDirection,
   typeOverride?: ShapeType,
 ): string {
-  const { target, arrow } = planConnectedShape(source, direction, typeOverride)
+  const { target, arrow } = planConnectedShape(source, direction, store.getLastUsedStyle(), typeOverride)
   store.transact((api) => {
     api.addElement(target)
     api.addElement(arrow)
