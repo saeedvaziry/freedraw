@@ -1,6 +1,6 @@
 import type { Rect } from '../geometry/rect.js'
 import { snapPointToGrid } from '../geometry/grid.js'
-import type { ShapeElement, ShapeType } from '../model/types.js'
+import type { Point, ShapeElement, ShapeType } from '../model/types.js'
 import {
   createShape,
   SHAPE_DEFAULT_HEIGHT,
@@ -10,9 +10,11 @@ import type { PointerInfo, Tool, ToolContext, ToolResult } from './Tool.js'
 
 const PLACEHOLDER_TEXT = ''
 const GHOST_OPACITY = 0.4
+const DRAG_THRESHOLD = 4
 
 export class ShapeTool implements Tool {
   readonly id = 'shape'
+  private start: Point | null = null
 
   constructor(private shapeType: ShapeType) {}
 
@@ -21,7 +23,8 @@ export class ShapeTool implements Tool {
   }
 
   onPointerMove(info: PointerInfo, ctx: ToolContext): ToolResult {
-    const ghost = this.buildElement(this.bounds(info), ctx)
+    const bounds = this.start ? this.dragBounds(this.start, info.world) : this.defaultBounds(info.world)
+    const ghost = this.buildElement(bounds, ctx)
     ghost.label = { text: PLACEHOLDER_TEXT, align: 'center', verticalAlign: 'middle' }
     ghost.style = { ...ghost.style, opacity: ghost.style.opacity * GHOST_OPACITY }
     ctx.setPreview(ghost)
@@ -30,7 +33,19 @@ export class ShapeTool implements Tool {
 
   onPointerDown(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (info.button !== 0) return {}
-    const element = this.buildElement(this.bounds(info), ctx)
+    this.start = snapPointToGrid(info.world)
+    return {}
+  }
+
+  onPointerUp(info: PointerInfo, ctx: ToolContext): ToolResult {
+    if (!this.start) return {}
+    const start = this.start
+    this.start = null
+    const dragged = isDrag(start, info.world)
+    const element = this.buildElement(
+      dragged ? this.dragBounds(start, info.world) : this.defaultBounds(start),
+      ctx,
+    )
     ctx.setPreview(null)
     ctx.store.stopCapturing()
     ctx.store.transact((api) => api.addElement(element))
@@ -48,11 +63,12 @@ export class ShapeTool implements Tool {
   }
 
   onDeactivate(ctx: ToolContext): void {
+    this.start = null
     ctx.setPreview(null)
   }
 
-  private bounds(info: PointerInfo): Rect {
-    const center = snapPointToGrid(info.world)
+  private defaultBounds(world: Point): Rect {
+    const center = snapPointToGrid(world)
     return {
       x: center.x - SHAPE_DEFAULT_WIDTH / 2,
       y: center.y - SHAPE_DEFAULT_HEIGHT / 2,
@@ -61,7 +77,21 @@ export class ShapeTool implements Tool {
     }
   }
 
+  private dragBounds(start: Point, world: Point): Rect {
+    const end = snapPointToGrid(world)
+    return {
+      x: Math.min(start.x, end.x),
+      y: Math.min(start.y, end.y),
+      width: Math.abs(end.x - start.x),
+      height: Math.abs(end.y - start.y),
+    }
+  }
+
   private buildElement(bounds: Rect, ctx: ToolContext): ShapeElement {
     return createShape({ type: this.shapeType, ...bounds, style: ctx.store.getLastUsedStyle() })
   }
+}
+
+function isDrag(start: Point, world: Point): boolean {
+  return Math.hypot(world.x - start.x, world.y - start.y) >= DRAG_THRESHOLD
 }

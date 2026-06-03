@@ -17,6 +17,7 @@ const FONT_FAMILIES = [
   { value: 'Inter, system-ui, sans-serif', label: 'Sans', fontFamily: 'Inter, system-ui, sans-serif' },
   { value: 'Georgia, serif', label: 'Serif', fontFamily: 'Georgia, serif' },
   { value: 'ui-monospace, monospace', label: 'Mono', fontFamily: 'ui-monospace, monospace' },
+  { value: "'Architects Daughter', cursive", label: 'Hand', fontFamily: "'Architects Daughter', cursive" },
 ] as const
 
 const ALIGNMENTS = [

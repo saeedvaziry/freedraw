@@ -1,5 +1,5 @@
 import { LayoutCache } from '../../text/cache.js'
-import { canvasMeasureContext, fontString, renderFontFamily } from '../../text/measure.js'
+import { canvasMeasureContext, fontString } from '../../text/measure.js'
 import type { TextAlign, TextLayout, VerticalAlign } from '../../text/layout.js'
 import type { Element, Style, TextElement } from '../../model/types.js'
 
@@ -31,11 +31,10 @@ function measure(
   width: number,
   style: Style,
 ): TextLayout {
-  const fontFamily = renderFontFamily(style.fontFamily, style.sloppiness)
-  const measureCtx = canvasMeasureContext(ctx, style.fontSize, fontFamily)
+  const measureCtx = canvasMeasureContext(ctx, style.fontSize, style.fontFamily)
   return layoutCache.get(
     id,
-    { text, width, fontSize: style.fontSize, fontFamily },
+    { text, width, fontSize: style.fontSize, fontFamily: style.fontFamily },
     measureCtx,
   )
 }
@@ -131,7 +130,7 @@ function paintLayout(
   ctx.save()
   ctx.globalAlpha = style.opacity
   ctx.fillStyle = style.textColor
-  ctx.font = fontString(style.fontSize, renderFontFamily(style.fontFamily, style.sloppiness))
+  ctx.font = fontString(style.fontSize, style.fontFamily)
   ctx.textBaseline = 'middle'
   ctx.textAlign = canvasAlign(box.align)
   const anchorX = alignX(box, canvasAlign(box.align))

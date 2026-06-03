@@ -2,11 +2,7 @@ export interface MeasureContext {
   measureWidth(text: string): number
 }
 
-export const SKETCH_FONT_FAMILY = "'Architects Daughter', cursive"
-
-export function renderFontFamily(fontFamily: string, sloppiness: number): string {
-  return sloppiness > 0 ? SKETCH_FONT_FAMILY : fontFamily
-}
+export const HANDWRITTEN_FONT_FAMILY = "'Architects Daughter', cursive"
 
 export function fontString(fontSize: number, fontFamily: string): string {
   return `${fontSize}px ${fontFamily}`

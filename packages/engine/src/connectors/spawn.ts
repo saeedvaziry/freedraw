@@ -24,7 +24,7 @@ export interface SpawnMenuRequest {
   direction: SpawnDirection
 }
 
-const SPAWN_GAP = 80
+const SPAWN_GAP = 120
 
 const vectors: Record<SpawnDirection, Point> = {
   left: { x: -1, y: 0 },

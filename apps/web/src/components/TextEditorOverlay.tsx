@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   invertColor,
-  renderFontFamily,
   type EditorController,
   type EditRequest,
 } from '@freedraw/engine'
@@ -177,7 +176,7 @@ function baseStyle(style: EditRequest['style'], zoom: number, dark: boolean): Re
   return {
     fontSize: `${style.fontSize * zoom}px`,
     lineHeight: `${lineHeight * zoom}px`,
-    fontFamily: renderFontFamily(style.fontFamily, style.sloppiness),
+    fontFamily: style.fontFamily,
     color: themed(style.textColor, dark),
     caretColor: themed(style.textColor, dark),
   }

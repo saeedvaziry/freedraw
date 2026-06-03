@@ -39,7 +39,7 @@ export {
   LayoutCache,
   layoutKey,
   fontString,
-  renderFontFamily,
+  HANDWRITTEN_FONT_FAMILY,
   canvasMeasureContext,
   approximateMeasureContext,
   offscreenMeasureContext,

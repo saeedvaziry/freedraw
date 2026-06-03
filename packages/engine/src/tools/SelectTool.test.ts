@@ -280,7 +280,7 @@ describe('SelectTool', () => {
 
     const preview = getSpawnPreview()
     expect(preview).not.toBeNull()
-    expect(preview!.target).toMatchObject({ type: 'rect', x: 180, y: 0, width: 100, height: 100 })
+    expect(preview!.target).toMatchObject({ type: 'rect', x: 220, y: 0, width: 100, height: 100 })
     expect(preview!.arrow.start?.elementId).toBe('shape')
     expect(preview!.arrow.end?.elementId).toBe(preview!.target.id)
   })
@@ -313,7 +313,7 @@ describe('SelectTool', () => {
     )
     expect(shapes).toHaveLength(2)
     const created = shapes.find((element) => element.id !== 'shape')!
-    expect(created).toMatchObject({ x: 180, y: 0 })
+    expect(created).toMatchObject({ x: 220, y: 0 })
 
     const arrows = Object.values(store.getSnapshot().elements).filter(
       (element): element is ArrowElement => element.type === 'arrow' || element.type === 'line',

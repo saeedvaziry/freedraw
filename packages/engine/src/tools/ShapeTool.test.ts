@@ -54,6 +54,7 @@ describe('ShapeTool', () => {
     const { ctx, store, getPreview } = makeContext()
     const tool = new ShapeTool('ellipse')
     tool.onPointerDown(pointer({ x: 100, y: 100 }), ctx)
+    tool.onPointerUp(pointer({ x: 100, y: 100 }), ctx)
 
     const elements = Object.values(store.getSnapshot().elements)
     expect(elements).toHaveLength(1)
@@ -63,10 +64,33 @@ describe('ShapeTool', () => {
     expect(getPreview()).toBeNull()
   })
 
+  it('draws a shape to the dragged bounds', () => {
+    const { ctx, store } = makeContext()
+    const tool = new ShapeTool('rect')
+    tool.onPointerDown(pointer({ x: 100, y: 100 }), ctx)
+    tool.onPointerMove(pointer({ x: 300, y: 250 }), ctx)
+    tool.onPointerUp(pointer({ x: 300, y: 250 }), ctx)
+
+    const elements = Object.values(store.getSnapshot().elements)
+    expect(elements).toHaveLength(1)
+    expect(elements[0]).toMatchObject({ type: 'rect', x: 100, y: 100, width: 200, height: 150 })
+  })
+
+  it('normalizes bounds when dragging up and to the left', () => {
+    const { ctx, store } = makeContext()
+    const tool = new ShapeTool('rect')
+    tool.onPointerDown(pointer({ x: 300, y: 250 }), ctx)
+    tool.onPointerUp(pointer({ x: 100, y: 100 }), ctx)
+
+    const elements = Object.values(store.getSnapshot().elements)
+    expect(elements[0]).toMatchObject({ x: 100, y: 100, width: 200, height: 150 })
+  })
+
   it('begins editing the label of the placed shape', () => {
     const { ctx, store, getEdit } = makeContext()
     const tool = new ShapeTool('rect')
     tool.onPointerDown(pointer({ x: 100, y: 100 }), ctx)
+    tool.onPointerUp(pointer({ x: 100, y: 100 }), ctx)
 
     const element = Object.values(store.getSnapshot().elements)[0]!
     expect(getEdit()).toMatchObject({ elementId: element.id, target: 'label', text: '' })

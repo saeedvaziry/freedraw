@@ -2,7 +2,7 @@ export { layoutText, wrapText, lineHeightFor, DEFAULT_LINE_HEIGHT_RATIO } from '
 export type { TextLayout, TextLayoutInput, TextAlign, VerticalAlign } from './layout.js'
 export {
   fontString,
-  renderFontFamily,
+  HANDWRITTEN_FONT_FAMILY,
   canvasMeasureContext,
   approximateMeasureContext,
   offscreenMeasureContext,

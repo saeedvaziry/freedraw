@@ -18,7 +18,7 @@ import { createRenderLoop, type RenderLoopHandle } from '../render/loop.js'
 import { Renderer, type OverlayState, type SpawnPreview } from '../render/Renderer.js'
 import { setImageCache } from '../render/painters/image.js'
 import { clearTextLayoutCache } from '../render/painters/text.js'
-import { SKETCH_FONT_FAMILY } from '../text/measure.js'
+import { HANDWRITTEN_FONT_FAMILY } from '../text/measure.js'
 import type { SceneStore } from '../store/SceneStore.js'
 import { ToolManager } from '../tools/ToolManager.js'
 import type { ToolContext, ToolResult } from '../tools/Tool.js'
@@ -385,7 +385,7 @@ export class EditorController {
   private attachFontWatch(): void {
     const fonts = typeof document !== 'undefined' ? document.fonts : null
     if (!fonts) return
-    fonts.load(`16px ${SKETCH_FONT_FAMILY}`).then(() => {
+    fonts.load(`16px ${HANDWRITTEN_FONT_FAMILY}`).then(() => {
       clearTextLayoutCache()
       this.loop.markDirty()
     })

@@ -252,7 +252,11 @@ export class SceneStore {
       for (const id of targets) {
         const element = this.snapshot.elements[id]
         if (!element) continue
-        api.updateElement(id, { style: { ...element.style, ...patch } })
+        const label =
+          patch.textAlign && element.label
+            ? { ...element.label, align: patch.textAlign }
+            : element.label
+        api.updateElement(id, { style: { ...element.style, ...patch }, ...(label ? { label } : {}) })
       }
     })
     this.updateLastUsedStyle(patch)
