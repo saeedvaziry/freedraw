@@ -3,6 +3,7 @@ import type { EditorController, SceneStore } from '@freedraw/engine'
 import { ActionsBarHost } from '../components/ActionsBarHost.js'
 import { CanvasHost } from '../components/CanvasHost.js'
 import { EmptyState } from '../components/EmptyState.js'
+import { LinksBar } from '../components/LinksBar.js'
 import { StylePanelHost } from '../components/StylePanelHost.js'
 import { ToolbarHost } from '../components/ToolbarHost.js'
 import { ZoomIndicator } from '../components/ZoomIndicator.js'
@@ -81,7 +82,8 @@ function Board({ store }: BoardProps) {
           onToggleTheme={toggle}
         />
       </div>
-      <div className="pointer-events-none absolute right-6 bottom-6 flex justify-end">
+      <div className="pointer-events-none absolute right-6 bottom-6 flex items-center gap-2">
+        <LinksBar />
         <ZoomIndicator store={store} />
       </div>
     </div>
