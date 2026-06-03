@@ -3,16 +3,16 @@ import type { AppState, CameraState, Style } from './types.js'
 export const SCHEMA_VERSION = 2
 
 export const defaultStyle: Style = {
-  stroke: '#1e1e1e',
-  fill: 'transparent',
+  stroke: '#454545',
+  fill: '#ffffff',
   strokeWidth: 2,
   strokeStyle: 'solid',
   opacity: 1,
   roundness: 0,
-  sloppiness: 0,
-  fontSize: 16,
-  fontFamily: 'Inter, system-ui, sans-serif',
-  textColor: '#1e1e1e',
+  sloppiness: 0.5,
+  fontSize: 31,
+  fontFamily: "'Architects Daughter', cursive",
+  textColor: '#454545',
   textAlign: 'center',
 }
 

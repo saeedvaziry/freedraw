@@ -28,7 +28,7 @@ describe('updateStyle', () => {
     expect(elements[a!]!.style.stroke).toBe('#ff0000')
     expect(elements[a!]!.style.strokeWidth).toBe(6)
     expect(elements[b!]!.style.stroke).toBe('#ff0000')
-    expect(elements[c!]!.style.stroke).toBe('#1e1e1e')
+    expect(elements[c!]!.style.stroke).toBe('#454545')
   })
 
   it('applies a multi-select edit in one undo step', () => {
@@ -40,8 +40,8 @@ describe('updateStyle', () => {
     expect(store.getSnapshot().elements[b!]!.style.fill).toBe('#00ff00')
 
     store.undo()
-    expect(store.getSnapshot().elements[a!]!.style.fill).toBe('transparent')
-    expect(store.getSnapshot().elements[b!]!.style.fill).toBe('transparent')
+    expect(store.getSnapshot().elements[a!]!.style.fill).toBe('#ffffff')
+    expect(store.getSnapshot().elements[b!]!.style.fill).toBe('#ffffff')
   })
 
   it('updates lastUsedStyle so new elements inherit it', () => {
@@ -66,7 +66,7 @@ describe('updateStyle', () => {
     store.updateStyle([a!], { stroke: '#abcdef' })
     store.undo()
 
-    expect(store.getSnapshot().elements[a!]!.style.stroke).toBe('#1e1e1e')
+    expect(store.getSnapshot().elements[a!]!.style.stroke).toBe('#454545')
   })
 })
 
@@ -101,7 +101,7 @@ describe('selectionStyle slice', () => {
 
     store.updateStyle([], { stroke: '#ff0000' })
 
-    expect(store.getSelectionStyle().stroke).toBe('#1e1e1e')
+    expect(store.getSelectionStyle().stroke).toBe('#454545')
   })
 
   it('returns a stable reference until the derived values change', () => {
