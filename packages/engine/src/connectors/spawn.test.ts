@@ -44,6 +44,11 @@ describe('spawnConnectedShape', () => {
 
     expect(second.x).toBe(first.x)
     expect(Math.abs(second.y - first.y)).toBeGreaterThanOrEqual(first.height)
+
+    const arrow = Object.values(store.getSnapshot().elements).find(
+      (element) => element.type === 'arrow' && (element as ArrowElement).end?.elementId === secondId,
+    ) as ArrowElement
+    expect(arrow.route.length).toBeGreaterThan(2)
   })
 
   it('spawns upward for the up direction', () => {

@@ -95,6 +95,7 @@ export function planConnectedShape(
     points: [sourceEdge, targetEdge],
     start: { elementId: source.id, anchor: anchorFromPoint(source, sourceEdge), gap: 6 },
     end: { elementId: target.id, anchor: anchorFromPoint(target, targetEdge), gap: 6 },
+    routing: 'orthogonal',
     style: arrowStyle,
   })
 
