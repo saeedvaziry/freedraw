@@ -79,10 +79,6 @@ function Board({ store }: BoardProps) {
         />
       </div>
 
-      <div className="pointer-events-none absolute right-3 bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] flex items-center gap-2 sm:hidden">
-        <ZoomIndicator store={store} />
-      </div>
-
       <div className="pointer-events-none absolute top-6 right-6 hidden justify-end sm:flex">
         <StylePanelHost store={store} />
       </div>
