@@ -27,7 +27,7 @@ describe('spawnConnectedShape', () => {
     expect([...store.getUiState().selectedIds]).toEqual([newId])
   })
 
-  it('steps past an existing shape when spawning twice in the same direction', () => {
+  it('branches perpendicular when spawning twice in the same direction', () => {
     const store = new SceneStore()
     const source = createShape({ id: 'src', x: 0, y: 0, width: 100, height: 100 })
     store.transact((api) => api.addElement(source))
@@ -42,8 +42,8 @@ describe('spawnConnectedShape', () => {
     const secondId = spawnConnectedShape(store, source, 'right', undefined, obstacles)
     const second = store.getSnapshot().elements[secondId]!
 
-    expect(second.x).toBeGreaterThanOrEqual(first.x + first.width)
-    expect(second.y).toBe(first.y)
+    expect(second.x).toBe(first.x)
+    expect(Math.abs(second.y - first.y)).toBeGreaterThanOrEqual(first.height)
   })
 
   it('spawns upward for the up direction', () => {

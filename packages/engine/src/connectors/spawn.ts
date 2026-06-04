@@ -40,17 +40,23 @@ export interface SpawnPlan {
   arrow: ArrowElement
 }
 
+function isFree(rect: Rect, obstacles: Rect[]): boolean {
+  return !obstacles.some((obstacle) => intersects(rect, obstacle))
+}
+
 function freeSlot(bounds: Rect, vector: Point, obstacles: Rect[]): Point {
-  const step = vector.x !== 0 ? bounds.width + SPAWN_GAP : bounds.height + SPAWN_GAP
-  let x = bounds.x + vector.x * step
-  let y = bounds.y + vector.y * step
+  const alongX = vector.x * (bounds.width + SPAWN_GAP)
+  const alongY = vector.y * (bounds.height + SPAWN_GAP)
+  const perpStep = vector.x !== 0 ? bounds.height + SPAWN_GAP : bounds.width + SPAWN_GAP
+  const perp: Point = { x: vector.x !== 0 ? 0 : 1, y: vector.x !== 0 ? 1 : 0 }
+
   for (let i = 0; i < MAX_SPAWN_STEPS; i += 1) {
-    const candidate: Rect = { x, y, width: bounds.width, height: bounds.height }
-    if (!obstacles.some((obstacle) => intersects(candidate, obstacle))) break
-    x += vector.x * step
-    y += vector.y * step
+    const lane = i === 0 ? 0 : Math.ceil(i / 2) * (i % 2 === 1 ? 1 : -1)
+    const x = bounds.x + alongX + perp.x * lane * perpStep
+    const y = bounds.y + alongY + perp.y * lane * perpStep
+    if (isFree({ x, y, width: bounds.width, height: bounds.height }, obstacles)) return { x, y }
   }
-  return { x, y }
+  return { x: bounds.x + alongX, y: bounds.y + alongY }
 }
 
 export function planConnectedShape(
