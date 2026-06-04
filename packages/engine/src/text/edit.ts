@@ -10,6 +10,7 @@ export interface EditRequest {
   style: Style
   align: 'left' | 'center' | 'right'
   verticalAlign: 'top' | 'middle' | 'bottom'
+  selectAll?: boolean
 }
 
 export type EditListener = (request: EditRequest | null) => void

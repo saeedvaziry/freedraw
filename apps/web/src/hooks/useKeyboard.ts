@@ -97,6 +97,12 @@ export function useKeyboard(
       }
 
       if (mod || event.altKey) return
+
+      if (controller && isPrintableKey(event.key) && tryBeginLabelEdit(store, controller, event.key)) {
+        event.preventDefault()
+        return
+      }
+
       const hotkey = TOOL_HOTKEYS[key]
       if (!hotkey) return
       event.preventDefault()
@@ -112,6 +118,25 @@ export function useKeyboard(
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [store, controller, onImageButton, exportActions])
+}
+
+function isPrintableKey(key: string): boolean {
+  return key.length === 1 && key !== ' '
+}
+
+function tryBeginLabelEdit(
+  store: SceneStore,
+  controller: EditorController,
+  char: string,
+): boolean {
+  const ui = store.getUiState()
+  if (ui.activeTool !== 'select') return false
+  if (controller.activeEdit) return false
+  if (ui.selectedIds.size !== 1) return false
+  const [elementId] = ui.selectedIds
+  if (!elementId) return false
+  controller.beginLabelEditFromText(elementId, char)
+  return true
 }
 
 export function isEditableTarget(target: EventTarget | null): boolean {

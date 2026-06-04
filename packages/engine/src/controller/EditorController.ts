@@ -3,6 +3,7 @@ import { Camera } from '../geometry/Camera.js'
 import { contentBounds, fitCamera } from '../geometry/fit.js'
 import { selectionFrameFor } from '../geometry/selectionFrame.js'
 import { labelRect } from '../geometry/shapeOutline.js'
+import { labelEditRequest } from '../text/labelEdit.js'
 import type { Rect } from '../geometry/rect.js'
 import type { SnapGuide } from '../geometry/snap.js'
 import { InputManager } from '../input/InputManager.js'
@@ -216,6 +217,12 @@ export class EditorController {
       align: target.style.textAlign,
       verticalAlign: 'middle',
     })
+  }
+
+  beginLabelEditFromText(elementId: ElementId, text: string): void {
+    const element = this.store.getSnapshot().elements[elementId]
+    if (!element) return
+    this.beginEdit(labelEditRequest(element, text, { selectAll: false }))
   }
 
   worldToScreen(point: { x: number; y: number }): { x: number; y: number } {
