@@ -45,7 +45,12 @@ export function TextEditorOverlay({ controller }: TextEditorOverlayProps) {
       const textarea = textareaRef.current
       if (!textarea) return
       textarea.focus()
-      textarea.select()
+      if (edit?.request.selectAll === false) {
+        const end = textarea.value.length
+        textarea.setSelectionRange(end, end)
+      } else {
+        textarea.select()
+      }
       frame = requestAnimationFrame(() => {
         readyRef.current = true
       })
