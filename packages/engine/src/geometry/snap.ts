@@ -9,6 +9,7 @@ const EDGE_CENTER_MAGNET_FACTOR = 0.5
 export type SnapGuide =
   | { kind: 'point'; at: Point }
   | { kind: 'line'; from: Point; to: Point }
+  | { kind: 'distance'; from: Point; to: Point }
 
 export interface SnapResult {
   point: Point

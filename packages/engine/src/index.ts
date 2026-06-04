@@ -66,6 +66,8 @@ export type { EditRequest, EditTarget, EditListener } from './text/edit.js'
 
 export { snapEndpoint, snapToShapes, shapeAnchors, SNAP_DISTANCE } from './geometry/snap.js'
 export type { SnapGuide, SnapResult } from './geometry/snap.js'
+export { alignMovingBounds, ALIGNMENT_SNAP_DISTANCE } from './geometry/alignment.js'
+export type { AlignmentResult } from './geometry/alignment.js'
 export type { Tool, ToolContext, ToolResult, PointerInfo } from './tools/Tool.js'
 export { InputManager } from './input/InputManager.js'
 export { pinchSample, pinchDelta } from './input/pinch.js'

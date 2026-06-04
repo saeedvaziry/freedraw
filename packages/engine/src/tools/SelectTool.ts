@@ -1,9 +1,10 @@
 import { createBinding } from '../connectors/binding.js'
 import { handleAtScreen, type HandleId, type ResizeHandleId } from '../geometry/handles.js'
-import { elementCenter, hitTest, marqueeHits } from '../geometry/hitTest.js'
+import { elementCenter, hitTest, marqueeHits, selectionBounds } from '../geometry/hitTest.js'
 import type { Rect } from '../geometry/rect.js'
-import { snapPointToGrid } from '../geometry/grid.js'
+import { snapPointToGrid, snapValueToGrid } from '../geometry/grid.js'
 import { snapEndpoint, SNAP_DISTANCE } from '../geometry/snap.js'
+import { alignMovingBounds, ALIGNMENT_SNAP_DISTANCE } from '../geometry/alignment.js'
 import { resizeElements, resizedBounds, rotationFor } from '../geometry/transform.js'
 import { selectionFrameFor } from '../geometry/selectionFrame.js'
 import { labelRect } from '../geometry/shapeOutline.js'
@@ -23,8 +24,19 @@ const ZERO_RECT: Rect = { x: 0, y: 0, width: 0, height: 0 }
 const SPAWN_GHOST_OPACITY = 0.4
 const PORT_DIRECTIONS: SpawnDirection[] = ['up', 'right', 'down', 'left']
 
+type MoveBase =
+  | { kind: 'box'; x: number; y: number }
+  | { kind: 'points'; points: Point[] }
+
 function isArrow(element: Element): element is ArrowElement {
   return element.type === 'arrow' || element.type === 'line'
+}
+
+function moveBaseOf(element: Element): MoveBase {
+  if (isArrow(element) || element.type === 'freedraw') {
+    return { kind: 'points', points: element.points.map((point) => ({ ...point })) }
+  }
+  return { kind: 'box', x: element.x, y: element.y }
 }
 
 function portDirection(shape: Element, port: Point): SpawnDirection | null {
@@ -43,7 +55,7 @@ function portDirection(shape: Element, port: Point): SpawnDirection | null {
 
 type Mode =
   | { kind: 'idle' }
-  | { kind: 'move'; last: Point }
+  | { kind: 'move'; origin: Point; bounds: Rect; ids: Set<ElementId>; bases: Map<ElementId, MoveBase> }
   | { kind: 'marquee'; origin: Point; additive: boolean; base: Set<ElementId> }
   | { kind: 'resize'; handle: ResizeHandleId; elements: Element[]; frame: ReturnType<typeof selectionFrameFor> }
   | { kind: 'rotate'; elements: Element[]; center: Point; startAngle: number }
@@ -101,7 +113,7 @@ export class SelectTool implements Tool {
 
     const nextSelection = this.resolveSelection(selected, hit.id, info.shiftKey)
     store.setUiState({ selectedIds: nextSelection })
-    if (nextSelection.has(hit.id)) this.mode = { kind: 'move', last: snapPointToGrid(info.world) }
+    if (nextSelection.has(hit.id)) this.beginMove(nextSelection, info.world, store)
     return { overlay: true }
   }
 
@@ -406,29 +418,45 @@ export class SelectTool implements Tool {
     return true
   }
 
+  private beginMove(ids: Set<ElementId>, world: Point, store: SceneStore): void {
+    const snapshot = store.getSnapshot()
+    const elements = [...ids].map((id) => snapshot.elements[id]).filter(Boolean) as Element[]
+    const bounds = selectionBounds(elements)
+    if (!bounds) return
+    const bases = new Map<ElementId, MoveBase>()
+    for (const element of elements) bases.set(element.id, moveBaseOf(element))
+    this.mode = { kind: 'move', origin: world, bounds, ids: new Set(ids), bases }
+  }
+
   private dragMove(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (this.mode.kind !== 'move') return {}
-    const next = snapPointToGrid(info.world)
-    const dx = next.x - this.mode.last.x
-    const dy = next.y - this.mode.last.y
-    this.mode.last = next
-    const ids = ctx.store.getUiState().selectedIds
+    const { origin, bounds, ids, bases } = this.mode
+    const raw = { x: info.world.x - origin.x, y: info.world.y - origin.y }
+    const gridded = {
+      x: snapValueToGrid(bounds.x + raw.x) - bounds.x,
+      y: snapValueToGrid(bounds.y + raw.y) - bounds.y,
+    }
+    const moved: Rect = { ...bounds, x: bounds.x + gridded.x, y: bounds.y + gridded.y }
+    const alignment = alignMovingBounds(moved, ctx.store.getSnapshot(), ids, {
+      threshold: ALIGNMENT_SNAP_DISTANCE / ctx.camera.zoom,
+    })
+    const delta = { x: gridded.x + alignment.offset.x, y: gridded.y + alignment.offset.y }
+    ctx.setGuides(alignment.guides)
     ctx.store.transact((api) => {
       for (const id of ids) {
-        const element = ctx.store.getSnapshot().elements[id]
-        if (!element) continue
-        if (isArrow(element)) {
-          const translate = (point: Point) => ({ x: point.x + dx, y: point.y + dy })
-          const points = element.points.map(translate)
-          api.updateElement(id, { points })
-          continue
-        }
-        if (element.type === 'freedraw') {
-          const points = element.points.map((point) => ({ x: point.x + dx, y: point.y + dy }))
+        const base = bases.get(id)
+        if (!base) continue
+        if (base.kind === 'points') {
+          const points = base.points.map((point) => ({ x: point.x + delta.x, y: point.y + delta.y }))
+          const element = ctx.store.getSnapshot().elements[id]
+          if (element && isArrow(element)) {
+            api.updateElement(id, { points })
+            continue
+          }
           api.updateElement(id, { points, ...pointsBounds(points) })
           continue
         }
-        api.updateElement(id, { x: element.x + dx, y: element.y + dy })
+        api.updateElement(id, { x: base.x + delta.x, y: base.y + delta.y })
       }
     })
     return { scene: true, overlay: true }
