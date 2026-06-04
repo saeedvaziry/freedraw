@@ -34,12 +34,6 @@ export function paintPorts(ctx: CanvasRenderingContext2D, element: Element, came
     ctx.arc(screen.x, screen.y, PORT_RADIUS, 0, Math.PI * 2)
     ctx.fill()
     ctx.stroke()
-    ctx.beginPath()
-    ctx.moveTo(screen.x - 2, screen.y)
-    ctx.lineTo(screen.x + 2, screen.y)
-    ctx.moveTo(screen.x, screen.y - 2)
-    ctx.lineTo(screen.x, screen.y + 2)
-    ctx.stroke()
   }
   ctx.restore()
 }
