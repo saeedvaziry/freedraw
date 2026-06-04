@@ -27,6 +27,25 @@ describe('spawnConnectedShape', () => {
     expect([...store.getUiState().selectedIds]).toEqual([newId])
   })
 
+  it('steps past an existing shape when spawning twice in the same direction', () => {
+    const store = new SceneStore()
+    const source = createShape({ id: 'src', x: 0, y: 0, width: 100, height: 100 })
+    store.transact((api) => api.addElement(source))
+    store.stopCapturing()
+
+    const firstId = spawnConnectedShape(store, source, 'right')
+    const first = store.getSnapshot().elements[firstId]!
+
+    const obstacles = Object.values(store.getSnapshot().elements)
+      .filter((element) => element.id !== source.id && element.type !== 'arrow')
+      .map((element) => ({ x: element.x, y: element.y, width: element.width, height: element.height }))
+    const secondId = spawnConnectedShape(store, source, 'right', undefined, obstacles)
+    const second = store.getSnapshot().elements[secondId]!
+
+    expect(second.x).toBeGreaterThanOrEqual(first.x + first.width)
+    expect(second.y).toBe(first.y)
+  })
+
   it('spawns upward for the up direction', () => {
     const store = new SceneStore()
     const source = createShape({ id: 'src', x: 0, y: 200, width: 100, height: 100 })

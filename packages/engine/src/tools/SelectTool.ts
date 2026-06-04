@@ -147,7 +147,8 @@ export class SelectTool implements Tool {
     ctx.store.deleteElements([mode.arrowId])
     const source = ctx.store.getSnapshot().elements[mode.sourceId]
     if (!source || !mode.direction) return
-    const targetId = spawnConnectedShape(ctx.store, source, mode.direction)
+    const obstacles = otherBounds(ctx.store.getSnapshot(), new Set([source.id]))
+    const targetId = spawnConnectedShape(ctx.store, source, mode.direction, undefined, obstacles)
     const target = ctx.store.getSnapshot().elements[targetId]
     if (target) this.beginLabelEdit(target, ctx)
   }
@@ -228,7 +229,8 @@ export class SelectTool implements Tool {
     const source = ctx.store.getSnapshot().elements[selected[0]!]
     if (!source || isArrow(source)) return
     event.preventDefault()
-    spawnConnectedShape(ctx.store, source, direction)
+    const obstacles = otherBounds(ctx.store.getSnapshot(), new Set([source.id]))
+    spawnConnectedShape(ctx.store, source, direction, undefined, obstacles)
     return { scene: true, overlay: true }
   }
 
@@ -407,7 +409,8 @@ export class SelectTool implements Tool {
       if (had) ctx.setSpawnPreview(null)
       return false
     }
-    const { target, arrow } = planConnectedShape(hit.shape, direction, ctx.store.getLastUsedStyle())
+    const obstacles = otherBounds(ctx.store.getSnapshot(), new Set([hit.shape.id]))
+    const { target, arrow } = planConnectedShape(hit.shape, direction, ctx.store.getLastUsedStyle(), undefined, obstacles)
     ctx.setSpawnPreview({
       target: { ...target, style: { ...target.style, opacity: target.style.opacity * SPAWN_GHOST_OPACITY } },
       arrow: { ...arrow, style: { ...arrow.style, opacity: arrow.style.opacity * SPAWN_GHOST_OPACITY } },

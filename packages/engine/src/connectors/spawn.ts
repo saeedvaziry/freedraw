@@ -1,4 +1,5 @@
 import { elementBounds, elementCenter } from '../geometry/hitTest.js'
+import { intersects, type Rect } from '../geometry/rect.js'
 import { createArrow, createShape } from '../model/factory.js'
 import type { ArrowElement, Element, ElementId, Point, ShapeElement, ShapeType, Style } from '../model/types.js'
 import type { SceneStore } from '../store/SceneStore.js'
@@ -25,6 +26,7 @@ export interface SpawnMenuRequest {
 }
 
 const SPAWN_GAP = 120
+const MAX_SPAWN_STEPS = 100
 
 const vectors: Record<SpawnDirection, Point> = {
   left: { x: -1, y: 0 },
@@ -38,26 +40,40 @@ export interface SpawnPlan {
   arrow: ArrowElement
 }
 
+function freeSlot(bounds: Rect, vector: Point, obstacles: Rect[]): Point {
+  const step = vector.x !== 0 ? bounds.width + SPAWN_GAP : bounds.height + SPAWN_GAP
+  let x = bounds.x + vector.x * step
+  let y = bounds.y + vector.y * step
+  for (let i = 0; i < MAX_SPAWN_STEPS; i += 1) {
+    const candidate: Rect = { x, y, width: bounds.width, height: bounds.height }
+    if (!obstacles.some((obstacle) => intersects(candidate, obstacle))) break
+    x += vector.x * step
+    y += vector.y * step
+  }
+  return { x, y }
+}
+
 export function planConnectedShape(
   source: Element,
   direction: SpawnDirection,
   arrowStyle: Style,
   typeOverride?: ShapeType,
+  obstacles: Rect[] = [],
 ): SpawnPlan {
   const vector = vectors[direction]
   const bounds = elementBounds(source)
-  const center = elementCenter(source)
 
-  const offsetX = vector.x * (bounds.width + SPAWN_GAP)
-  const offsetY = vector.y * (bounds.height + SPAWN_GAP)
+  const slot = freeSlot(bounds, vector, obstacles)
   const target = createShape({
     type: typeOverride ?? shapeTypeOf(source),
-    x: bounds.x + offsetX,
-    y: bounds.y + offsetY,
+    x: slot.x,
+    y: slot.y,
     width: bounds.width,
     height: bounds.height,
     style: { ...source.style },
   })
+
+  const center = elementCenter(source)
 
   const sourceEdge: Point = {
     x: center.x + vector.x * (bounds.width / 2),
@@ -84,8 +100,9 @@ export function spawnConnectedShape(
   source: Element,
   direction: SpawnDirection,
   typeOverride?: ShapeType,
+  obstacles: Rect[] = [],
 ): string {
-  const { target, arrow } = planConnectedShape(source, direction, store.getLastUsedStyle(), typeOverride)
+  const { target, arrow } = planConnectedShape(source, direction, store.getLastUsedStyle(), typeOverride, obstacles)
   store.transact((api) => {
     api.addElement(target)
     api.addElement(arrow)
