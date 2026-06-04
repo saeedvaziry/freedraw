@@ -1,9 +1,9 @@
 import type { Camera } from '../../geometry/Camera.js'
 import type { SnapGuide } from '../../geometry/snap.js'
+import type { Point } from '../../model/types.js'
 
 const GUIDE_COLOR = '#f04bb5'
-const TICK = 3
-const LABEL_FONT = '11px ui-sans-serif, system-ui, sans-serif'
+const CAP_SIZE = 4
 
 export function paintGuides(ctx: CanvasRenderingContext2D, guides: SnapGuide[], camera: Camera): void {
   if (guides.length === 0) return
@@ -11,19 +11,20 @@ export function paintGuides(ctx: CanvasRenderingContext2D, guides: SnapGuide[], 
   ctx.strokeStyle = GUIDE_COLOR
   ctx.fillStyle = GUIDE_COLOR
   ctx.lineWidth = 1
+  ctx.font = '10px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
   for (const guide of guides) {
-    if (guide.kind === 'distance') {
-      paintDistance(ctx, guide, camera)
+    if (guide.kind === 'line') {
+      strokeSegment(ctx, camera.worldToScreen(guide.from), camera.worldToScreen(guide.to), [4, 4])
       continue
     }
-    if (guide.kind === 'line') {
-      const from = camera.worldToScreen(guide.from)
-      const to = camera.worldToScreen(guide.to)
-      ctx.setLineDash([])
-      ctx.beginPath()
-      ctx.moveTo(from.x, from.y)
-      ctx.lineTo(to.x, to.y)
-      ctx.stroke()
+    if (guide.kind === 'align') {
+      strokeSegment(ctx, camera.worldToScreen(guide.from), camera.worldToScreen(guide.to), [])
+      continue
+    }
+    if (guide.kind === 'distance') {
+      paintDistance(ctx, camera.worldToScreen(guide.from), camera.worldToScreen(guide.to), guide.label)
       continue
     }
     const at = camera.worldToScreen(guide.at)
@@ -35,57 +36,34 @@ export function paintGuides(ctx: CanvasRenderingContext2D, guides: SnapGuide[], 
   ctx.restore()
 }
 
-function paintDistance(
-  ctx: CanvasRenderingContext2D,
-  guide: Extract<SnapGuide, { kind: 'distance' }>,
-  camera: Camera,
-): void {
-  const from = camera.worldToScreen(guide.from)
-  const to = camera.worldToScreen(guide.to)
-  const distance = Math.round(Math.hypot(guide.to.x - guide.from.x, guide.to.y - guide.from.y))
-  if (distance <= 0) return
-  const horizontal = Math.abs(to.x - from.x) >= Math.abs(to.y - from.y)
-
-  ctx.setLineDash([])
+function strokeSegment(ctx: CanvasRenderingContext2D, from: Point, to: Point, dash: number[]): void {
+  ctx.setLineDash(dash)
   ctx.beginPath()
   ctx.moveTo(from.x, from.y)
   ctx.lineTo(to.x, to.y)
-  if (horizontal) {
-    tickVertical(ctx, from.x, from.y)
-    tickVertical(ctx, to.x, to.y)
-  } else {
-    tickHorizontal(ctx, from.x, from.y)
-    tickHorizontal(ctx, to.x, to.y)
-  }
   ctx.stroke()
-  paintLabel(ctx, String(distance), (from.x + to.x) / 2, (from.y + to.y) / 2, horizontal)
 }
 
-function tickVertical(ctx: CanvasRenderingContext2D, x: number, y: number): void {
-  ctx.moveTo(x, y - TICK)
-  ctx.lineTo(x, y + TICK)
-}
-
-function tickHorizontal(ctx: CanvasRenderingContext2D, x: number, y: number): void {
-  ctx.moveTo(x - TICK, y)
-  ctx.lineTo(x + TICK, y)
-}
-
-function paintLabel(
-  ctx: CanvasRenderingContext2D,
-  label: string,
-  cx: number,
-  cy: number,
-  horizontal: boolean,
-): void {
-  ctx.font = LABEL_FONT
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  const x = horizontal ? cx : cx + 10
-  const y = horizontal ? cy - 8 : cy
-  const width = ctx.measureText(label).width + 6
-  ctx.fillStyle = GUIDE_COLOR
-  ctx.fillRect(x - width / 2, y - 7, width, 14)
+function paintDistance(ctx: CanvasRenderingContext2D, from: Point, to: Point, label: number): void {
+  const horizontal = Math.abs(to.x - from.x) >= Math.abs(to.y - from.y)
+  strokeSegment(ctx, from, to, [])
+  ctx.setLineDash([])
+  for (const point of [from, to]) {
+    ctx.beginPath()
+    if (horizontal) {
+      ctx.moveTo(point.x, point.y - CAP_SIZE)
+      ctx.lineTo(point.x, point.y + CAP_SIZE)
+    } else {
+      ctx.moveTo(point.x - CAP_SIZE, point.y)
+      ctx.lineTo(point.x + CAP_SIZE, point.y)
+    }
+    ctx.stroke()
+  }
+  const mid = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
+  const text = String(Math.round(label))
+  const width = ctx.measureText(text).width
   ctx.fillStyle = '#ffffff'
-  ctx.fillText(label, x, y)
+  ctx.fillRect(mid.x - width / 2 - 2, mid.y - 7, width + 4, 14)
+  ctx.fillStyle = GUIDE_COLOR
+  ctx.fillText(text, mid.x, mid.y)
 }
