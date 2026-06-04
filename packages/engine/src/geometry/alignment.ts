@@ -22,12 +22,17 @@ interface SnapCandidate {
   edges: Edges
 }
 
-interface EqualSpacing {
-  delta: number
+interface GapSegment {
   from: number
   to: number
   cross: number
+}
+
+interface EqualSpacing {
+  delta: number
   axis: Axis
+  matched: GapSegment
+  reference: GapSegment
 }
 
 export interface AlignmentResult {
@@ -51,11 +56,31 @@ function overlapsAcross(a: Rect, b: Rect, axis: Axis): boolean {
   return a.x + a.width > b.x && a.x < b.x + b.width
 }
 
+function crossCenter(rect: Rect, axis: Axis): number {
+  return axis === 'x' ? rect.y + rect.height / 2 : rect.x + rect.width / 2
+}
+
 function findEqualSpacing(moving: Rect, rects: Rect[], axis: Axis, threshold: number): EqualSpacing | null {
   let best: EqualSpacing | null = null
   const span = axis === 'x' ? moving.width : moving.height
-  const movingCross = axis === 'x' ? moving.y + moving.height / 2 : moving.x + moving.width / 2
+  const movingCross = crossCenter(moving, axis)
   const lead = axis === 'x' ? moving.x : moving.y
+
+  const consider = (
+    delta: number,
+    matched: GapSegment,
+    refA: Rect,
+    refB: Rect,
+  ): void => {
+    if (Math.abs(delta) >= threshold) return
+    if (best && Math.abs(delta) >= Math.abs(best.delta)) return
+    const reference: GapSegment = {
+      from: trailingEdge(refA, axis),
+      to: leadingEdge(refB, axis),
+      cross: (crossCenter(refA, axis) + crossCenter(refB, axis)) / 2,
+    }
+    best = { delta, axis, matched, reference }
+  }
 
   for (const refA of rects) {
     for (const refB of rects) {
@@ -68,16 +93,10 @@ function findEqualSpacing(moving: Rect, rects: Rect[], axis: Axis, threshold: nu
         if (!overlapsAcross(anchor, moving, axis)) continue
 
         const after = trailingEdge(anchor, axis) + refGap
-        const deltaAfter = after - lead
-        if (Math.abs(deltaAfter) < threshold && (!best || Math.abs(deltaAfter) < Math.abs(best.delta))) {
-          best = { delta: deltaAfter, from: trailingEdge(anchor, axis), to: after, cross: movingCross, axis }
-        }
+        consider(after - lead, { from: trailingEdge(anchor, axis), to: after, cross: movingCross }, refA, refB)
 
         const before = leadingEdge(anchor, axis) - refGap - span
-        const deltaBefore = before - lead
-        if (Math.abs(deltaBefore) < threshold && (!best || Math.abs(deltaBefore) < Math.abs(best.delta))) {
-          best = { delta: deltaBefore, from: before + span, to: leadingEdge(anchor, axis), cross: movingCross, axis }
-        }
+        consider(before - lead, { from: before + span, to: leadingEdge(anchor, axis), cross: movingCross }, refA, refB)
       }
     }
   }
@@ -140,11 +159,15 @@ function distanceGuide(from: number, to: number, moving: Rect, other: Rect, axis
   return { kind: 'distance', from: { x: cross, y: from }, to: { x: cross, y: to } }
 }
 
-function equalSpacingGuides(spacing: EqualSpacing): SnapGuide[] {
-  if (spacing.axis === 'x') {
-    return [{ kind: 'distance', from: { x: spacing.from, y: spacing.cross }, to: { x: spacing.to, y: spacing.cross } }]
+function gapGuide(segment: GapSegment, axis: Axis): SnapGuide {
+  if (axis === 'x') {
+    return { kind: 'distance', from: { x: segment.from, y: segment.cross }, to: { x: segment.to, y: segment.cross } }
   }
-  return [{ kind: 'distance', from: { x: spacing.cross, y: spacing.from }, to: { x: spacing.cross, y: spacing.to } }]
+  return { kind: 'distance', from: { x: segment.cross, y: segment.from }, to: { x: segment.cross, y: segment.to } }
+}
+
+function equalSpacingGuides(spacing: EqualSpacing): SnapGuide[] {
+  return [gapGuide(spacing.matched, spacing.axis), gapGuide(spacing.reference, spacing.axis)]
 }
 
 function snapLineGuide(candidates: SnapCandidate[], moving: Edges, axis: Axis): SnapGuide[] {
@@ -258,13 +281,16 @@ export function alignMovingBounds(
   const snappedOnX = bestDx < threshold
   const snappedOnY = bestDy < threshold
 
+  const equalSnappedX = xCandidates.length === 0 && Boolean(equalX) && snappedOnX
+  const equalSnappedY = yCandidates.length === 0 && Boolean(equalY) && snappedOnY
+
   const guides: SnapGuide[] = []
   guides.push(...snapLineGuide(xCandidates, snappedEdges, 'x'))
   guides.push(...snapLineGuide(yCandidates, snappedEdges, 'y'))
-  if (snappedOnY) guides.push(...nearestNeighborGuides(snapped, rects, 'x'))
-  if (snappedOnX) guides.push(...nearestNeighborGuides(snapped, rects, 'y'))
-  if (xCandidates.length === 0 && equalX && snappedOnX) guides.push(...equalSpacingGuides(equalX))
-  if (yCandidates.length === 0 && equalY && snappedOnY) guides.push(...equalSpacingGuides(equalY))
+  if (equalSnappedX && equalX) guides.push(...equalSpacingGuides(equalX))
+  else if (snappedOnY) guides.push(...nearestNeighborGuides(snapped, rects, 'x'))
+  if (equalSnappedY && equalY) guides.push(...equalSpacingGuides(equalY))
+  else if (snappedOnX) guides.push(...nearestNeighborGuides(snapped, rects, 'y'))
 
   return { offset: { x: offsetX, y: offsetY }, guides }
 }

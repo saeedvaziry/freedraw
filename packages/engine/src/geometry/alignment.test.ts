@@ -73,6 +73,20 @@ describe('alignMovingBounds', () => {
     expect(distanceCount(result.guides)).toBeGreaterThan(0)
   })
 
+  it('shows matching gap indicators on both sides when reproducing a rhythm', () => {
+    const b = createShape({ id: 'b', x: 100, y: 0, width: 50, height: 50, style: { fill: '#fff' } })
+    const c = createShape({ id: 'c', x: 200, y: 0, width: 50, height: 50, style: { fill: '#fff' } })
+    const result = alignMovingBounds({ x: 2, y: 0, width: 50, height: 50 }, snapshotOf([b, c]), new Set())
+    expect(result.offset.x).toBe(-2)
+    const distances = result.guides.filter((g) => g.kind === 'distance')
+    expect(distances).toHaveLength(2)
+    const lengths = distances.map((g) =>
+      g.kind === 'distance' ? Math.round(Math.hypot(g.to.x - g.from.x, g.to.y - g.from.y)) : 0,
+    )
+    expect(lengths[0]).toBe(lengths[1])
+    expect(lengths[0]).toBe(50)
+  })
+
   it('shows distance indicators to nearest neighbors when aligned', () => {
     const top = createShape({ id: 't', x: 0, y: 0, width: 50, height: 50, style: { fill: '#fff' } })
     const bottom = createShape({ id: 'b', x: 0, y: 200, width: 50, height: 50, style: { fill: '#fff' } })
