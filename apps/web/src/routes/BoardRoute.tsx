@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { EditorController, SceneStore } from '@freedraw/engine'
 import { ActionsBarHost } from '../components/ActionsBarHost.js'
 import { CanvasHost } from '../components/CanvasHost.js'
 import { EmptyState } from '../components/EmptyState.js'
 import { LinksBar } from '../components/LinksBar.js'
+import { MobileBar } from '../components/MobileBar.js'
 import { StylePanelHost } from '../components/StylePanelHost.js'
 import { ToolbarHost } from '../components/ToolbarHost.js'
 import { ZoomIndicator } from '../components/ZoomIndicator.js'
@@ -56,7 +57,6 @@ function Board({ store }: BoardProps) {
   }, [])
   const { theme, toggle } = useTheme()
   const boardExport = useExport(controller)
-  const hasSelection = useHasSelection(store)
   useKeyboard(store, controller, openImagePicker, boardExport)
   useBoardClipboard(store, controller)
 
@@ -69,32 +69,15 @@ function Board({ store }: BoardProps) {
       <CanvasHost store={store} onImagePicker={registerPicker} onController={setController} />
       <EmptyState store={store} />
 
-      <div className="pointer-events-none absolute inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] flex justify-center px-3 sm:hidden">
-        <ActionsBarHost
+      <div className="pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] flex justify-center px-3 sm:hidden">
+        <MobileBar
           store={store}
           controller={controller}
           boardExport={boardExport}
           theme={theme}
           onToggleTheme={toggle}
-          compact
         />
       </div>
-
-      {hasSelection && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] flex justify-center px-3 sm:hidden">
-          <StylePanelHost store={store} />
-        </div>
-      )}
-
-      <div className="pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] flex justify-center px-3 sm:hidden">
-        <ToolbarHost store={store} layout="horizontal" />
-      </div>
-
-      {!hasSelection && (
-        <div className="pointer-events-none absolute right-3 bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] flex items-center gap-2 sm:hidden">
-          <ZoomIndicator store={store} />
-        </div>
-      )}
 
       <div className="pointer-events-none absolute top-6 right-6 hidden justify-end sm:flex">
         <StylePanelHost store={store} />
@@ -116,12 +99,5 @@ function Board({ store }: BoardProps) {
         <ZoomIndicator store={store} />
       </div>
     </div>
-  )
-}
-
-function useHasSelection(store: SceneStore): boolean {
-  return useSyncExternalStore(
-    (cb) => store.subscribeUi(cb),
-    () => store.getUiState().selectedIds.size > 0,
   )
 }
