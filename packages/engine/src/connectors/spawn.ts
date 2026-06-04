@@ -1,11 +1,26 @@
 import { elementBounds, elementCenter } from '../geometry/hitTest.js'
 import { intersects, type Rect } from '../geometry/rect.js'
 import { createArrow, createShape } from '../model/factory.js'
-import type { ArrowElement, Element, ElementId, Point, ShapeElement, ShapeType, Style } from '../model/types.js'
+import type { ArrowElement, Element, ElementId, Point, SceneSnapshot, ShapeElement, ShapeType, Style } from '../model/types.js'
 import type { SceneStore } from '../store/SceneStore.js'
 import { anchorFromPoint } from './binding.js'
 
-type Store = Pick<SceneStore, 'transact' | 'stopCapturing' | 'setUiState' | 'getLastUsedStyle'>
+type Store = Pick<SceneStore, 'transact' | 'stopCapturing' | 'setUiState' | 'getLastUsedStyle' | 'getSnapshot'>
+
+function isArrow(element: Element): boolean {
+  return element.type === 'arrow' || element.type === 'line'
+}
+
+export function obstacleBounds(snapshot: SceneSnapshot, exclude: ElementId): Rect[] {
+  const bounds: Rect[] = []
+  for (const id of snapshot.order) {
+    if (id === exclude) continue
+    const element = snapshot.elements[id]
+    if (!element || isArrow(element)) continue
+    bounds.push(elementBounds(element))
+  }
+  return bounds
+}
 
 const SHAPE_FALLBACK: ShapeType = 'rect'
 
@@ -107,8 +122,8 @@ export function spawnConnectedShape(
   source: Element,
   direction: SpawnDirection,
   typeOverride?: ShapeType,
-  obstacles: Rect[] = [],
 ): string {
+  const obstacles = obstacleBounds(store.getSnapshot(), source.id)
   const { target, arrow } = planConnectedShape(source, direction, store.getLastUsedStyle(), typeOverride, obstacles)
   store.transact((api) => {
     api.addElement(target)

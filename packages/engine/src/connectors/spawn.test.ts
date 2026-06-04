@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { intersects } from '../geometry/rect.js'
 import { createShape } from '../model/factory.js'
 import type { ArrowElement, Element } from '../model/types.js'
 import { SceneStore } from '../store/SceneStore.js'
@@ -36,10 +37,7 @@ describe('spawnConnectedShape', () => {
     const firstId = spawnConnectedShape(store, source, 'right')
     const first = store.getSnapshot().elements[firstId]!
 
-    const obstacles = Object.values(store.getSnapshot().elements)
-      .filter((element) => element.id !== source.id && element.type !== 'arrow')
-      .map((element) => ({ x: element.x, y: element.y, width: element.width, height: element.height }))
-    const secondId = spawnConnectedShape(store, source, 'right', undefined, obstacles)
+    const secondId = spawnConnectedShape(store, source, 'right')
     const second = store.getSnapshot().elements[secondId]!
 
     expect(second.x).toBe(first.x)
@@ -49,6 +47,26 @@ describe('spawnConnectedShape', () => {
       (element) => element.type === 'arrow' && (element as ArrowElement).end?.elementId === secondId,
     ) as ArrowElement
     expect(arrow.route.length).toBeGreaterThan(2)
+  })
+
+  it('avoids existing shapes when changing the spawned type', () => {
+    const store = new SceneStore()
+    const source = createShape({ id: 'src', x: 0, y: 0, width: 100, height: 100 })
+    store.transact((api) => api.addElement(source))
+    store.stopCapturing()
+
+    const firstId = spawnConnectedShape(store, source, 'right')
+    const first = store.getSnapshot().elements[firstId]!
+
+    const secondId = spawnConnectedShape(store, source, 'right', 'diamond')
+    const second = store.getSnapshot().elements[secondId]!
+
+    expect(second.type).toBe('diamond')
+    const overlap = intersects(
+      { x: second.x, y: second.y, width: second.width, height: second.height },
+      { x: first.x, y: first.y, width: first.width, height: first.height },
+    )
+    expect(overlap).toBe(false)
   })
 
   it('spawns upward for the up direction', () => {

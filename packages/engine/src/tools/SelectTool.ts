@@ -12,7 +12,7 @@ import { moveRouteSegment } from '../geometry/arrowGeometry.js'
 import { planConnectedShape, spawnConnectedShape, type SpawnDirection } from '../connectors/spawn.js'
 import { createArrow, pointsBounds } from '../model/factory.js'
 import { polylineMidpoint } from '../text/arrowLabel.js'
-import { arrowRoute } from '../connectors/resolve.js'
+import { arrowRoute, resolveArrowPoints } from '../connectors/resolve.js'
 import { arrowHandleAtScreen, type ArrowHandle } from '../render/overlay/arrowHandles.js'
 import { portAtScreen, shapePortsWorld } from '../render/overlay/ports.js'
 import type { ArrowElement, Binding, Element, ElementId, Point, SceneSnapshot } from '../model/types.js'
@@ -147,8 +147,7 @@ export class SelectTool implements Tool {
     ctx.store.deleteElements([mode.arrowId])
     const source = ctx.store.getSnapshot().elements[mode.sourceId]
     if (!source || !mode.direction) return
-    const obstacles = otherBounds(ctx.store.getSnapshot(), new Set([source.id]))
-    const targetId = spawnConnectedShape(ctx.store, source, mode.direction, undefined, obstacles)
+    const targetId = spawnConnectedShape(ctx.store, source, mode.direction)
     const target = ctx.store.getSnapshot().elements[targetId]
     if (target) this.beginLabelEdit(target, ctx)
   }
@@ -229,8 +228,7 @@ export class SelectTool implements Tool {
     const source = ctx.store.getSnapshot().elements[selected[0]!]
     if (!source || isArrow(source)) return
     event.preventDefault()
-    const obstacles = otherBounds(ctx.store.getSnapshot(), new Set([source.id]))
-    spawnConnectedShape(ctx.store, source, direction, undefined, obstacles)
+    spawnConnectedShape(ctx.store, source, direction)
     return { scene: true, overlay: true }
   }
 
@@ -411,9 +409,10 @@ export class SelectTool implements Tool {
     }
     const obstacles = otherBounds(ctx.store.getSnapshot(), new Set([hit.shape.id]))
     const { target, arrow } = planConnectedShape(hit.shape, direction, ctx.store.getLastUsedStyle(), undefined, obstacles)
+    const route = resolveArrowPoints(arrow, { ...ctx.store.getSnapshot().elements, [hit.shape.id]: hit.shape, [target.id]: target })
     ctx.setSpawnPreview({
       target: { ...target, style: { ...target.style, opacity: target.style.opacity * SPAWN_GHOST_OPACITY } },
-      arrow: { ...arrow, style: { ...arrow.style, opacity: arrow.style.opacity * SPAWN_GHOST_OPACITY } },
+      arrow: { ...arrow, route, style: { ...arrow.style, opacity: arrow.style.opacity * SPAWN_GHOST_OPACITY } },
     })
     this.spawnPreviewActive = true
     return true
