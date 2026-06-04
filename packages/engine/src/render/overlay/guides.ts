@@ -2,7 +2,7 @@ import type { Camera } from '../../geometry/Camera.js'
 import type { SnapGuide } from '../../geometry/snap.js'
 
 const GUIDE_COLOR = '#f04bb5'
-const CAP_LENGTH = 4
+const TICK = 3
 const LABEL_FONT = '11px ui-sans-serif, system-ui, sans-serif'
 
 export function paintGuides(ctx: CanvasRenderingContext2D, guides: SnapGuide[], camera: Camera): void {
@@ -19,7 +19,7 @@ export function paintGuides(ctx: CanvasRenderingContext2D, guides: SnapGuide[], 
     if (guide.kind === 'line') {
       const from = camera.worldToScreen(guide.from)
       const to = camera.worldToScreen(guide.to)
-      ctx.setLineDash([4, 4])
+      ctx.setLineDash([])
       ctx.beginPath()
       ctx.moveTo(from.x, from.y)
       ctx.lineTo(to.x, to.y)
@@ -42,52 +42,50 @@ function paintDistance(
 ): void {
   const from = camera.worldToScreen(guide.from)
   const to = camera.worldToScreen(guide.to)
+  const distance = Math.round(Math.hypot(guide.to.x - guide.from.x, guide.to.y - guide.from.y))
+  if (distance <= 0) return
   const horizontal = Math.abs(to.x - from.x) >= Math.abs(to.y - from.y)
+
   ctx.setLineDash([])
   ctx.beginPath()
   ctx.moveTo(from.x, from.y)
   ctx.lineTo(to.x, to.y)
   if (horizontal) {
-    cap(ctx, from.x, from.y)
-    cap(ctx, to.x, to.y)
+    tickVertical(ctx, from.x, from.y)
+    tickVertical(ctx, to.x, to.y)
   } else {
-    capHorizontal(ctx, from.x, from.y)
-    capHorizontal(ctx, to.x, to.y)
+    tickHorizontal(ctx, from.x, from.y)
+    tickHorizontal(ctx, to.x, to.y)
   }
   ctx.stroke()
-  paintDistanceLabel(ctx, guide, from, to, horizontal)
+  paintLabel(ctx, String(distance), (from.x + to.x) / 2, (from.y + to.y) / 2, horizontal)
 }
 
-function cap(ctx: CanvasRenderingContext2D, x: number, y: number): void {
-  ctx.moveTo(x, y - CAP_LENGTH)
-  ctx.lineTo(x, y + CAP_LENGTH)
+function tickVertical(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  ctx.moveTo(x, y - TICK)
+  ctx.lineTo(x, y + TICK)
 }
 
-function capHorizontal(ctx: CanvasRenderingContext2D, x: number, y: number): void {
-  ctx.moveTo(x - CAP_LENGTH, y)
-  ctx.lineTo(x + CAP_LENGTH, y)
+function tickHorizontal(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  ctx.moveTo(x - TICK, y)
+  ctx.lineTo(x + TICK, y)
 }
 
-function paintDistanceLabel(
+function paintLabel(
   ctx: CanvasRenderingContext2D,
-  guide: Extract<SnapGuide, { kind: 'distance' }>,
-  from: { x: number; y: number },
-  to: { x: number; y: number },
+  label: string,
+  cx: number,
+  cy: number,
   horizontal: boolean,
 ): void {
-  const distance = Math.round(Math.hypot(guide.to.x - guide.from.x, guide.to.y - guide.from.y))
-  if (distance <= 0) return
-  const label = String(distance)
   ctx.font = LABEL_FONT
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  const cx = (from.x + to.x) / 2
-  const cy = (from.y + to.y) / 2
   const x = horizontal ? cx : cx + 10
   const y = horizontal ? cy - 8 : cy
   const width = ctx.measureText(label).width + 6
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(x - width / 2, y - 7, width, 14)
   ctx.fillStyle = GUIDE_COLOR
+  ctx.fillRect(x - width / 2, y - 7, width, 14)
+  ctx.fillStyle = '#ffffff'
   ctx.fillText(label, x, y)
 }

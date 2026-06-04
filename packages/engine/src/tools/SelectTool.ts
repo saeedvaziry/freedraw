@@ -431,16 +431,15 @@ export class SelectTool implements Tool {
   private dragMove(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (this.mode.kind !== 'move') return {}
     const { origin, bounds, ids, bases } = this.mode
-    const raw = { x: info.world.x - origin.x, y: info.world.y - origin.y }
-    const gridded = {
-      x: snapValueToGrid(bounds.x + raw.x) - bounds.x,
-      y: snapValueToGrid(bounds.y + raw.y) - bounds.y,
-    }
-    const moved: Rect = { ...bounds, x: bounds.x + gridded.x, y: bounds.y + gridded.y }
+    const movedX = bounds.x + (info.world.x - origin.x)
+    const movedY = bounds.y + (info.world.y - origin.y)
+    const moved: Rect = { ...bounds, x: movedX, y: movedY }
     const alignment = alignMovingBounds(moved, ctx.store.getSnapshot(), ids, {
       threshold: ALIGNMENT_SNAP_DISTANCE / ctx.camera.zoom,
     })
-    const delta = { x: gridded.x + alignment.offset.x, y: gridded.y + alignment.offset.y }
+    const targetX = alignment.offset.x !== 0 ? movedX + alignment.offset.x : snapValueToGrid(movedX)
+    const targetY = alignment.offset.y !== 0 ? movedY + alignment.offset.y : snapValueToGrid(movedY)
+    const delta = { x: targetX - bounds.x, y: targetY - bounds.y }
     ctx.setGuides(alignment.guides)
     ctx.store.transact((api) => {
       for (const id of ids) {
