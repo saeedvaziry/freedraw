@@ -54,4 +54,7 @@ export function seedAppState(doc: Y.Doc): void {
   if (appState.get('lastUsedStyle') === undefined) {
     appState.set('lastUsedStyle', defaults.lastUsedStyle)
   }
+  if (appState.get('snapGuidesEnabled') === undefined) {
+    appState.set('snapGuidesEnabled', defaults.snapGuidesEnabled)
+  }
 }

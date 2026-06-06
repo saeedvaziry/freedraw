@@ -82,6 +82,13 @@ describe('SceneStore', () => {
     expect(store.getSnapshot().appState.camera).toEqual({ x: 5, y: 6, zoom: 2 })
   })
 
+  it('updates snap guide visibility through appState', () => {
+    const store = new SceneStore()
+    expect(store.getSnapshot().appState.snapGuidesEnabled).toBe(true)
+    store.setSnapGuidesEnabled(false)
+    expect(store.getSnapshot().appState.snapGuidesEnabled).toBe(false)
+  })
+
   it('does not record camera commits in undo history', () => {
     const store = new SceneStore()
     store.commitCamera({ x: 5, y: 6, zoom: 2 })

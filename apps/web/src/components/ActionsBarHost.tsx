@@ -52,6 +52,8 @@ export function ActionsBarHost({
       onCopyToClipboard={() => void copyImage()}
       theme={theme}
       onToggleTheme={onToggleTheme}
+      snapGuidesEnabled={snapshot.appState.snapGuidesEnabled}
+      onToggleSnapGuides={() => store.setSnapGuidesEnabled(!store.getSnapshot().appState.snapGuidesEnabled)}
       compact={compact}
     />
   )

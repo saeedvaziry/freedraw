@@ -85,6 +85,7 @@ describe('seedAppState', () => {
     expect(appState.camera).toEqual({ x: 5, y: 5, zoom: 2 })
     expect(appState.schemaVersion).toBe(SCHEMA_VERSION)
     expect(appState.lastUsedStyle).toBeDefined()
+    expect(appState.snapGuidesEnabled).toBe(true)
   })
 })
 

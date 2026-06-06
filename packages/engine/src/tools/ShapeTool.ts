@@ -28,7 +28,7 @@ export class ShapeTool implements Tool {
     return { overlay: true }
   }
 
-  onPointerDown(info: PointerInfo, ctx: ToolContext): ToolResult {
+  onPointerDown(info: PointerInfo, _ctx: ToolContext): ToolResult {
     if (info.button !== 0) return {}
     this.start = snapPointToGrid(info.world)
     return {}

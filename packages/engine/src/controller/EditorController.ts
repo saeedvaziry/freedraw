@@ -418,7 +418,7 @@ export class EditorController {
       hover,
       ports,
       targetHighlight,
-      guides: this.guides,
+      guides: snapshot.appState.snapGuidesEnabled ? this.guides : [],
       marquee: this.marquee,
     }
   }
