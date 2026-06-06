@@ -179,6 +179,10 @@ export class SceneStore {
     this.doc.transact(() => this.yAppState.set('camera', camera), CAMERA_ORIGIN)
   }
 
+  setSnapGuidesEnabled(enabled: boolean): void {
+    this.doc.transact(() => this.yAppState.set('snapGuidesEnabled', enabled), CAMERA_ORIGIN)
+  }
+
   deleteElements(ids: Iterable<ElementId>): void {
     const removal = this.removalIdsFor(ids)
     if (removal.length === 0) return
@@ -446,6 +450,10 @@ export class SceneStore {
       schemaVersion: json.schemaVersion ?? fallback.schemaVersion,
       camera: json.camera ?? fallback.camera,
       lastUsedStyle: json.lastUsedStyle ?? fallback.lastUsedStyle,
+      snapGuidesEnabled:
+        typeof json.snapGuidesEnabled === 'boolean'
+          ? json.snapGuidesEnabled
+          : fallback.snapGuidesEnabled,
     }
   }
 

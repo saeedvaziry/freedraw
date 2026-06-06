@@ -23,5 +23,6 @@ export function defaultAppState(): AppState {
     schemaVersion: SCHEMA_VERSION,
     camera: { ...defaultCamera },
     lastUsedStyle: { ...defaultStyle },
+    snapGuidesEnabled: true,
   }
 }

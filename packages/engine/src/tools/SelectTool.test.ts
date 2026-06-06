@@ -76,6 +76,26 @@ describe('SelectTool', () => {
     expect(store.getSnapshot().elements.shape).toMatchObject({ x: 20, y: 20 })
   })
 
+  it('releases alignment snap during a gradual drag past the snap point', () => {
+    const { ctx, store } = makeContext()
+    ctx.camera.setState({ x: 0, y: 0, zoom: 0.5 })
+    const anchor = createShape({ id: 'anchor', x: 0, y: 0, width: 100, height: 100 })
+    const moving = createShape({ id: 'moving', x: 100, y: 0, width: 100, height: 100 })
+    store.transact((api) => {
+      api.addElement(anchor)
+      api.addElement(moving)
+    })
+    const tool = new SelectTool()
+
+    tool.onPointerDown(pointer({ x: 150, y: 50 }), ctx)
+    for (const x of [155, 160, 165, 170, 175, 180]) {
+      tool.onPointerMove(pointer({ x, y: 50 }), ctx)
+    }
+    tool.onPointerUp(pointer({ x: 180, y: 50 }), ctx)
+
+    expect(store.getSnapshot().elements.moving).toMatchObject({ x: 130, y: 0 })
+  })
+
   it('moves arrow points in board grid steps', () => {
     const { ctx, store } = makeContext()
     const arrow = createArrow({

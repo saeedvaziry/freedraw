@@ -112,6 +112,7 @@ export interface AppState {
   schemaVersion: number
   camera: CameraState
   lastUsedStyle: Style
+  snapGuidesEnabled: boolean
 }
 
 export interface SceneSnapshot {

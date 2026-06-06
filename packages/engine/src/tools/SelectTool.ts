@@ -44,7 +44,7 @@ function portDirection(shape: Element, port: Point): SpawnDirection | null {
 
 type Mode =
   | { kind: 'idle' }
-  | { kind: 'move'; last: Point; others: Rect[] }
+  | { kind: 'move'; start: Point; elements: Element[]; others: Rect[] }
   | { kind: 'marquee'; origin: Point; additive: boolean; base: Set<ElementId> }
   | { kind: 'resize'; handle: ResizeHandleId; elements: Element[]; frame: ReturnType<typeof selectionFrameFor>; others: Rect[] }
   | { kind: 'rotate'; elements: Element[]; center: Point; startAngle: number }
@@ -107,7 +107,8 @@ export class SelectTool implements Tool {
     if (nextSelection.has(hit.id)) {
       this.mode = {
         kind: 'move',
-        last: snapPointToGrid(info.world),
+        start: snapPointToGrid(info.world),
+        elements: selectedElements(store, nextSelection),
         others: otherBounds(store.getSnapshot(), nextSelection),
       }
     }
@@ -421,27 +422,25 @@ export class SelectTool implements Tool {
   private dragMove(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (this.mode.kind !== 'move') return {}
     const next = snapPointToGrid(info.world)
-    const gridDx = next.x - this.mode.last.x
-    const gridDy = next.y - this.mode.last.y
-    this.mode.last = next
-    const ids = ctx.store.getUiState().selectedIds
-    const { dx, dy } = this.applyAlignMove(ctx, ids, gridDx, gridDy, this.mode.others)
+    const gridDx = next.x - this.mode.start.x
+    const gridDy = next.y - this.mode.start.y
+    const elements = this.mode.elements
+    const { dx, dy } = this.applyAlignMove(ctx, elements, gridDx, gridDy, this.mode.others)
     ctx.store.transact((api) => {
-      for (const id of ids) {
-        const element = ctx.store.getSnapshot().elements[id]
-        if (!element) continue
+      for (const element of elements) {
+        if (!ctx.store.getSnapshot().elements[element.id]) continue
         if (isArrow(element)) {
           const translate = (point: Point) => ({ x: point.x + dx, y: point.y + dy })
           const points = element.points.map(translate)
-          api.updateElement(id, { points })
+          api.updateElement(element.id, { points })
           continue
         }
         if (element.type === 'freedraw') {
           const points = element.points.map((point) => ({ x: point.x + dx, y: point.y + dy }))
-          api.updateElement(id, { points, ...pointsBounds(points) })
+          api.updateElement(element.id, { points, ...pointsBounds(points) })
           continue
         }
-        api.updateElement(id, { x: element.x + dx, y: element.y + dy })
+        api.updateElement(element.id, { x: element.x + dx, y: element.y + dy })
       }
     })
     return { scene: true, overlay: true }
@@ -449,7 +448,7 @@ export class SelectTool implements Tool {
 
   private applyAlignMove(
     ctx: ToolContext,
-    ids: Set<ElementId>,
+    elements: Element[],
     gridDx: number,
     gridDy: number,
     others: Rect[],
@@ -459,7 +458,7 @@ export class SelectTool implements Tool {
       ctx.setGuides([])
       return fallback
     }
-    const frame = selectionFrameFor(selectedElements(ctx.store, ids))
+    const frame = selectionFrameFor(elements)
     if (!frame || frame.rotation) {
       ctx.setGuides([])
       return fallback

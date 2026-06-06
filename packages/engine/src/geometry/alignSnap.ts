@@ -2,7 +2,7 @@ import type { Point } from '../model/types.js'
 import type { Rect } from './rect.js'
 import type { SnapGuide } from './snap.js'
 
-export const ALIGN_SNAP_DISTANCE = 6
+export const ALIGN_SNAP_DISTANCE = 4
 
 interface Edges {
   left: number

@@ -11,7 +11,12 @@ function snapshotOf(elements: Element[]): SceneSnapshot {
   return {
     elements: map,
     order: elements.map((e) => e.id),
-    appState: { schemaVersion: 1, camera: { x: 0, y: 0, zoom: 1 }, lastUsedStyle: {} as never },
+    appState: {
+      schemaVersion: 1,
+      camera: { x: 0, y: 0, zoom: 1 },
+      lastUsedStyle: {} as never,
+      snapGuidesEnabled: true,
+    },
   }
 }
 

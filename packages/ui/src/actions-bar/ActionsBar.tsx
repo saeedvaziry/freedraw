@@ -3,6 +3,7 @@ import {
   ClipboardCopy,
   ClipboardPaste,
   CopyPlus,
+  Crosshair,
   Moon,
   Redo2,
   Scissors,
@@ -31,6 +32,8 @@ export interface ActionsBarProps {
   onCopyToClipboard(): void
   theme: 'light' | 'dark'
   onToggleTheme(): void
+  snapGuidesEnabled: boolean
+  onToggleSnapGuides(): void
   compact?: boolean
 }
 
@@ -59,6 +62,8 @@ export function ActionsBar({
   onCopyToClipboard,
   theme,
   onToggleTheme,
+  snapGuidesEnabled,
+  onToggleSnapGuides,
   compact = false,
 }: ActionsBarProps) {
   const actions: ActionDef[] = [
@@ -90,6 +95,14 @@ export function ActionsBar({
           onClick={onToggleTheme}
         >
           {theme === 'dark' ? <Sun /> : <Moon />}
+        </ActionButton>
+        <ActionButton
+          label={snapGuidesEnabled ? 'Hide guides' : 'Show guides'}
+          aria-pressed={snapGuidesEnabled}
+          className={snapGuidesEnabled ? 'bg-accent text-foreground' : undefined}
+          onClick={onToggleSnapGuides}
+        >
+          <Crosshair />
         </ActionButton>
         <ExportMenu
           disabled={!canExport}
