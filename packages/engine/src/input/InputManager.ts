@@ -206,7 +206,9 @@ export class InputManager {
       if (!tool.onContextMenu) return
       const info = this.info(event)
       this.handlers.onPointerInfo?.(info)
-      if (tool.onContextMenu(info, this.handlers.context)) event.preventDefault()
+      const result = tool.onContextMenu(info, this.handlers.context)
+      if (result) event.preventDefault()
+      if (typeof result === 'object') this.handlers.onResult(result)
     }
     this.overlay.addEventListener('contextmenu', onContextMenu)
     this.cleanups.push(() => this.overlay.removeEventListener('contextmenu', onContextMenu))

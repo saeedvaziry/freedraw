@@ -28,7 +28,7 @@ export interface OverlayState {
   selection?: SelectionFrame | null
   selectedArrows?: ArrowElement[]
   hover?: Element | null
-  ports?: Element | null
+  ports?: Element[]
   targetHighlight?: Element | null
   guides?: SnapGuide[]
   marquee?: Rect | null
@@ -158,7 +158,9 @@ export class Renderer {
     if (overlay.selectedArrows) {
       for (const arrow of overlay.selectedArrows) paintArrowHandles(ctx, arrow, camera)
     }
-    if (overlay.ports) paintPorts(ctx, overlay.ports, camera)
+    if (overlay.ports) {
+      for (const element of overlay.ports) paintPorts(ctx, element, camera)
+    }
     if (overlay.targetHighlight) paintTargetHighlight(ctx, overlay.targetHighlight, camera)
     if (overlay.guides) paintGuides(ctx, overlay.guides, camera)
     if (overlay.marquee) paintMarquee(ctx, overlay.marquee, camera)
