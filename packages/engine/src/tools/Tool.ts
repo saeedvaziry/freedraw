@@ -42,6 +42,6 @@ export interface Tool {
   onPointerMove?(info: PointerInfo, ctx: ToolContext): ToolResult | void
   onPointerUp?(info: PointerInfo, ctx: ToolContext): ToolResult | void
   onDoubleClick?(info: PointerInfo, ctx: ToolContext): ToolResult | void
-  onContextMenu?(info: PointerInfo, ctx: ToolContext): boolean | void
+  onContextMenu?(info: PointerInfo, ctx: ToolContext): boolean | ToolResult | void
   onKeyDown?(event: KeyboardEvent, ctx: ToolContext): ToolResult | void
 }

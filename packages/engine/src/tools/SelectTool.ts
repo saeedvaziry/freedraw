@@ -14,7 +14,7 @@ import { createArrow, pointsBounds } from '../model/factory.js'
 import { polylineMidpoint } from '../text/arrowLabel.js'
 import { arrowRoute, resolveArrowPoints } from '../connectors/resolve.js'
 import { arrowHandleAtScreen, type ArrowHandle } from '../render/overlay/arrowHandles.js'
-import { portAtScreen, shapePortsWorld } from '../render/overlay/ports.js'
+import { portAtScreen, portHandleWorld, portHoverAtScreen, shapePortsWorld } from '../render/overlay/ports.js'
 import type { ArrowElement, Binding, Element, ElementId, Point, SceneSnapshot } from '../model/types.js'
 import type { SceneStore } from '../store/SceneStore.js'
 import type { PointerInfo, Tool, ToolContext, ToolResult } from './Tool.js'
@@ -75,20 +75,22 @@ export class SelectTool implements Tool {
     ctx.store.stopCapturing()
     const store = ctx.store
     const selected = store.getUiState().selectedIds
+    const selectionElements = selectedElements(store, selected)
+    const shapeSelectionElements = selectionElements.filter((element) => !isArrow(element))
 
     const reshape = this.tryReshape(info, ctx, selected)
     if (reshape) return reshape
 
-    const portDrag = this.tryPortDrag(info, ctx)
-    if (portDrag) return portDrag
-
-    const frame = selectionFrameFor(selectedElements(store, selected))
+    const frame = selectionFrameFor(shapeSelectionElements)
     if (frame) {
       const handle = handleAtScreen(info.screen, frame, ctx.camera)
       if (handle) {
-        return this.beginHandle(handle, frame, selectedElements(store, selected), info.world, otherBounds(store.getSnapshot(), selected))
+        return this.beginHandle(handle, frame, shapeSelectionElements, info.world, otherBounds(store.getSnapshot(), selected))
       }
     }
+
+    const portDrag = this.tryPortDrag(info, ctx)
+    if (portDrag) return portDrag
 
     const hit = hitTest(info.world, store.getSnapshot())
     if (!hit) {
@@ -169,7 +171,7 @@ export class SelectTool implements Tool {
     return { overlay: true }
   }
 
-  onContextMenu(info: PointerInfo, ctx: ToolContext): boolean | void {
+  onContextMenu(info: PointerInfo, ctx: ToolContext): ToolResult | void {
     const hit = this.portShapeAt(info, ctx)
     if (!hit) return
     const direction = portDirection(hit.shape, hit.port)
@@ -177,7 +179,7 @@ export class SelectTool implements Tool {
     this.spawnPreviewActive = false
     ctx.setSpawnPreview(null)
     ctx.requestSpawnMenu({ screen: info.screen, sourceId: hit.shape.id, direction })
-    return true
+    return { overlay: true }
   }
 
   private beginTextEdit(element: Element, ctx: ToolContext): void {
@@ -260,12 +262,9 @@ export class SelectTool implements Tool {
   }
 
   private tryReshape(info: PointerInfo, ctx: ToolContext, selected: Set<ElementId>): ToolResult | null {
-    if (selected.size !== 1) return null
-    const element = ctx.store.getSnapshot().elements[[...selected][0]!]
-    if (!element || !isArrow(element)) return null
-    const handle = arrowHandleAtScreen(info.screen, element, ctx.camera)
-    if (!handle) return null
-    if (this.handleYieldsToPort(handle, element, info, ctx)) return null
+    const target = this.selectedArrowHandleAt(info, ctx, selected)
+    if (!target) return null
+    const { element, handle } = target
     if (handle.id === 'midpoint') {
       this.mode = {
         kind: 'reshapeSegment',
@@ -279,18 +278,22 @@ export class SelectTool implements Tool {
     return { overlay: true }
   }
 
-  private handleYieldsToPort(
-    handle: ArrowHandle,
-    arrow: ArrowElement,
+  private selectedArrowHandleAt(
     info: PointerInfo,
     ctx: ToolContext,
-  ): boolean {
-    if (handle.id === 'midpoint') return false
-    const binding = handle.id === 'start' ? arrow.start : arrow.end
-    if (!binding) return false
-    const shape = ctx.store.getSnapshot().elements[binding.elementId]
-    if (!shape || isArrow(shape)) return false
-    return Boolean(portAtScreen(info.screen, shape, ctx.camera))
+    selected: Set<ElementId>,
+  ): { element: ArrowElement; handle: ArrowHandle } | null {
+    const snapshot = ctx.store.getSnapshot()
+    let best: { element: ArrowElement; handle: ArrowHandle; distance: number } | null = null
+    for (const id of selected) {
+      const element = snapshot.elements[id]
+      if (!element || !isArrow(element)) continue
+      const handle = arrowHandleAtScreen(info.screen, element, ctx.camera)
+      if (!handle) continue
+      const distance = Math.hypot(handle.position.x - info.screen.x, handle.position.y - info.screen.y)
+      if (!best || distance < best.distance) best = { element, handle, distance }
+    }
+    return best ? { element: best.element, handle: best.handle } : null
   }
 
   private tryPortDrag(info: PointerInfo, ctx: ToolContext): ToolResult | null {
@@ -317,14 +320,25 @@ export class SelectTool implements Tool {
   }
 
   private portShapeAt(info: PointerInfo, ctx: ToolContext): { shape: Element; port: Point } | null {
+    return this.visiblePortShapeAt(info, ctx, portAtScreen)
+  }
+
+  private portHoverShapeAt(info: PointerInfo, ctx: ToolContext): { shape: Element; port: Point } | null {
+    return this.visiblePortShapeAt(info, ctx, portHoverAtScreen)
+  }
+
+  private visiblePortShapeAt(
+    info: PointerInfo,
+    ctx: ToolContext,
+    hitPort: (screen: Point, element: Element, camera: ToolContext['camera']) => Point | null,
+  ): { shape: Element; port: Point } | null {
     const ui = ctx.store.getUiState()
     const snapshot = ctx.store.getSnapshot()
-    const preferred = [ui.hoveredId, ...ui.selectedIds].filter((id): id is ElementId => Boolean(id))
-    const ordered = [...preferred, ...snapshot.order.filter((id) => !preferred.includes(id))]
-    for (const id of ordered) {
+    const visible = [ui.hoveredId, ...ui.selectedIds].filter((id): id is ElementId => Boolean(id))
+    for (const id of visible) {
       const shape = snapshot.elements[id]
       if (!shape || isArrow(shape)) continue
-      const port = portAtScreen(info.screen, shape, ctx.camera)
+      const port = hitPort(info.screen, shape, ctx.camera)
       if (port) return { shape, port }
     }
     return null
@@ -391,29 +405,35 @@ export class SelectTool implements Tool {
   }
 
   private trackHover(info: PointerInfo, ctx: ToolContext): ToolResult {
-    const spawned = this.trackSpawnPreview(info, ctx)
+    const portHit = this.portShapeAt(info, ctx)
+    const spawned = this.trackSpawnPreview(info, ctx, portHit)
     const hit = hitTest(info.world, ctx.store.getSnapshot())
-    const nextId = hit?.id ?? null
+    const portHover = portHit ?? (hit ? null : this.portHoverShapeAt(info, ctx))
+    const nextId = portHover?.shape.id ?? hit?.id ?? null
     if (nextId === ctx.store.getUiState().hoveredId) return spawned ? { overlay: true } : {}
     ctx.store.setUiState({ hoveredId: nextId })
     return { overlay: true }
   }
 
-  private trackSpawnPreview(info: PointerInfo, ctx: ToolContext): boolean {
-    const hit = this.portShapeAt(info, ctx)
+  private trackSpawnPreview(
+    info: PointerInfo,
+    ctx: ToolContext,
+    hit: { shape: Element; port: Point } | null,
+  ): boolean {
     const direction = hit ? portDirection(hit.shape, hit.port) : null
     if (!hit || !direction) {
       const had = this.spawnPreviewActive
       this.spawnPreviewActive = false
       if (had) ctx.setSpawnPreview(null)
-      return false
+      return had
     }
     const obstacles = otherBounds(ctx.store.getSnapshot(), new Set([hit.shape.id]))
     const { target, arrow } = planConnectedShape(hit.shape, direction, ctx.store.getLastUsedStyle(), undefined, obstacles)
     const route = resolveArrowPoints(arrow, { ...ctx.store.getSnapshot().elements, [hit.shape.id]: hit.shape, [target.id]: target })
+    const previewRoute = [portHandleWorld(hit.shape, hit.port, ctx.camera), ...route.slice(1)]
     ctx.setSpawnPreview({
       target: { ...target, style: { ...target.style, opacity: target.style.opacity * SPAWN_GHOST_OPACITY } },
-      arrow: { ...arrow, route, style: { ...arrow.style, opacity: arrow.style.opacity * SPAWN_GHOST_OPACITY } },
+      arrow: { ...arrow, route: previewRoute, style: { ...arrow.style, opacity: arrow.style.opacity * SPAWN_GHOST_OPACITY } },
     })
     this.spawnPreviewActive = true
     return true
