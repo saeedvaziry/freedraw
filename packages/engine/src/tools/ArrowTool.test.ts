@@ -78,12 +78,11 @@ describe('ArrowTool', () => {
       type: 'line',
       points: [
         { x: 15, y: 15 },
-        { x: 115, y: 45 },
+        { x: 115, y: 15 },
       ],
       route: [
         { x: 15, y: 15 },
         { x: 115, y: 15 },
-        { x: 115, y: 45 },
       ],
     })
   })

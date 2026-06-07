@@ -81,6 +81,7 @@ export interface Binding {
   elementId: ElementId
   anchor: { nx: number; ny: number }
   gap: number
+  side?: 'left' | 'right' | 'top' | 'bottom'
 }
 
 export interface ArrowElement extends BaseElement {

@@ -2,6 +2,7 @@ import { elementBounds, elementCenter } from '../geometry/hitTest.js'
 import type { Binding, Element, Point } from '../model/types.js'
 
 export const DEFAULT_GAP = 0
+type BindingSide = NonNullable<Binding['side']>
 
 function rotate(point: Point, center: Point, angle: number): Point {
   if (!angle) return point
@@ -22,13 +23,43 @@ export function anchorPoint(element: Element, anchor: { nx: number; ny: number }
 }
 
 export function anchorNormal(element: Element, anchor: { nx: number; ny: number }): Point {
+  return sideNormal(element, anchorSide(anchor))
+}
+
+export function sideNormal(element: Element, side: BindingSide): Point {
+  return rotateVector(sideVector(side), element.rotation)
+}
+
+function anchorSide(anchor: { nx: number; ny: number }): BindingSide {
   const distToVerticalEdge = Math.min(anchor.nx, 1 - anchor.nx)
   const distToHorizontalEdge = Math.min(anchor.ny, 1 - anchor.ny)
-  const axisX = distToVerticalEdge <= distToHorizontalEdge
-  const vector = axisX
-    ? { x: anchor.nx < 0.5 ? -1 : 1, y: 0 }
-    : { x: 0, y: anchor.ny < 0.5 ? -1 : 1 }
-  return rotateVector(vector, element.rotation)
+  const axisX = distToVerticalEdge < distToHorizontalEdge
+  if (axisX) return anchor.nx < 0.5 ? 'left' : 'right'
+  return anchor.ny < 0.5 ? 'top' : 'bottom'
+}
+
+export function bindingSide(element: Element, world: Point, source: Point = world): BindingSide {
+  const { x, y, width, height } = elementBounds(element)
+  const center = elementCenter(element)
+  const local = rotate(world, center, -element.rotation)
+  const localSource = rotate(source, center, -element.rotation)
+  const left = Math.abs(local.x - x)
+  const right = Math.abs(local.x - (x + width))
+  const top = Math.abs(local.y - y)
+  const bottom = Math.abs(local.y - (y + height))
+  const vertical = Math.min(left, right)
+  const horizontal = Math.min(top, bottom)
+  const ambiguous = Math.abs(vertical - horizontal) < 0.5
+  const axisX = ambiguous ? Math.abs(localSource.x - local.x) > Math.abs(localSource.y - local.y) : vertical < horizontal
+  if (axisX) return left < right ? 'left' : 'right'
+  return top < bottom ? 'top' : 'bottom'
+}
+
+function sideVector(side: BindingSide): Point {
+  if (side === 'left') return { x: -1, y: 0 }
+  if (side === 'right') return { x: 1, y: 0 }
+  if (side === 'top') return { x: 0, y: -1 }
+  return { x: 0, y: 1 }
 }
 
 function rotateVector(vector: Point, angle: number): Point {
@@ -47,8 +78,8 @@ export function anchorFromPoint(element: Element, world: Point): { nx: number; n
   }
 }
 
-export function createBinding(element: Element, world: Point, gap = DEFAULT_GAP): Binding {
-  return { elementId: element.id, anchor: anchorFromPoint(element, world), gap }
+export function createBinding(element: Element, world: Point, gap = DEFAULT_GAP, source: Point = world): Binding {
+  return { elementId: element.id, anchor: anchorFromPoint(element, world), gap, side: bindingSide(element, world, source) }
 }
 
 function clamp01(value: number): number {

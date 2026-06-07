@@ -347,6 +347,7 @@ export class SelectTool implements Tool {
   private dragPort(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (this.mode.kind !== 'portDrag') return {}
     const arrowId = this.mode.arrowId
+    const source = ctx.store.getSnapshot().elements[this.mode.sourceId]
     const snap = snapEndpoint(info.world, ctx.store.getSnapshot(), {
       threshold: SNAP_DISTANCE / ctx.camera.zoom,
       origin: this.mode.start,
@@ -354,8 +355,9 @@ export class SelectTool implements Tool {
     })
     ctx.setGuides(snap.guides)
     ctx.setPortTarget(snap.target?.id ?? null)
-    const endBinding = snap.target ? createBinding(snap.target, snap.point) : undefined
-    this.writeArrow(ctx, arrowId, [this.mode.start, snap.point], { end: endBinding })
+    const startBinding = source ? createBinding(source, this.mode.start, 0, snap.point) : this.mode.startBinding
+    const endBinding = snap.target ? createBinding(snap.target, snap.point, 0, this.mode.start) : undefined
+    this.writeArrow(ctx, arrowId, [this.mode.start, snap.point], { start: startBinding, end: endBinding })
     return { scene: true, overlay: true }
   }
 
@@ -374,10 +376,11 @@ export class SelectTool implements Tool {
     ctx.setGuides(snap.guides)
     ctx.setPortTarget(snap.target?.id ?? null)
     const currentPoints = arrow.points.length >= 2 ? arrow.points : route
+    const approach = isStart ? (currentPoints[1] ?? fixedEnd) : (currentPoints[currentPoints.length - 2] ?? fixedEnd)
     const points = isStart
       ? [snap.point, ...currentPoints.slice(1)]
       : [...currentPoints.slice(0, -1), snap.point]
-    const binding = snap.target ? createBinding(snap.target, snap.point) : null
+    const binding = snap.target ? createBinding(snap.target, snap.point, 0, approach) : null
     this.writeArrow(ctx, arrow.id, points, isStart ? { start: binding } : { end: binding })
     return { scene: true, overlay: true }
   }
