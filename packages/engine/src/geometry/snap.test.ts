@@ -106,6 +106,14 @@ describe('snapEndpoint', () => {
     expect(result.point).toEqual({ x: 190, y: 63 })
   })
 
+  it('keeps long horizontal endpoint drags on axis despite modest pointer drift', () => {
+    const result = snapEndpoint({ x: 100, y: 238 }, snapshotOf([]), {
+      threshold: 2,
+      origin: { x: 600, y: 213 },
+    })
+    expect(result.point).toEqual({ x: 100, y: 213 })
+  })
+
   it('keeps free endpoints vertical when close to the origin axis', () => {
     const result = snapEndpoint({ x: 66, y: 192 }, snapshotOf([]), {
       threshold: 2,

@@ -11,7 +11,7 @@ const MIN_LENGTH = GRID_SIZE
 export class ArrowTool implements Tool {
   readonly id: 'arrow' | 'line'
   private start: Point | null = null
-  private startBinding: Binding | undefined
+  private startTarget: Element | null = null
 
   constructor(kind: 'arrow' | 'line' = 'arrow') {
     this.id = kind
@@ -21,7 +21,7 @@ export class ArrowTool implements Tool {
     if (info.button !== 0) return {}
     const snap = snapEndpoint(info.world, ctx.store.getSnapshot(), { threshold: worldThreshold(ctx) })
     this.start = snap.point
-    this.startBinding = snap.target ? createBinding(snap.target, snap.point) : undefined
+    this.startTarget = snap.target
     return {}
   }
 
@@ -33,7 +33,7 @@ export class ArrowTool implements Tool {
     })
     ctx.setGuides(snap.guides)
     ctx.setPortTarget(snap.target?.id ?? null)
-    ctx.setPreview(this.build(ctx, this.start, snap.point))
+    ctx.setPreview(this.build(ctx, this.start, snap.point, this.bindingForStart(snap.point), this.bindingForEnd(snap)))
     return { overlay: true }
   }
 
@@ -44,10 +44,10 @@ export class ArrowTool implements Tool {
       origin: this.start,
     })
     const start = this.start
-    const startBinding = this.startBinding
+    const startBinding = this.bindingForStart(snap.point)
+    const endBinding = this.bindingForEnd(snap)
     this.reset(ctx)
     if (Math.hypot(snap.point.x - start.x, snap.point.y - start.y) < MIN_LENGTH) return { overlay: true }
-    const endBinding = snap.target ? createBinding(snap.target, snap.point) : undefined
     const arrow = this.build(ctx, start, snap.point, startBinding, endBinding)
     ctx.store.transact((api) => api.addElement(arrow))
     ctx.store.stopCapturing()
@@ -61,10 +61,20 @@ export class ArrowTool implements Tool {
 
   private reset(ctx: ToolContext): void {
     this.start = null
-    this.startBinding = undefined
+    this.startTarget = null
     ctx.setPreview(null)
     ctx.setGuides([])
     ctx.setPortTarget(null)
+  }
+
+  private bindingForStart(end: Point): Binding | undefined {
+    if (!this.start || !this.startTarget) return undefined
+    return createBinding(this.startTarget, this.start, 0, end)
+  }
+
+  private bindingForEnd(snap: { point: Point; target: Element | null }): Binding | undefined {
+    if (!this.start || !snap.target) return undefined
+    return createBinding(snap.target, snap.point, 0, this.start)
   }
 
   private build(

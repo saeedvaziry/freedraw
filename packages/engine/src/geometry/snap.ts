@@ -1,10 +1,11 @@
 import type { Element, Point, SceneSnapshot } from '../model/types.js'
-import { GRID_SNAP_SIZE, snapPointToGrid, snapValueToGrid } from './grid.js'
+import { snapPointToGrid, snapValueToGrid } from './grid.js'
 import { elementBounds, elementCenter, hitTestElement, toLocalPoint } from './hitTest.js'
 import { getOutline, type Outline } from './shapeOutline.js'
 
 export const SNAP_DISTANCE = 8
 const EDGE_CENTER_MAGNET_FACTOR = 0.5
+const AXIS_SNAP_DISTANCE = 30
 
 export type SnapGuide =
   | { kind: 'point'; at: Point }
@@ -202,7 +203,7 @@ export function snapEndpoint(
 }
 
 function snapToGridAxis(world: Point, origin: Point, threshold: number): Point {
-  const axisThreshold = Math.max(threshold, GRID_SNAP_SIZE)
+  const axisThreshold = Math.max(threshold, AXIS_SNAP_DISTANCE)
   const dx = Math.abs(world.x - origin.x)
   const dy = Math.abs(world.y - origin.y)
   if (dy <= axisThreshold && dy * 2 <= dx) return { x: snapValueToGrid(world.x), y: origin.y }

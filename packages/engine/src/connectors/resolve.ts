@@ -1,6 +1,6 @@
 import type { ArrowElement, Binding, Element, ElementId, Point } from '../model/types.js'
 import { ROUTE_AXIS_TOLERANCE as AXIS_TOLERANCE, simplifyRoute } from '../geometry/arrowGeometry.js'
-import { anchorNormal, anchorPoint } from './binding.js'
+import { anchorNormal, anchorPoint, sideNormal } from './binding.js'
 
 type Elements = Record<ElementId, Element>
 
@@ -22,7 +22,7 @@ interface BoundEnd {
 
 function boundEnd(target: Element, binding: Binding): BoundEnd {
   const anchor = binding.anchor
-  const rawNormal = anchorNormal(target, anchor)
+  const rawNormal = binding.side ? sideNormal(target, binding.side) : anchorNormal(target, anchor)
   const gap = Math.max(binding.gap, target.style.strokeWidth / 2)
   return { port: pullBack(anchorPoint(target, anchor), rawNormal, gap), normal: axisNormal(rawNormal) }
 }

@@ -208,6 +208,24 @@ describe('resolveArrowPoints', () => {
     expect(points[points.length - 2]!.x).toBeLessThan(300)
   })
 
+  it('uses the pointer approach to disambiguate bound corner normals', () => {
+    const b = createShape({ id: 'b', x: 300, y: 0, width: 100, height: 100 })
+    const arrow = createArrow({
+      id: 'arr',
+      points: [
+        { x: 100, y: 300 },
+        { x: 300, y: 100 },
+      ],
+      end: createBinding(b, { x: 300, y: 100 }, 0, { x: 320, y: 140 }),
+    })
+    const points = resolveArrowPoints(arrow, elementsMap([b, arrow]))
+    const tip = points[points.length - 1]!
+    const beforeTip = points[points.length - 2]!
+    expect(tip).toMatchObject({ x: 300, y: 101 })
+    expect(beforeTip.x).toBeCloseTo(tip.x)
+    expect(beforeTip.y).toBeGreaterThan(tip.y)
+  })
+
   it('uses user waypoints while keeping every segment orthogonal', () => {
     const a = createShape({ id: 'a', x: 0, y: 0, width: 100, height: 100 })
     const arrow = createArrow({

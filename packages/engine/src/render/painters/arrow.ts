@@ -16,11 +16,9 @@ export function paintArrow(ctx: CanvasRenderingContext2D, element: Element): voi
   if (points.length < 2) return
   const { style } = arrow
   const scale = headScale(style.strokeWidth)
-  const shaftPoints = trimmedShaftPoints(
-    points,
-    headTrim(arrow.startArrowhead, scale),
-    headTrim(arrow.endArrowhead, scale),
-  )
+  const startTrim = headTrim(arrow.startArrowhead, scale)
+  const endTrim = headTrim(arrow.endArrowhead, scale)
+  const shaftPoints = trimmedShaftPoints(points, startTrim, endTrim)
 
   ctx.save()
   ctx.globalAlpha = style.opacity
