@@ -1,6 +1,12 @@
 import type { Element, Point } from '../../model/types.js'
 import { type Outline, traceOutline } from '../../geometry/shapeOutline.js'
-import { hashSeed, strokeRoughOutline, strokeRoughPolygon, strokeRoughPolyline } from '../rough.js'
+import {
+  hashSeed,
+  strokeRoughOutline,
+  strokeRoughPath,
+  strokeRoughPolygon,
+  strokeRoughPolyline,
+} from '../rough.js'
 
 export function isSloppy(element: Element): boolean {
   return element.style.sloppiness > 0
@@ -26,6 +32,14 @@ export function strokeSloppyPath(
   element: Element,
 ): void {
   strokeRoughPolyline(ctx, points, element.style.sloppiness, hashSeed(element.id))
+}
+
+export function strokeSloppyPathData(
+  ctx: CanvasRenderingContext2D,
+  d: string,
+  element: Element,
+): void {
+  strokeRoughPath(ctx, d, element.style.sloppiness, hashSeed(element.id))
 }
 
 export function strokeSloppyPolygon(

@@ -76,6 +76,16 @@ export function strokeRoughPolyline(
   paintDrawable(ctx, drawable)
 }
 
+export function strokeRoughPath(
+  ctx: CanvasRenderingContext2D,
+  d: string,
+  sloppiness: number,
+  seed: number,
+): void {
+  const drawable = roughGenerator().path(d, sketchOptions(sloppiness, seed))
+  paintDrawable(ctx, drawable)
+}
+
 function paintDrawable(ctx: CanvasRenderingContext2D, drawable: Drawable): void {
   for (const set of drawable.sets) {
     if (set.type !== 'path') continue

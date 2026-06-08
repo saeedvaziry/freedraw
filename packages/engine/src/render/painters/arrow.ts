@@ -2,13 +2,14 @@ import type { ArrowElement, Arrowhead, Element, Point } from '../../model/types.
 import { arrowRoute } from '../../connectors/resolve.js'
 import { polylineMidpoint } from '../../text/arrowLabel.js'
 import { dashPattern } from './dash.js'
-import { isSloppy, strokeSloppyPath, strokeSloppyPolygon } from './sketch.js'
+import { isSloppy, strokeSloppyPath, strokeSloppyPathData, strokeSloppyPolygon } from './sketch.js'
 import { paintArrowLabel } from './text.js'
 
 const ARROWHEAD_LENGTH = 12
 const ARROWHEAD_WIDTH = 9
 const DOT_RADIUS = 4
 const BAR_HALF = 7
+const BEND_RADIUS = 18
 
 export function paintArrow(ctx: CanvasRenderingContext2D, element: Element): void {
   const arrow = element as ArrowElement
@@ -30,13 +31,10 @@ export function paintArrow(ctx: CanvasRenderingContext2D, element: Element): voi
 
   ctx.setLineDash(dashPattern(style.strokeStyle))
   if (isSloppy(arrow)) {
-    strokeSloppyPath(ctx, shaftPoints, arrow)
+    strokeSloppyPathData(ctx, roundedShaftPathData(shaftPoints), arrow)
   } else {
     ctx.beginPath()
-    shaftPoints.forEach((point, index) => {
-      if (index === 0) ctx.moveTo(point.x, point.y)
-      else ctx.lineTo(point.x, point.y)
-    })
+    traceRoundedShaft(ctx, shaftPoints)
     ctx.stroke()
   }
 
@@ -63,6 +61,60 @@ export function trimmedShaftPoints(points: Point[], startTrim: number, endTrim: 
   return next
 }
 
+export function roundedShaftPathData(points: Point[]): string {
+  const first = points[0]
+  if (!first) return ''
+  const commands = [`M ${formatNumber(first.x)} ${formatNumber(first.y)}`]
+  forEachRoundedShaftSegment(
+    points,
+    (point) => commands.push(`L ${formatNumber(point.x)} ${formatNumber(point.y)}`),
+    (control, point) =>
+      commands.push(
+        `Q ${formatNumber(control.x)} ${formatNumber(control.y)} ${formatNumber(point.x)} ${formatNumber(point.y)}`,
+      ),
+  )
+  return commands.join(' ')
+}
+
+function traceRoundedShaft(ctx: CanvasRenderingContext2D, points: Point[]): void {
+  const first = points[0]
+  if (!first) return
+  ctx.moveTo(first.x, first.y)
+  forEachRoundedShaftSegment(
+    points,
+    (point) => ctx.lineTo(point.x, point.y),
+    (control, point) => ctx.quadraticCurveTo(control.x, control.y, point.x, point.y),
+  )
+}
+
+function forEachRoundedShaftSegment(
+  points: Point[],
+  lineTo: (point: Point) => void,
+  curveTo: (control: Point, point: Point) => void,
+): void {
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1]!
+    const current = points[index]!
+    const next = points[index + 1]
+    if (!next) {
+      lineTo(current)
+      continue
+    }
+    const radius = bendRadius(previous, current, next)
+    if (radius === 0) {
+      lineTo(current)
+      continue
+    }
+    lineTo(pointToward(current, previous, radius))
+    curveTo(current, pointToward(current, next, radius))
+  }
+}
+
+function bendRadius(previous: Point, current: Point, next: Point): number {
+  if (isCollinear(previous, current, next)) return 0
+  return Math.min(BEND_RADIUS, distance(previous, current) / 2, distance(current, next) / 2)
+}
+
 function pointToward(from: Point, to: Point, distance: number): Point {
   const dx = to.x - from.x
   const dy = to.y - from.y
@@ -70,6 +122,19 @@ function pointToward(from: Point, to: Point, distance: number): Point {
   if (length <= distance || length === 0) return { ...to }
   const ratio = distance / length
   return { x: from.x + dx * ratio, y: from.y + dy * ratio }
+}
+
+function distance(a: Point, b: Point): number {
+  return Math.hypot(a.x - b.x, a.y - b.y)
+}
+
+function isCollinear(a: Point, b: Point, c: Point): boolean {
+  const cross = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
+  return Math.abs(cross) < 0.001
+}
+
+function formatNumber(value: number): string {
+  return Number.isInteger(value) ? `${value}` : `${Number(value.toFixed(3))}`
 }
 
 function headScale(strokeWidth: number): number {
