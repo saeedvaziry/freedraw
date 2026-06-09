@@ -101,7 +101,7 @@ function deriveSelection(selected: Element[]): StylePanelSelection {
     }
     hasShape = true
     if (!FILL_LESS.has(element.type)) hasFill = true
-    if (element.type !== 'text') hasText = true
+    hasText = true
     if (isRoundable(element.type)) hasRoundness = true
   }
   return { hasShape, hasFill, hasRoundness, hasText, hasArrow }

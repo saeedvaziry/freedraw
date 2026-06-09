@@ -12,6 +12,7 @@ import type {
   SceneSnapshot,
   ShapeType,
   Style,
+  TextElement,
 } from '../model/types.js'
 import {
   clipboardCenter,
@@ -20,12 +21,17 @@ import {
   type SceneClipboardPayload,
 } from './clipboard.js'
 import { deriveSelectionStyle, type SelectionStyle } from './selectionStyle.js'
+import { measureTextBox } from '../text/size.js'
 
 const DUPLICATE_OFFSET = 16
 const DUPLICATE_OFFSET_POINT = { x: DUPLICATE_OFFSET, y: DUPLICATE_OFFSET }
 
 function isArrow(element: Element): element is ArrowElement {
   return element.type === 'arrow' || element.type === 'line'
+}
+
+function affectsTextSize(patch: Partial<Style>): boolean {
+  return patch.fontSize !== undefined || patch.fontFamily !== undefined
 }
 
 function pointsEqual(a: Point[], b: Point[]): boolean {
@@ -258,14 +264,35 @@ export class SceneStore {
       for (const id of targets) {
         const element = this.snapshot.elements[id]
         if (!element) continue
+        const style = { ...element.style, ...patch }
         const label =
           patch.textAlign && element.label
             ? { ...element.label, align: patch.textAlign }
             : element.label
-        api.updateElement(id, { style: { ...element.style, ...patch }, ...(label ? { label } : {}) })
+        const resize =
+          element.type === 'text' && affectsTextSize(patch)
+            ? this.resizedTextBox(element, style)
+            : null
+        api.updateElement(id, {
+          style,
+          ...(label ? { label } : {}),
+          ...(resize ?? {}),
+        })
       }
     })
     this.updateLastUsedStyle(patch)
+  }
+
+  private resizedTextBox(element: TextElement, style: Style): Pick<Element, 'x' | 'y' | 'width' | 'height'> {
+    const size = measureTextBox(element.text, style)
+    const cx = element.x + element.width / 2
+    const cy = element.y + element.height / 2
+    return {
+      width: size.width,
+      height: size.height,
+      x: cx - size.width / 2,
+      y: cy - size.height / 2,
+    }
   }
 
   updateArrowheads(ids: Iterable<ElementId>, patch: Partial<Pick<ArrowElement, 'startArrowhead' | 'endArrowhead'>>): void {

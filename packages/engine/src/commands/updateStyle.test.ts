@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { SceneStore } from '../store/SceneStore.js'
 import { MIXED } from '../store/selectionStyle.js'
-import { createShape } from '../model/factory.js'
+import { createShape, createText } from '../model/factory.js'
+import { measureTextBox } from '../text/size.js'
 import { dashPattern } from '../render/painters/dash.js'
 
 function seed(store: SceneStore, count: number): string[] {
@@ -42,6 +43,36 @@ describe('updateStyle', () => {
     store.undo()
     expect(store.getSnapshot().elements[a!]!.style.fill).toBe('#ffffff')
     expect(store.getSnapshot().elements[b!]!.style.fill).toBe('#ffffff')
+  })
+
+  it('resizes a text element when its font size changes', () => {
+    const store = new SceneStore()
+    const text = createText({ x: 0, y: 0, text: 'Hello' })
+    store.transact((api) => api.addElement(text))
+    store.stopCapturing()
+
+    store.updateStyle([text.id], { fontSize: 48 })
+
+    const updated = store.getSnapshot().elements[text.id]!
+    const expected = measureTextBox('Hello', updated.style)
+    expect(updated.width).toBe(expected.width)
+    expect(updated.height).toBe(expected.height)
+  })
+
+  it('keeps a text element centered when resizing on font change', () => {
+    const store = new SceneStore()
+    const text = createText({ x: 100, y: 100, text: 'Hello' })
+    store.transact((api) => api.addElement(text))
+    store.stopCapturing()
+    const before = store.getSnapshot().elements[text.id]!
+    const cx = before.x + before.width / 2
+    const cy = before.y + before.height / 2
+
+    store.updateStyle([text.id], { fontSize: 48 })
+
+    const after = store.getSnapshot().elements[text.id]!
+    expect(after.x + after.width / 2).toBeCloseTo(cx)
+    expect(after.y + after.height / 2).toBeCloseTo(cy)
   })
 
   it('updates lastUsedStyle so new elements inherit it', () => {
