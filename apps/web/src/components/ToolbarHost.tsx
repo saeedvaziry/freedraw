@@ -5,9 +5,11 @@ import { Toolbar, type StickyColorKey, type ToolbarLayout, type ToolKey } from '
 interface ToolbarHostProps {
   store: SceneStore
   layout?: ToolbarLayout
+  diagramOpen?: boolean
+  onToggleDiagram?(): void
 }
 
-export function ToolbarHost({ store, layout }: ToolbarHostProps) {
+export function ToolbarHost({ store, layout, diagramOpen, onToggleDiagram }: ToolbarHostProps) {
   const ui = useSyncExternalStore(
     (cb) => store.subscribeUi(cb),
     () => store.getUiState(),
@@ -28,12 +30,14 @@ export function ToolbarHost({ store, layout }: ToolbarHostProps) {
   return (
     <Toolbar
       layout={layout}
+      diagramOpen={diagramOpen}
       activeTool={ui.activeTool as ToolKey}
       activeShapeType={ui.activeShapeType as ShapeType}
       activeStickyColor={ui.activeStickyColor as StickyColorKey}
       onSelectTool={selectTool}
       onSelectShape={selectShape}
       onSelectStickyColor={selectStickyColor}
+      onToggleDiagram={onToggleDiagram}
     />
   )
 }

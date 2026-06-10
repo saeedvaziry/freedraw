@@ -237,6 +237,11 @@ export class EditorController {
     return this.lastPointerScreen ? this.camera.screenToWorld(this.lastPointerScreen) : null
   }
 
+  get viewportCenter(): Point {
+    const { width, height } = this.viewportSize
+    return this.camera.screenToWorld({ x: width / 2, y: height / 2 })
+  }
+
   zoomToFit(): void {
     const bounds = contentBounds(this.store.getSnapshot())
     const { width, height } = this.viewportSize

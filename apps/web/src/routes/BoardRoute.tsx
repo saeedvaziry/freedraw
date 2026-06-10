@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { EditorController, SceneStore } from '@freedraw/engine'
 import { ActionsBarHost } from '../components/ActionsBarHost.js'
 import { CanvasHost } from '../components/CanvasHost.js'
+import { DiagramPanelHost } from '../components/DiagramPanelHost.js'
 import { EmptyState } from '../components/EmptyState.js'
 import { LinksBar } from '../components/LinksBar.js'
 import { MobileBar } from '../components/MobileBar.js'
@@ -48,6 +49,7 @@ interface BoardProps {
 
 function Board({ store }: BoardProps) {
   const [controller, setController] = useState<EditorController | null>(null)
+  const [diagramOpen, setDiagramOpen] = useState(false)
   const pickerRef = useRef<(() => void) | null>(null)
   const registerPicker = useCallback((openPicker: () => void) => {
     pickerRef.current = openPicker
@@ -83,7 +85,11 @@ function Board({ store }: BoardProps) {
         <StylePanelHost store={store} />
       </div>
       <div className="pointer-events-none absolute top-6 left-6 hidden justify-start sm:flex">
-        <ToolbarHost store={store} />
+        {diagramOpen ? (
+          <DiagramPanelHost store={store} controller={controller} onClose={() => setDiagramOpen(false)} />
+        ) : (
+          <ToolbarHost store={store} diagramOpen={diagramOpen} onToggleDiagram={() => setDiagramOpen(true)} />
+        )}
       </div>
       <div className="pointer-events-none absolute bottom-6 left-6 hidden justify-start sm:flex">
         <ActionsBarHost

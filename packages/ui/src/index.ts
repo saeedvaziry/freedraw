@@ -32,6 +32,8 @@ export type { ToastVariant } from './toast/ToastProvider.js'
 
 export { StylePanel } from './style-panel/StylePanel.js'
 export type { StylePanelProps, StylePanelSelection } from './style-panel/StylePanel.js'
+export { DiagramPanel } from './diagram-panel/DiagramPanel.js'
+export type { DiagramPanelProps } from './diagram-panel/DiagramPanel.js'
 export { MIXED } from './style-panel/types.js'
 export type {
   PanelStyle,
