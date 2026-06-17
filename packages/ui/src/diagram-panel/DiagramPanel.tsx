@@ -1,4 +1,4 @@
-import { BookOpen, ClipboardCopy, Play, X } from 'lucide-react'
+import { BookOpen, Copy, FileInput, Play, X } from 'lucide-react'
 import { Button } from '../components/ui/button.js'
 
 export interface DiagramPanelProps {
@@ -10,6 +10,7 @@ export interface DiagramPanelProps {
   onChangeCode(code: string): void
   onGenerate(): void
   onUseGenerated(): void
+  onCopyCode(): void
   onClose(): void
 }
 
@@ -22,6 +23,7 @@ export function DiagramPanel({
   onChangeCode,
   onGenerate,
   onUseGenerated,
+  onCopyCode,
   onClose,
 }: DiagramPanelProps) {
   return (
@@ -42,8 +44,9 @@ export function DiagramPanel({
         value={code}
         onChange={(event) => onChangeCode(event.target.value)}
         spellCheck={false}
+        wrap="soft"
         placeholder={'flowchart TD\nA[Start] --> B[Done]'}
-        className="h-44 w-full resize-none rounded-lg border bg-background p-2 font-mono text-xs leading-relaxed text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-44 w-full resize-none whitespace-pre-wrap break-words rounded-lg border bg-background p-2 font-mono text-xs leading-relaxed text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
 
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
@@ -59,12 +62,23 @@ export function DiagramPanel({
           <div className="flex items-center gap-0.5">
             <button
               type="button"
-              aria-label="Copy to editor"
+              aria-label="Copy code"
+              title="Copy code"
+              onClick={onCopyCode}
+              disabled={generatedCode.length === 0}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-foreground/70 transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4"
+            >
+              <Copy />
+            </button>
+            <button
+              type="button"
+              aria-label="Load into editor"
+              title="Load into editor"
               onClick={onUseGenerated}
               disabled={generatedCode.length === 0}
               className="flex h-7 w-7 items-center justify-center rounded-lg text-foreground/70 transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4"
             >
-              <ClipboardCopy />
+              <FileInput />
             </button>
             {docsHref ? (
               <a
@@ -80,7 +94,7 @@ export function DiagramPanel({
             ) : null}
           </div>
         </div>
-        <pre className="max-h-40 overflow-auto rounded-lg border bg-muted/40 p-2 font-mono text-xs leading-relaxed text-foreground/80">
+        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-lg border bg-muted/40 p-2 font-mono text-xs leading-relaxed text-foreground/80">
           {generatedCode.length > 0 ? generatedCode : 'flowchart TD'}
         </pre>
         {skippedCount > 0 ? (
