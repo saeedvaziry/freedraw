@@ -1,9 +1,9 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 
 export default function Welcome() {
-    const { auth, currentTeam } = usePage().props;
-    const dashboardUrl = currentTeam
-        ? `/${encodeURIComponent(currentTeam.slug)}/dashboard`
+    const { auth, currentOrganization } = usePage().props;
+    const dashboardUrl = currentOrganization
+        ? `/${encodeURIComponent(currentOrganization.slug)}/dashboard`
         : '/';
 
     return (

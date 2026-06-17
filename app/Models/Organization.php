@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use App\Concerns\GeneratesUniqueTeamSlugs;
-use App\Enums\TeamRole;
-use Database\Factories\TeamFactory;
+use App\Concerns\GeneratesUniqueOrganizationSlugs;
+use App\Enums\OrganizationRole;
+use Database\Factories\OrganizationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -22,15 +22,15 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
- * @property-read Collection<int, TeamInvitation> $invitations
+ * @property-read Collection<int, OrganizationInvitation> $invitations
  * @property-read Collection<int, Membership> $memberships
  * @property-read Collection<int, User> $members
  */
 #[Fillable(['name', 'slug', 'is_personal'])]
-class Team extends Model
+class Organization extends Model
 {
-    /** @use HasFactory<TeamFactory> */
-    use GeneratesUniqueTeamSlugs, HasFactory, SoftDeletes;
+    /** @use HasFactory<OrganizationFactory> */
+    use GeneratesUniqueOrganizationSlugs, HasFactory, SoftDeletes;
 
     /**
      * Bootstrap the model and its traits.
@@ -39,44 +39,44 @@ class Team extends Model
     {
         parent::boot();
 
-        static::creating(function (Team $team) {
-            if (empty($team->slug)) {
-                $team->slug = static::generateUniqueTeamSlug($team->name);
+        static::creating(function (Organization $organization) {
+            if (empty($organization->slug)) {
+                $organization->slug = static::generateUniqueOrganizationSlug($organization->name);
             }
         });
 
-        static::updating(function (Team $team) {
-            if ($team->isDirty('name')) {
-                $team->slug = static::generateUniqueTeamSlug($team->name, $team->id);
+        static::updating(function (Organization $organization) {
+            if ($organization->isDirty('name')) {
+                $organization->slug = static::generateUniqueOrganizationSlug($organization->name, $organization->id);
             }
         });
     }
 
     /**
-     * Get the team owner.
+     * Get the organization owner.
      */
     public function owner(): ?Model
     {
         return $this->members()
-            ->wherePivot('role', TeamRole::Owner->value)
+            ->wherePivot('role', OrganizationRole::Owner->value)
             ->first();
     }
 
     /**
-     * Get all members of this team.
+     * Get all members of this organization.
      *
      * @return BelongsToMany<User, $this, Membership, 'pivot'>
      */
     public function members(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'team_members', 'team_id', 'user_id')
+        return $this->belongsToMany(User::class, 'organization_members', 'organization_id', 'user_id')
             ->using(Membership::class)
             ->withPivot(['role'])
             ->withTimestamps();
     }
 
     /**
-     * Get all memberships for this team.
+     * Get all memberships for this organization.
      *
      * @return HasMany<Membership, $this>
      */
@@ -86,13 +86,13 @@ class Team extends Model
     }
 
     /**
-     * Get all invitations for this team.
+     * Get all invitations for this organization.
      *
-     * @return HasMany<TeamInvitation, $this>
+     * @return HasMany<OrganizationInvitation, $this>
      */
     public function invitations(): HasMany
     {
-        return $this->hasMany(TeamInvitation::class);
+        return $this->hasMany(OrganizationInvitation::class);
     }
 
     /**

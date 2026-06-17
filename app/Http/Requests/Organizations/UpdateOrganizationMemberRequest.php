@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Http\Requests\Teams;
+namespace App\Http\Requests\Organizations;
 
-use App\Enums\TeamRole;
+use App\Enums\OrganizationRole;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class UpdateTeamMemberRequest extends FormRequest
+class UpdateOrganizationMemberRequest extends FormRequest
 {
     /**
      * Get the validation rules that apply to the request.
@@ -17,7 +17,7 @@ class UpdateTeamMemberRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'role' => ['required', 'string', Rule::in(array_column(TeamRole::assignable(), 'value'))],
+            'role' => ['required', 'string', Rule::in(array_column(OrganizationRole::assignable(), 'value'))],
         ];
     }
 }

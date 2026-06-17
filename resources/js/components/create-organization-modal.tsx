@@ -16,7 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-export default function CreateTeamModal({ children }: PropsWithChildren) {
+export default function CreateOrganizationModal({ children }: PropsWithChildren) {
     const [open, setOpen] = useState(false);
 
     return (
@@ -25,7 +25,7 @@ export default function CreateTeamModal({ children }: PropsWithChildren) {
             <DialogContent>
                 <Form
                     key={String(open)}
-                    action="/settings/teams"
+                    action="/settings/organizations"
                     method="post"
                     className="space-y-6"
                     onSuccess={() => setOpen(false)}
@@ -33,20 +33,20 @@ export default function CreateTeamModal({ children }: PropsWithChildren) {
                     {({ errors, processing }) => (
                         <>
                             <DialogHeader>
-                                <DialogTitle>Create a new team</DialogTitle>
+                                <DialogTitle>Create a new organization</DialogTitle>
                                 <DialogDescription>
-                                    Create a new team to collaborate with
+                                    Create a new organization to collaborate with
                                     others.
                                 </DialogDescription>
                             </DialogHeader>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="name">Team name</Label>
+                                <Label htmlFor="name">Organization name</Label>
                                 <Input
                                     id="name"
                                     name="name"
-                                    data-test="create-team-name"
-                                    placeholder="My team"
+                                    data-test="create-organization-name"
+                                    placeholder="My organization"
                                     required
                                 />
                                 <InputError message={errors.name} />
@@ -59,10 +59,10 @@ export default function CreateTeamModal({ children }: PropsWithChildren) {
 
                                 <Button
                                     type="submit"
-                                    data-test="create-team-submit"
+                                    data-test="create-organization-submit"
                                     disabled={processing}
                                 >
-                                    Create team
+                                    Create organization
                                 </Button>
                             </DialogFooter>
                         </>

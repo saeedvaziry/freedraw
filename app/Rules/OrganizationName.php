@@ -8,7 +8,7 @@ use Illuminate\Routing\Route as RouteElement;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Translation\PotentiallyTranslatedString;
 
-class TeamName implements ValidationRule
+class OrganizationName implements ValidationRule
 {
     /**
      * Run the validation rule.
@@ -20,7 +20,7 @@ class TeamName implements ValidationRule
         $name = strtolower(trim($value));
 
         if (in_array($name, $this->reservedNames(), true)) {
-            $fail(__('This team name is reserved and cannot be used.'));
+            $fail(__('This organization name is reserved and cannot be used.'));
         }
     }
 

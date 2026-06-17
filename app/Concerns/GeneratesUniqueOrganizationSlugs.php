@@ -2,15 +2,15 @@
 
 namespace App\Concerns;
 
-use App\Models\Team;
+use App\Models\Organization;
 use Illuminate\Support\Str;
 
-trait GeneratesUniqueTeamSlugs
+trait GeneratesUniqueOrganizationSlugs
 {
     /**
-     * Generate a unique slug for the team.
+     * Generate a unique slug for the organization.
      */
-    protected static function generateUniqueTeamSlug(string $name, ?int $excludeId = null): string
+    protected static function generateUniqueOrganizationSlug(string $name, ?int $excludeId = null): string
     {
         $defaultSlug = Str::slug($name);
 

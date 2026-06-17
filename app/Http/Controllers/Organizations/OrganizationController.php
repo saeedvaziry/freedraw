@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Http\Controllers\Teams;
+namespace App\Http\Controllers\Organizations;
 
-use App\Actions\Teams\CreateTeam;
-use App\Enums\TeamRole;
+use App\Actions\Organizations\CreateOrganization;
+use App\Enums\OrganizationRole;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Teams\DeleteTeamRequest;
-use App\Http\Requests\Teams\SaveTeamRequest;
+use App\Http\Requests\Organizations\DeleteOrganizationRequest;
+use App\Http\Requests\Organizations\SaveOrganizationRequest;
 use App\Models\Membership;
-use App\Models\Team;
+use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,47 +17,47 @@ use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
-class TeamController extends Controller
+class OrganizationController extends Controller
 {
     /**
-     * Display a listing of the user's teams.
+     * Display a listing of the user's organizations.
      */
     public function index(Request $request): Response
     {
         $user = $request->user();
 
-        return Inertia::render('teams/index', [
-            'teams' => $user->toUserTeams(includeCurrent: true),
+        return Inertia::render('organizations/index', [
+            'organizations' => $user->toUserOrganizations(includeCurrent: true),
         ]);
     }
 
     /**
-     * Store a newly created team.
+     * Store a newly created organization.
      */
-    public function store(SaveTeamRequest $request, CreateTeam $createTeam): RedirectResponse
+    public function store(SaveOrganizationRequest $request, CreateOrganization $createOrganization): RedirectResponse
     {
-        $team = $createTeam->handle($request->user(), $request->validated('name'));
+        $organization = $createOrganization->handle($request->user(), $request->validated('name'));
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Team created.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Organization created.')]);
 
-        return to_route('teams.edit', ['team' => $team->slug]);
+        return to_route('organizations.edit', ['organization' => $organization->slug]);
     }
 
     /**
-     * Show the team edit page.
+     * Show the organization edit page.
      */
-    public function edit(Request $request, Team $team): Response
+    public function edit(Request $request, Organization $organization): Response
     {
         $user = $request->user();
 
-        return Inertia::render('teams/edit', [
-            'team' => [
-                'id' => $team->id,
-                'name' => $team->name,
-                'slug' => $team->slug,
-                'isPersonal' => $team->is_personal,
+        return Inertia::render('organizations/edit', [
+            'organization' => [
+                'id' => $organization->id,
+                'name' => $organization->name,
+                'slug' => $organization->slug,
+                'isPersonal' => $organization->is_personal,
             ],
-            'members' => $team->members()->get()->map(function (User $member) {
+            'members' => $organization->members()->get()->map(function (User $member) {
                 /** @var Membership $membership */
                 $membership = $member->getRelation('pivot');
 
@@ -70,7 +70,7 @@ class TeamController extends Controller
                     'role_label' => $membership->role->label(),
                 ];
             }),
-            'invitations' => $team->invitations()
+            'invitations' => $organization->invitations()
                 ->whereNull('accepted_at')
                 ->get()
                 ->map(fn ($invitation) => [
@@ -80,95 +80,95 @@ class TeamController extends Controller
                     'role_label' => $invitation->role->label(),
                     'created_at' => $invitation->created_at->toISOString(),
                 ]),
-            'permissions' => $user->toTeamPermissions($team),
-            'availableRoles' => TeamRole::assignable(),
+            'permissions' => $user->toOrganizationPermissions($organization),
+            'availableRoles' => OrganizationRole::assignable(),
         ]);
     }
 
     /**
-     * Update the specified team.
+     * Update the specified organization.
      */
-    public function update(SaveTeamRequest $request, Team $team): RedirectResponse
+    public function update(SaveOrganizationRequest $request, Organization $organization): RedirectResponse
     {
-        Gate::authorize('update', $team);
+        Gate::authorize('update', $organization);
 
-        $team = DB::transaction(function () use ($request, $team) {
-            $team = Team::whereKey($team->id)->lockForUpdate()->firstOrFail();
+        $organization = DB::transaction(function () use ($request, $organization) {
+            $organization = Organization::whereKey($organization->id)->lockForUpdate()->firstOrFail();
 
-            $team->update(['name' => $request->validated('name')]);
+            $organization->update(['name' => $request->validated('name')]);
 
-            return $team;
+            return $organization;
         });
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Team updated.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Organization updated.')]);
 
-        return to_route('teams.edit', ['team' => $team->slug]);
+        return to_route('organizations.edit', ['organization' => $organization->slug]);
     }
 
     /**
-     * Switch the user's current team.
+     * Switch the user's current organization.
      */
-    public function switch(Request $request, Team $team): RedirectResponse
+    public function switch(Request $request, Organization $organization): RedirectResponse
     {
-        abort_unless($request->user()->belongsToTeam($team), 403);
+        abort_unless($request->user()->belongsToOrganization($organization), 403);
 
-        $request->user()->switchTeam($team);
+        $request->user()->switchOrganization($organization);
 
         return back();
     }
 
     /**
-     * Leave the specified team.
+     * Leave the specified organization.
      */
-    public function leave(Request $request, Team $team): RedirectResponse
+    public function leave(Request $request, Organization $organization): RedirectResponse
     {
-        Gate::authorize('leave', $team);
+        Gate::authorize('leave', $organization);
 
         $user = $request->user();
 
-        $fallbackTeam = $user->isCurrentTeam($team)
-            ? $user->fallbackTeam($team)
+        $fallbackOrganization = $user->isCurrentOrganization($organization)
+            ? $user->fallbackOrganization($organization)
             : null;
 
-        $team->memberships()
+        $organization->memberships()
             ->where('user_id', $user->id)
             ->delete();
 
-        if ($fallbackTeam) {
-            $user->switchTeam($fallbackTeam);
+        if ($fallbackOrganization) {
+            $user->switchOrganization($fallbackOrganization);
         }
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('You left the team ":name"', ['name' => $team->name])]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('You left the organization ":name"', ['name' => $organization->name])]);
 
-        return to_route('teams.index');
+        return to_route('organizations.index');
     }
 
     /**
-     * Delete the specified team.
+     * Delete the specified organization.
      */
-    public function destroy(DeleteTeamRequest $request, Team $team): RedirectResponse
+    public function destroy(DeleteOrganizationRequest $request, Organization $organization): RedirectResponse
     {
         $user = $request->user();
-        $fallbackTeam = $user->isCurrentTeam($team)
-            ? $user->fallbackTeam($team)
+        $fallbackOrganization = $user->isCurrentOrganization($organization)
+            ? $user->fallbackOrganization($organization)
             : null;
 
-        DB::transaction(function () use ($user, $team) {
-            User::where('current_team_id', $team->id)
+        DB::transaction(function () use ($user, $organization) {
+            User::where('current_organization_id', $organization->id)
                 ->where('id', '!=', $user->id)
-                ->each(fn (User $affectedUser) => $affectedUser->switchTeam($affectedUser->personalTeam()));
+                ->each(fn (User $affectedUser) => $affectedUser->switchOrganization($affectedUser->personalOrganization()));
 
-            $team->invitations()->delete();
-            $team->memberships()->delete();
-            $team->delete();
+            $organization->invitations()->delete();
+            $organization->memberships()->delete();
+            $organization->delete();
         });
 
-        if ($fallbackTeam) {
-            $user->switchTeam($fallbackTeam);
+        if ($fallbackOrganization) {
+            $user->switchOrganization($fallbackOrganization);
         }
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Team deleted.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Organization deleted.')]);
 
-        return to_route('teams.index');
+        return to_route('organizations.index');
     }
 }

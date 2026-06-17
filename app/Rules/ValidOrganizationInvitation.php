@@ -2,13 +2,13 @@
 
 namespace App\Rules;
 
-use App\Models\TeamInvitation;
+use App\Models\OrganizationInvitation;
 use App\Models\User;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Translation\PotentiallyTranslatedString;
 
-class ValidTeamInvitation implements ValidationRule
+class ValidOrganizationInvitation implements ValidationRule
 {
     public function __construct(protected ?User $user)
     {
@@ -22,7 +22,7 @@ class ValidTeamInvitation implements ValidationRule
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        if (! $value instanceof TeamInvitation || ! $this->user instanceof User) {
+        if (! $value instanceof OrganizationInvitation || ! $this->user instanceof User) {
             $fail(__('This invitation was sent to a different email address.'));
 
             return;

@@ -20,17 +20,17 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import type { RoleOption, Team } from '@/types';
+import type { RoleOption, Organization } from '@/types';
 
 type Props = {
-    team: Team;
+    organization: Organization;
     availableRoles: RoleOption[];
     open: boolean;
     onOpenChange: (open: boolean) => void;
 };
 
 export default function InviteMemberModal({
-    team,
+    organization,
     availableRoles,
     open,
     onOpenChange,
@@ -50,7 +50,7 @@ export default function InviteMemberModal({
             <DialogContent>
                 <Form
                     key={String(open)}
-                    action={`/settings/teams/${encodeURIComponent(team.slug)}/invitations`}
+                    action={`/settings/organizations/${encodeURIComponent(organization.slug)}/invitations`}
                     method="post"
                     className="space-y-6"
                     onSuccess={() => onOpenChange(false)}
@@ -58,9 +58,9 @@ export default function InviteMemberModal({
                     {({ errors, processing }) => (
                         <>
                             <DialogHeader>
-                                <DialogTitle>Invite a team member</DialogTitle>
+                                <DialogTitle>Invite a organization member</DialogTitle>
                                 <DialogDescription>
-                                    Send an invitation to join this team.
+                                    Send an invitation to join this organization.
                                 </DialogDescription>
                             </DialogHeader>
 

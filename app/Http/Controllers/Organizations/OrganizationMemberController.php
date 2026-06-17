@@ -1,56 +1,56 @@
 <?php
 
-namespace App\Http\Controllers\Teams;
+namespace App\Http\Controllers\Organizations;
 
-use App\Enums\TeamRole;
+use App\Enums\OrganizationRole;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Teams\UpdateTeamMemberRequest;
-use App\Models\Team;
+use App\Http\Requests\Organizations\UpdateOrganizationMemberRequest;
+use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 
-class TeamMemberController extends Controller
+class OrganizationMemberController extends Controller
 {
     /**
-     * Update the specified team member's role.
+     * Update the specified organization member's role.
      */
-    public function update(UpdateTeamMemberRequest $request, Team $team, User $user): RedirectResponse
+    public function update(UpdateOrganizationMemberRequest $request, Organization $organization, User $user): RedirectResponse
     {
-        Gate::authorize('updateMember', $team);
+        Gate::authorize('updateMember', $organization);
 
-        $newRole = TeamRole::from($request->validated('role'));
+        $newRole = OrganizationRole::from($request->validated('role'));
 
-        $team->memberships()
+        $organization->memberships()
             ->where('user_id', $user->id)
             ->firstOrFail()
             ->update(['role' => $newRole]);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Member role updated.')]);
 
-        return to_route('teams.edit', ['team' => $team->slug]);
+        return to_route('organizations.edit', ['organization' => $organization->slug]);
     }
 
     /**
-     * Remove the specified team member.
+     * Remove the specified organization member.
      */
-    public function destroy(Team $team, User $user): RedirectResponse
+    public function destroy(Organization $organization, User $user): RedirectResponse
     {
-        Gate::authorize('removeMember', $team);
+        Gate::authorize('removeMember', $organization);
 
-        abort_if($team->owner()?->is($user), 403, __('The team owner cannot be removed.'));
+        abort_if($organization->owner()?->is($user), 403, __('The organization owner cannot be removed.'));
 
-        $team->memberships()
+        $organization->memberships()
             ->where('user_id', $user->id)
             ->delete();
 
-        if ($user->isCurrentTeam($team)) {
-            $user->switchTeam($user->personalTeam());
+        if ($user->isCurrentOrganization($organization)) {
+            $user->switchOrganization($user->personalOrganization());
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Member removed.')]);
 
-        return to_route('teams.edit', ['team' => $team->slug]);
+        return to_route('organizations.edit', ['organization' => $organization->slug]);
     }
 }

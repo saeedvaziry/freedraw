@@ -2,14 +2,14 @@
 
 namespace App\Http\Middleware;
 
-use App\Enums\TeamRole;
-use App\Models\Team;
+use App\Enums\OrganizationRole;
+use App\Models\Organization;
 use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-class EnsureTeamMembership
+class EnsureOrganizationMembership
 {
     /**
      * Handle an incoming request.
@@ -18,14 +18,14 @@ class EnsureTeamMembership
      */
     public function handle(Request $request, Closure $next, ?string $minimumRole = null): Response
     {
-        [$user, $team] = [$request->user(), $this->team($request)];
+        [$user, $organization] = [$request->user(), $this->organization($request)];
 
-        abort_if(! $user || ! $team || ! $user->belongsToTeam($team), 403);
+        abort_if(! $user || ! $organization || ! $user->belongsToOrganization($organization), 403);
 
-        $this->ensureTeamMemberHasRequiredRole($user, $team, $minimumRole);
+        $this->ensureOrganizationMemberHasRequiredRole($user, $organization, $minimumRole);
 
-        if ($request->route('current_team') && ! $user->isCurrentTeam($team)) {
-            $user->switchTeam($team);
+        if ($request->route('current_organization') && ! $user->isCurrentOrganization($organization)) {
+            $user->switchOrganization($organization);
         }
 
         return $next($request);
@@ -34,15 +34,15 @@ class EnsureTeamMembership
     /**
      * Ensure the given user has at least the given role, if applicable.
      */
-    protected function ensureTeamMemberHasRequiredRole(User $user, Team $team, ?string $minimumRole): void
+    protected function ensureOrganizationMemberHasRequiredRole(User $user, Organization $organization, ?string $minimumRole): void
     {
         if ($minimumRole === null) {
             return;
         }
 
-        $role = $user->teamRole($team);
+        $role = $user->organizationRole($organization);
 
-        $requiredRole = TeamRole::tryFrom($minimumRole);
+        $requiredRole = OrganizationRole::tryFrom($minimumRole);
 
         abort_if(
             $requiredRole === null ||
@@ -53,16 +53,16 @@ class EnsureTeamMembership
     }
 
     /**
-     * Get the team associated with the request.
+     * Get the organization associated with the request.
      */
-    protected function team(Request $request): ?Team
+    protected function organization(Request $request): ?Organization
     {
-        $team = $request->route('current_team') ?? $request->route('team');
+        $organization = $request->route('current_organization') ?? $request->route('organization');
 
-        if (is_string($team)) {
-            $team = Team::where('slug', $team)->first();
+        if (is_string($organization)) {
+            $organization = Organization::where('slug', $organization)->first();
         }
 
-        return $team;
+        return $organization;
     }
 }

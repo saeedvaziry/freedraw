@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Http\Requests\Teams;
+namespace App\Http\Requests\Organizations;
 
-use App\Rules\ValidTeamInvitation;
+use App\Rules\ValidOrganizationInvitation;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
-class RespondToTeamInvitationRequest extends FormRequest
+class RespondToOrganizationInvitationRequest extends FormRequest
 {
     /**
      * Get the validation rules that apply to the request.
@@ -16,7 +16,7 @@ class RespondToTeamInvitationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'invitation' => ['required', new ValidTeamInvitation($this->user())],
+            'invitation' => ['required', new ValidOrganizationInvitation($this->user())],
         ];
     }
 

@@ -2,10 +2,10 @@
 
 namespace App\Enums;
 
-enum TeamPermission: string
+enum OrganizationPermission: string
 {
-    case UpdateTeam = 'team:update';
-    case DeleteTeam = 'team:delete';
+    case UpdateOrganization = 'organization:update';
+    case DeleteOrganization = 'organization:delete';
 
     case AddMember = 'member:add';
     case UpdateMember = 'member:update';

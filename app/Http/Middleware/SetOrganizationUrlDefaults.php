@@ -7,19 +7,19 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\Response;
 
-class SetTeamUrlDefaults
+class SetOrganizationUrlDefaults
 {
     /**
-     * Set the default URL parameters for team-based routes.
+     * Set the default URL parameters for organization-based routes.
      *
      * @param  Closure(Request): (Response)  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if ($currentTeam = $request->user()?->currentTeam) {
+        if ($currentOrganization = $request->user()?->currentOrganization) {
             URL::defaults([
-                'current_team' => $currentTeam->slug,
-                'team' => $currentTeam->slug,
+                'current_organization' => $currentOrganization->slug,
+                'organization' => $currentOrganization->slug,
             ]);
         }
 

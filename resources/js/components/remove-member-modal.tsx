@@ -10,17 +10,17 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import type { Team, TeamMember } from '@/types';
+import type { Organization, OrganizationMember } from '@/types';
 
 type Props = {
-    team: Team;
-    member: TeamMember | null;
+    organization: Organization;
+    member: OrganizationMember | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
 };
 
 export default function RemoveMemberModal({
-    team,
+    organization,
     member,
     open,
     onOpenChange,
@@ -33,7 +33,7 @@ export default function RemoveMemberModal({
         }
 
         router.visit(
-            `/settings/teams/${encodeURIComponent(team.slug)}/members/${encodeURIComponent(String(member.id))}`,
+            `/settings/organizations/${encodeURIComponent(organization.slug)}/members/${encodeURIComponent(String(member.id))}`,
             {
                 method: 'delete',
                 onStart: () => setProcessing(true),
@@ -47,10 +47,10 @@ export default function RemoveMemberModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Remove team member</DialogTitle>
+                    <DialogTitle>Remove organization member</DialogTitle>
                     <DialogDescription>
                         Are you sure you want to remove{' '}
-                        <strong>{member?.name}</strong> from this team?
+                        <strong>{member?.name}</strong> from this organization?
                     </DialogDescription>
                 </DialogHeader>
 

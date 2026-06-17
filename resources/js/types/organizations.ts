@@ -1,49 +1,49 @@
-export type TeamRole = 'owner' | 'admin' | 'member';
+export type OrganizationRole = 'owner' | 'admin' | 'member';
 
-export type Team = {
+export type Organization = {
     id: number;
     name: string;
     slug: string;
     isPersonal: boolean;
-    role?: TeamRole;
+    role?: OrganizationRole;
     roleLabel?: string;
     isCurrent?: boolean;
 };
 
-export type TeamMember = {
+export type OrganizationMember = {
     id: number;
     name: string;
     email: string;
     avatar?: string | null;
-    role: TeamRole;
+    role: OrganizationRole;
     role_label: string;
 };
 
-export type TeamInvitation = {
+export type OrganizationInvitation = {
     code: string;
     email: string;
-    role: TeamRole;
+    role: OrganizationRole;
     role_label: string;
     created_at: string;
 };
 
-export type TeamInvitationContext = {
+export type OrganizationInvitationContext = {
     code: string;
-    teamName: string;
+    organizationName: string;
 };
 
 export type DashboardInvitation = {
     code: string;
     inviterName: string;
-    team: {
+    organization: {
         name: string;
         slug: string;
     };
 };
 
-export type TeamPermissions = {
-    canUpdateTeam: boolean;
-    canDeleteTeam: boolean;
+export type OrganizationPermissions = {
+    canUpdateOrganization: boolean;
+    canDeleteOrganization: boolean;
     canAddMember: boolean;
     canUpdateMember: boolean;
     canRemoveMember: boolean;
@@ -52,6 +52,6 @@ export type TeamPermissions = {
 };
 
 export type RoleOption = {
-    value: TeamRole;
+    value: OrganizationRole;
     label: string;
 };

@@ -41,12 +41,12 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
     );
 }
 
-Dashboard.layout = (props: { currentTeam?: { slug: string } | null }) => ({
+Dashboard.layout = (props: { currentOrganization?: { slug: string } | null }) => ({
     breadcrumbs: [
         {
             title: 'Dashboard',
-            href: props.currentTeam
-                ? `/${encodeURIComponent(props.currentTeam.slug)}/dashboard`
+            href: props.currentOrganization
+                ? `/${encodeURIComponent(props.currentOrganization.slug)}/dashboard`
                 : '/',
         },
     ],

@@ -2,15 +2,15 @@
 
 namespace App\Rules;
 
-use App\Models\Team;
-use App\Models\TeamInvitation;
+use App\Models\Organization;
+use App\Models\OrganizationInvitation;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Translation\PotentiallyTranslatedString;
 
-class UniqueTeamInvitation implements ValidationRule
+class UniqueOrganizationInvitation implements ValidationRule
 {
-    public function __construct(protected Team $team)
+    public function __construct(protected Organization $organization)
     {
         //
     }
@@ -24,17 +24,17 @@ class UniqueTeamInvitation implements ValidationRule
     {
         $email = strtolower($value);
 
-        $isMember = $this->team->members()
+        $isMember = $this->organization->members()
             ->whereRaw('LOWER(email) = ?', [$email])
             ->exists();
 
         if ($isMember) {
-            $fail(__('This user is already a member of the team.'));
+            $fail(__('This user is already a member of the organization.'));
 
             return;
         }
 
-        $hasPendingInvitation = TeamInvitation::where('team_id', $this->team->id)
+        $hasPendingInvitation = OrganizationInvitation::where('organization_id', $this->organization->id)
             ->whereRaw('LOWER(email) = ?', [$email])
             ->whereNull('accepted_at')
             ->where(function ($query) {

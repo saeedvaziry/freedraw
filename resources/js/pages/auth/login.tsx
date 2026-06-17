@@ -1,37 +1,37 @@
 import { Form, Head } from '@inertiajs/react';
 import InputError from '@/components/input-error';
+import OrganizationInvitationAlert from '@/components/organization-invitation-alert';
 import PasswordInput from '@/components/password-input';
-import TeamInvitationAlert from '@/components/team-invitation-alert';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import type { TeamInvitationContext } from '@/types';
+import type { OrganizationInvitationContext } from '@/types';
 
 type Props = {
     status?: string;
     canResetPassword: boolean;
-    teamInvitation?: TeamInvitationContext | null;
+    organizationInvitation?: OrganizationInvitationContext | null;
 };
 
 export default function Login({
     status,
     canResetPassword,
-    teamInvitation,
+    organizationInvitation,
 }: Props) {
-    const registerUrl = teamInvitation?.code
-        ? `/register?invitation=${encodeURIComponent(teamInvitation.code)}`
+    const registerUrl = organizationInvitation?.code
+        ? `/register?invitation=${encodeURIComponent(organizationInvitation.code)}`
         : '/register';
 
     return (
         <>
             <Head title="Log in" />
 
-            {teamInvitation && (
-                <TeamInvitationAlert
-                    invitation={teamInvitation}
+            {organizationInvitation && (
+                <OrganizationInvitationAlert
+                    invitation={organizationInvitation}
                     action="Log in"
                 />
             )}

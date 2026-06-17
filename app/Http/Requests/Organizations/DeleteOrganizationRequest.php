@@ -1,22 +1,22 @@
 <?php
 
-namespace App\Http\Requests\Teams;
+namespace App\Http\Requests\Organizations;
 
-use App\Models\Team;
+use App\Models\Organization;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Validator;
 
-class DeleteTeamRequest extends FormRequest
+class DeleteOrganizationRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
      */
     public function authorize(): bool
     {
-        return Gate::allows('delete', $this->route('team'));
+        return Gate::allows('delete', $this->route('organization'));
     }
 
     /**
@@ -40,22 +40,22 @@ class DeleteTeamRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
-                if ($this->input('name') !== $this->team()->name) {
-                    $validator->errors()->add('name', __('The team name does not match.'));
+                if ($this->input('name') !== $this->organization()->name) {
+                    $validator->errors()->add('name', __('The organization name does not match.'));
                 }
             },
         ];
     }
 
     /**
-     * Get the team associated with the request.
+     * Get the organization associated with the request.
      */
-    private function team(): Team
+    private function organization(): Organization
     {
-        $team = $this->route('team');
+        $organization = $this->route('organization');
 
-        abort_if(! $team instanceof Team, 404);
+        abort_if(! $organization instanceof Organization, 404);
 
-        return $team;
+        return $organization;
     }
 }

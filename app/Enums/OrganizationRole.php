@@ -2,7 +2,7 @@
 
 namespace App\Enums;
 
-enum TeamRole: string
+enum OrganizationRole: string
 {
     case Owner = 'owner';
     case Admin = 'admin';
@@ -19,16 +19,16 @@ enum TeamRole: string
     /**
      * Get all the permissions for this role.
      *
-     * @return array<TeamPermission>
+     * @return array<OrganizationPermission>
      */
     public function permissions(): array
     {
         return match ($this) {
-            self::Owner => TeamPermission::cases(),
+            self::Owner => OrganizationPermission::cases(),
             self::Admin => [
-                TeamPermission::UpdateTeam,
-                TeamPermission::CreateInvitation,
-                TeamPermission::CancelInvitation,
+                OrganizationPermission::UpdateOrganization,
+                OrganizationPermission::CreateInvitation,
+                OrganizationPermission::CancelInvitation,
             ],
             self::Member => [],
         };
@@ -37,7 +37,7 @@ enum TeamRole: string
     /**
      * Determine if the role has the given permission.
      */
-    public function hasPermission(TeamPermission $permission): bool
+    public function hasPermission(OrganizationPermission $permission): bool
     {
         return in_array($permission, $this->permissions());
     }
@@ -58,13 +58,13 @@ enum TeamRole: string
     /**
      * Check if this role is at least as privileged as another role.
      */
-    public function isAtLeast(TeamRole $role): bool
+    public function isAtLeast(OrganizationRole $role): bool
     {
         return $this->level() >= $role->level();
     }
 
     /**
-     * Get the roles that can be assigned to team members (excludes Owner).
+     * Get the roles that can be assigned to organization members (excludes Owner).
      *
      * @return array<array{value: string, label: string}>
      */

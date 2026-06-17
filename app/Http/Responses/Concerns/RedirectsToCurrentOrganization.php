@@ -2,31 +2,31 @@
 
 namespace App\Http\Responses\Concerns;
 
-use App\Models\Team;
+use App\Models\Organization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 
-trait RedirectsToCurrentTeam
+trait RedirectsToCurrentOrganization
 {
-    protected function redirectPathForCurrentTeam(Request $request, string $redirect): string
+    protected function redirectPathForCurrentOrganization(Request $request, string $redirect): string
     {
-        $team = $this->currentTeam($request);
+        $organization = $this->currentOrganization($request);
 
-        URL::defaults(['current_team' => $team->slug]);
+        URL::defaults(['current_organization' => $organization->slug]);
 
-        return "/{$team->slug}{$redirect}";
+        return "/{$organization->slug}{$redirect}";
     }
 
-    protected function currentTeam(Request $request): Team
+    protected function currentOrganization(Request $request): Organization
     {
         $user = $request->user();
 
         abort_if(! $user, 403);
 
-        $team = $user->currentTeam ?? $user->personalTeam();
+        $organization = $user->currentOrganization ?? $user->personalOrganization();
 
-        abort_if(! $team, 403);
+        abort_if(! $organization, 403);
 
-        return $team;
+        return $organization;
     }
 }

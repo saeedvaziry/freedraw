@@ -10,17 +10,17 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import type { Team, TeamInvitation } from '@/types';
+import type { Organization, OrganizationInvitation } from '@/types';
 
 type Props = {
-    team: Team;
-    invitation: TeamInvitation | null;
+    organization: Organization;
+    invitation: OrganizationInvitation | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
 };
 
 export default function CancelInvitationModal({
-    team,
+    organization,
     invitation,
     open,
     onOpenChange,
@@ -33,7 +33,7 @@ export default function CancelInvitationModal({
         }
 
         router.visit(
-            `/settings/teams/${encodeURIComponent(team.slug)}/invitations/${encodeURIComponent(invitation.code)}`,
+            `/settings/organizations/${encodeURIComponent(organization.slug)}/invitations/${encodeURIComponent(invitation.code)}`,
             {
                 method: 'delete',
                 onStart: () => setProcessing(true),

@@ -1,78 +1,78 @@
 <?php
 
-namespace App\Http\Controllers\Teams;
+namespace App\Http\Controllers\Organizations;
 
-use App\Enums\TeamRole;
+use App\Enums\OrganizationRole;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Teams\CreateTeamInvitationRequest;
-use App\Http\Requests\Teams\RespondToTeamInvitationRequest;
-use App\Models\Team;
-use App\Models\TeamInvitation;
-use App\Notifications\Teams\TeamInvitation as TeamInvitationNotification;
+use App\Http\Requests\Organizations\CreateOrganizationInvitationRequest;
+use App\Http\Requests\Organizations\RespondToOrganizationInvitationRequest;
+use App\Models\Organization;
+use App\Models\OrganizationInvitation;
+use App\Notifications\Organizations\OrganizationInvitation as OrganizationInvitationNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Notification;
 use Inertia\Inertia;
 
-class TeamInvitationController extends Controller
+class OrganizationInvitationController extends Controller
 {
     /**
      * Store a newly created invitation.
      */
-    public function store(CreateTeamInvitationRequest $request, Team $team): RedirectResponse
+    public function store(CreateOrganizationInvitationRequest $request, Organization $organization): RedirectResponse
     {
-        Gate::authorize('inviteMember', $team);
+        Gate::authorize('inviteMember', $organization);
 
-        $invitation = $team->invitations()->create([
+        $invitation = $organization->invitations()->create([
             'email' => $request->validated('email'),
-            'role' => TeamRole::from($request->validated('role')),
+            'role' => OrganizationRole::from($request->validated('role')),
             'invited_by' => $request->user()->id,
             'expires_at' => now()->addDays(3),
         ]);
 
         Notification::route('mail', $invitation->email)
-            ->notify(new TeamInvitationNotification($invitation));
+            ->notify(new OrganizationInvitationNotification($invitation));
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Invitation sent.')]);
 
-        return to_route('teams.edit', ['team' => $team->slug]);
+        return to_route('organizations.edit', ['organization' => $organization->slug]);
     }
 
     /**
      * Cancel the specified invitation.
      */
-    public function destroy(Team $team, TeamInvitation $invitation): RedirectResponse
+    public function destroy(Organization $organization, OrganizationInvitation $invitation): RedirectResponse
     {
-        abort_unless($invitation->team_id === $team->id, 404);
+        abort_unless($invitation->organization_id === $organization->id, 404);
 
-        Gate::authorize('cancelInvitation', $team);
+        Gate::authorize('cancelInvitation', $organization);
 
         $invitation->delete();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Invitation cancelled.')]);
 
-        return to_route('teams.edit', ['team' => $team->slug]);
+        return to_route('organizations.edit', ['organization' => $organization->slug]);
     }
 
     /**
      * Accept the invitation.
      */
-    public function accept(RespondToTeamInvitationRequest $request, TeamInvitation $invitation): RedirectResponse
+    public function accept(RespondToOrganizationInvitationRequest $request, OrganizationInvitation $invitation): RedirectResponse
     {
         $user = $request->user();
 
         DB::transaction(function () use ($user, $invitation) {
-            $team = $invitation->team;
+            $organization = $invitation->organization;
 
-            $team->memberships()->firstOrCreate(
+            $organization->memberships()->firstOrCreate(
                 ['user_id' => $user->id],
                 ['role' => $invitation->role],
             );
 
             $invitation->update(['accepted_at' => now()]);
 
-            $user->switchTeam($team);
+            $user->switchOrganization($organization);
         });
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Invitation accepted.')]);
@@ -83,7 +83,7 @@ class TeamInvitationController extends Controller
     /**
      * Decline the invitation.
      */
-    public function decline(RespondToTeamInvitationRequest $request, TeamInvitation $invitation): RedirectResponse
+    public function decline(RespondToOrganizationInvitationRequest $request, OrganizationInvitation $invitation): RedirectResponse
     {
         $invitation->delete();
 

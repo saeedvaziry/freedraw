@@ -1,9 +1,9 @@
 import { Head, Link } from '@inertiajs/react';
 import { Eye, LogOut, Pencil, Plus } from 'lucide-react';
 import { useState } from 'react';
-import CreateTeamModal from '@/components/create-team-modal';
+import CreateOrganizationModal from '@/components/create-organization-modal';
 import Heading from '@/components/heading';
-import LeaveTeamModal from '@/components/leave-team-modal';
+import LeaveOrganizationModal from '@/components/leave-organization-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,87 +12,87 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import type { Team } from '@/types';
+import type { Organization } from '@/types';
 
 type Props = {
-    teams: Team[];
+    organizations: Organization[];
 };
 
-const teamsUrl = '/settings/teams';
-const teamUrl = (teamSlug: string) =>
-    `${teamsUrl}/${encodeURIComponent(teamSlug)}`;
+const organizationsUrl = '/settings/organizations';
+const organizationUrl = (organizationSlug: string) =>
+    `${organizationsUrl}/${encodeURIComponent(organizationSlug)}`;
 
-export default function TeamsIndex({ teams }: Props) {
-    const [leaveTeamDialogOpen, setLeaveTeamDialogOpen] = useState(false);
-    const [teamLeaving, setTeamLeaving] = useState<Team | null>(null);
+export default function OrganizationsIndex({ organizations }: Props) {
+    const [leaveOrganizationDialogOpen, setLeaveOrganizationDialogOpen] = useState(false);
+    const [organizationLeaving, setOrganizationLeaving] = useState<Organization | null>(null);
 
-    const openLeaveTeamDialog = (team: Team) => {
-        setTeamLeaving(team);
-        setLeaveTeamDialogOpen(true);
+    const openLeaveOrganizationDialog = (organization: Organization) => {
+        setOrganizationLeaving(organization);
+        setLeaveOrganizationDialogOpen(true);
     };
 
     return (
         <>
-            <Head title="Teams" />
+            <Head title="Organizations" />
 
-            <h1 className="sr-only">Teams</h1>
+            <h1 className="sr-only">Organizations</h1>
 
             <div className="flex flex-col space-y-6">
                 <div className="flex items-center justify-between">
                     <Heading
                         variant="small"
-                        title="Teams"
-                        description="Manage your teams and team memberships"
+                        title="Organizations"
+                        description="Manage your organizations and organization memberships"
                     />
 
-                    <CreateTeamModal>
-                        <Button data-test="teams-new-team-button">
-                            <Plus /> New team
+                    <CreateOrganizationModal>
+                        <Button data-test="organizations-new-organization-button">
+                            <Plus /> New organization
                         </Button>
-                    </CreateTeamModal>
+                    </CreateOrganizationModal>
                 </div>
 
                 <div className="space-y-3">
-                    {teams.map((team) => {
-                        const canLeaveTeam =
-                            !team.isPersonal && team.role !== 'owner';
+                    {organizations.map((organization) => {
+                        const canLeaveOrganization =
+                            !organization.isPersonal && organization.role !== 'owner';
 
                         return (
                             <div
-                                key={team.id}
-                                data-test="team-row"
+                                key={organization.id}
+                                data-test="organization-row"
                                 className="flex items-center justify-between gap-4 rounded-lg border p-4"
                             >
                                 <div className="flex items-center gap-4">
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <span className="font-medium">
-                                                {team.name}
+                                                {organization.name}
                                             </span>
-                                            {team.isPersonal ? (
+                                            {organization.isPersonal ? (
                                                 <Badge variant="secondary">
                                                     Personal
                                                 </Badge>
                                             ) : null}
                                         </div>
                                         <span className="text-sm text-muted-foreground">
-                                            {team.roleLabel}
+                                            {organization.roleLabel}
                                         </span>
                                     </div>
                                 </div>
 
                                 <TooltipProvider>
                                     <div className="flex items-center gap-2">
-                                        {canLeaveTeam ? (
+                                        {canLeaveOrganization ? (
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        data-test="team-leave-button"
+                                                        data-test="organization-leave-button"
                                                         onClick={() =>
-                                                            openLeaveTeamDialog(
-                                                                team,
+                                                            openLeaveOrganizationDialog(
+                                                                organization,
                                                             )
                                                         }
                                                     >
@@ -100,23 +100,23 @@ export default function TeamsIndex({ teams }: Props) {
                                                     </Button>
                                                 </TooltipTrigger>
                                                 <TooltipContent>
-                                                    <p>Leave team</p>
+                                                    <p>Leave organization</p>
                                                 </TooltipContent>
                                             </Tooltip>
                                         ) : null}
 
-                                        {team.role === 'member' ? (
+                                        {organization.role === 'member' ? (
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        data-test="team-view-button"
+                                                        data-test="organization-view-button"
                                                         asChild
                                                     >
                                                         <Link
-                                                            href={teamUrl(
-                                                                team.slug,
+                                                            href={organizationUrl(
+                                                                organization.slug,
                                                             )}
                                                         >
                                                             <Eye className="h-4 w-4" />
@@ -124,7 +124,7 @@ export default function TeamsIndex({ teams }: Props) {
                                                     </Button>
                                                 </TooltipTrigger>
                                                 <TooltipContent>
-                                                    <p>View team</p>
+                                                    <p>View organization</p>
                                                 </TooltipContent>
                                             </Tooltip>
                                         ) : (
@@ -133,12 +133,12 @@ export default function TeamsIndex({ teams }: Props) {
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        data-test="team-edit-button"
+                                                        data-test="organization-edit-button"
                                                         asChild
                                                     >
                                                         <Link
-                                                            href={teamUrl(
-                                                                team.slug,
+                                                            href={organizationUrl(
+                                                                organization.slug,
                                                             )}
                                                         >
                                                             <Pencil className="h-4 w-4" />
@@ -146,7 +146,7 @@ export default function TeamsIndex({ teams }: Props) {
                                                     </Button>
                                                 </TooltipTrigger>
                                                 <TooltipContent>
-                                                    <p>Edit team</p>
+                                                    <p>Edit organization</p>
                                                 </TooltipContent>
                                             </Tooltip>
                                         )}
@@ -156,28 +156,28 @@ export default function TeamsIndex({ teams }: Props) {
                         );
                     })}
 
-                    {teams.length === 0 ? (
+                    {organizations.length === 0 ? (
                         <p className="py-8 text-center text-muted-foreground">
-                            You don't belong to any teams yet.
+                            You don't belong to any organizations yet.
                         </p>
                     ) : null}
                 </div>
             </div>
 
-            <LeaveTeamModal
-                team={teamLeaving}
-                open={leaveTeamDialogOpen}
-                onOpenChange={setLeaveTeamDialogOpen}
+            <LeaveOrganizationModal
+                organization={organizationLeaving}
+                open={leaveOrganizationDialogOpen}
+                onOpenChange={setLeaveOrganizationDialogOpen}
             />
         </>
     );
 }
 
-TeamsIndex.layout = {
+OrganizationsIndex.layout = {
     breadcrumbs: [
         {
-            title: 'Teams',
-            href: teamsUrl,
+            title: 'Organizations',
+            href: organizationsUrl,
         },
     ],
 };

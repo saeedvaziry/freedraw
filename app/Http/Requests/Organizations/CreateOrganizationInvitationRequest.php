@@ -1,15 +1,15 @@
 <?php
 
-namespace App\Http\Requests\Teams;
+namespace App\Http\Requests\Organizations;
 
-use App\Enums\TeamRole;
-use App\Models\Team;
-use App\Rules\UniqueTeamInvitation;
+use App\Enums\OrganizationRole;
+use App\Models\Organization;
+use App\Rules\UniqueOrganizationInvitation;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class CreateTeamInvitationRequest extends FormRequest
+class CreateOrganizationInvitationRequest extends FormRequest
 {
     /**
      * Get the validation rules that apply to the request.
@@ -18,13 +18,13 @@ class CreateTeamInvitationRequest extends FormRequest
      */
     public function rules(): array
     {
-        $team = $this->route('team');
+        $organization = $this->route('organization');
 
-        abort_if(! $team instanceof Team, 404);
+        abort_if(! $organization instanceof Organization, 404);
 
         return [
-            'email' => ['required', 'string', 'email', 'max:255', new UniqueTeamInvitation($team)],
-            'role' => ['required', 'string', Rule::enum(TeamRole::class)],
+            'email' => ['required', 'string', 'email', 'max:255', new UniqueOrganizationInvitation($organization)],
+            'role' => ['required', 'string', Rule::enum(OrganizationRole::class)],
         ];
     }
 }

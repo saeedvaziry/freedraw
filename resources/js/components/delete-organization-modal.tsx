@@ -13,18 +13,18 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { Team } from '@/types';
+import type { Organization } from '@/types';
 
 type Props = {
-    team: Team;
+    organization: Organization;
     open: boolean;
     onOpenChange: (open: boolean) => void;
 };
 
-export default function DeleteTeamModal({ team, open, onOpenChange }: Props) {
+export default function DeleteOrganizationModal({ organization, open, onOpenChange }: Props) {
     const [confirmationName, setConfirmationName] = useState('');
 
-    const canDeleteTeam = confirmationName === team.name;
+    const canDeleteOrganization = confirmationName === organization.name;
 
     const handleOpenChange = (nextOpen: boolean) => {
         onOpenChange(nextOpen);
@@ -39,7 +39,7 @@ export default function DeleteTeamModal({ team, open, onOpenChange }: Props) {
             <DialogContent>
                 <Form
                     key={String(open)}
-                    action={`/settings/teams/${encodeURIComponent(team.slug)}`}
+                    action={`/settings/organizations/${encodeURIComponent(organization.slug)}`}
                     method="delete"
                     className="space-y-6"
                     onSuccess={() => handleOpenChange(false)}
@@ -50,28 +50,28 @@ export default function DeleteTeamModal({ team, open, onOpenChange }: Props) {
                                 <DialogTitle>Are you sure?</DialogTitle>
                                 <DialogDescription>
                                     This action cannot be undone. This will
-                                    permanently delete the team{' '}
-                                    <strong>"{team.name}"</strong>.
+                                    permanently delete the organization{' '}
+                                    <strong>"{organization.name}"</strong>.
                                 </DialogDescription>
                             </DialogHeader>
 
                             <div className="space-y-4 py-4">
                                 <div className="grid gap-2">
                                     <Label htmlFor="confirmation-name">
-                                        Type <strong>"{team.name}"</strong> to
+                                        Type <strong>"{organization.name}"</strong> to
                                         confirm
                                     </Label>
                                     <Input
                                         id="confirmation-name"
                                         name="name"
-                                        data-test="delete-team-name"
+                                        data-test="delete-organization-name"
                                         value={confirmationName}
                                         onChange={(event) =>
                                             setConfirmationName(
                                                 event.target.value,
                                             )
                                         }
-                                        placeholder="Enter team name"
+                                        placeholder="Enter organization name"
                                         autoComplete="off"
                                     />
                                     <InputError message={errors.name} />
@@ -86,10 +86,10 @@ export default function DeleteTeamModal({ team, open, onOpenChange }: Props) {
                                 <Button
                                     variant="destructive"
                                     type="submit"
-                                    data-test="delete-team-confirm"
-                                    disabled={!canDeleteTeam || processing}
+                                    data-test="delete-organization-confirm"
+                                    disabled={!canDeleteOrganization || processing}
                                 >
-                                    Delete team
+                                    Delete organization
                                 </Button>
                             </DialogFooter>
                         </>

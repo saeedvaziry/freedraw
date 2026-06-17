@@ -1,33 +1,33 @@
 <?php
 
-namespace App\Actions\Teams;
+namespace App\Actions\Organizations;
 
-use App\Enums\TeamRole;
-use App\Models\Team;
+use App\Enums\OrganizationRole;
+use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
-class CreateTeam
+class CreateOrganization
 {
     /**
-     * Create a new team and add the user as owner.
+     * Create a new organization and add the user as owner.
      */
-    public function handle(User $user, string $name, bool $isPersonal = false): Team
+    public function handle(User $user, string $name, bool $isPersonal = false): Organization
     {
         return DB::transaction(function () use ($user, $name, $isPersonal) {
-            $team = Team::create([
+            $organization = Organization::create([
                 'name' => $name,
                 'is_personal' => $isPersonal,
             ]);
 
-            $membership = $team->memberships()->create([
+            $membership = $organization->memberships()->create([
                 'user_id' => $user->id,
-                'role' => TeamRole::Owner,
+                'role' => OrganizationRole::Owner,
             ]);
 
-            $user->switchTeam($team);
+            $user->switchOrganization($organization);
 
-            return $team;
+            return $organization;
         });
     }
 }

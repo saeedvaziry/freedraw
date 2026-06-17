@@ -2,7 +2,7 @@ import { Form, Head, router } from '@inertiajs/react';
 import { ChevronDown, Mail, UserPlus, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import CancelInvitationModal from '@/components/cancel-invitation-modal';
-import DeleteTeamModal from '@/components/delete-team-modal';
+import DeleteOrganizationModal from '@/components/delete-organization-modal';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import InviteMemberModal from '@/components/invite-member-modal';
@@ -27,28 +27,28 @@ import {
 import { useInitials } from '@/hooks/use-initials';
 import type {
     RoleOption,
-    Team,
-    TeamInvitation,
-    TeamMember,
-    TeamPermissions,
+    Organization,
+    OrganizationInvitation,
+    OrganizationMember,
+    OrganizationPermissions,
 } from '@/types';
 
 type Props = {
-    team: Team;
-    members: TeamMember[];
-    invitations: TeamInvitation[];
-    permissions: TeamPermissions;
+    organization: Organization;
+    members: OrganizationMember[];
+    invitations: OrganizationInvitation[];
+    permissions: OrganizationPermissions;
     availableRoles: RoleOption[];
 };
 
-const teamsUrl = '/settings/teams';
-const teamUrl = (teamSlug: string) =>
-    `${teamsUrl}/${encodeURIComponent(teamSlug)}`;
-const teamMemberUrl = (teamSlug: string, userId: number) =>
-    `${teamUrl(teamSlug)}/members/${encodeURIComponent(String(userId))}`;
+const organizationsUrl = '/settings/organizations';
+const organizationUrl = (organizationSlug: string) =>
+    `${organizationsUrl}/${encodeURIComponent(organizationSlug)}`;
+const organizationMemberUrl = (organizationSlug: string, userId: number) =>
+    `${organizationUrl(organizationSlug)}/members/${encodeURIComponent(String(userId))}`;
 
-export default function TeamEdit({
-    team,
+export default function OrganizationEdit({
+    organization,
     members,
     invitations,
     permissions,
@@ -59,36 +59,36 @@ export default function TeamEdit({
     const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [removeMemberDialogOpen, setRemoveMemberDialogOpen] = useState(false);
-    const [memberToRemove, setMemberToRemove] = useState<TeamMember | null>(
+    const [memberToRemove, setMemberToRemove] = useState<OrganizationMember | null>(
         null,
     );
     const [cancelInvitationDialogOpen, setCancelInvitationDialogOpen] =
         useState(false);
     const [invitationToCancel, setInvitationToCancel] =
-        useState<TeamInvitation | null>(null);
+        useState<OrganizationInvitation | null>(null);
 
     const pageTitle = useMemo(
         () =>
-            permissions.canUpdateTeam
-                ? `Edit ${team.name}`
-                : `View ${team.name}`,
-        [permissions.canUpdateTeam, team.name],
+            permissions.canUpdateOrganization
+                ? `Edit ${organization.name}`
+                : `View ${organization.name}`,
+        [permissions.canUpdateOrganization, organization.name],
     );
 
-    const updateMemberRole = (member: TeamMember, newRole: string) => {
-        router.visit(teamMemberUrl(team.slug, member.id), {
+    const updateMemberRole = (member: OrganizationMember, newRole: string) => {
+        router.visit(organizationMemberUrl(organization.slug, member.id), {
             method: 'patch',
             data: { role: newRole },
             preserveScroll: true,
         });
     };
 
-    const confirmRemoveMember = (member: TeamMember) => {
+    const confirmRemoveMember = (member: OrganizationMember) => {
         setMemberToRemove(member);
         setRemoveMemberDialogOpen(true);
     };
 
-    const confirmCancelInvitation = (invitation: TeamInvitation) => {
+    const confirmCancelInvitation = (invitation: OrganizationInvitation) => {
         setInvitationToCancel(invitation);
         setCancelInvitationDialogOpen(true);
     };
@@ -101,16 +101,16 @@ export default function TeamEdit({
 
             <div className="flex flex-col space-y-10">
                 <div className="space-y-6">
-                    {permissions.canUpdateTeam ? (
+                    {permissions.canUpdateOrganization ? (
                         <>
                             <Heading
                                 variant="small"
-                                title="Team settings"
-                                description="Update your team name and settings"
+                                title="Organization settings"
+                                description="Update your organization name and settings"
                             />
 
                             <Form
-                                action={teamUrl(team.slug)}
+                                action={organizationUrl(organization.slug)}
                                 method="patch"
                                 className="space-y-6"
                             >
@@ -118,13 +118,13 @@ export default function TeamEdit({
                                     <>
                                         <div className="grid gap-2">
                                             <Label htmlFor="name">
-                                                Team name
+                                                Organization name
                                             </Label>
                                             <Input
                                                 id="name"
                                                 name="name"
-                                                data-test="team-name-input"
-                                                defaultValue={team.name}
+                                                data-test="organization-name-input"
+                                                defaultValue={organization.name}
                                                 required
                                             />
                                             <InputError message={errors.name} />
@@ -133,7 +133,7 @@ export default function TeamEdit({
                                         <div className="flex items-center gap-4">
                                             <Button
                                                 type="submit"
-                                                data-test="team-save-button"
+                                                data-test="organization-save-button"
                                                 disabled={processing}
                                             >
                                                 Save
@@ -145,7 +145,7 @@ export default function TeamEdit({
                         </>
                     ) : (
                         <>
-                            <Heading variant="small" title={team.name} />
+                            <Heading variant="small" title={organization.name} />
                         </>
                     )}
                 </div>
@@ -154,10 +154,10 @@ export default function TeamEdit({
                     <div className="flex items-center justify-between">
                         <Heading
                             variant="small"
-                            title="Team members"
+                            title="Organization members"
                             description={
                                 permissions.canCreateInvitation
-                                    ? 'Manage who belongs to this team'
+                                    ? 'Manage who belongs to this organization'
                                     : ''
                             }
                         />
@@ -326,12 +326,12 @@ export default function TeamEdit({
                     </div>
                 ) : null}
 
-                {permissions.canDeleteTeam && !team.isPersonal ? (
+                {permissions.canDeleteOrganization && !organization.isPersonal ? (
                     <div className="space-y-6">
                         <Heading
                             variant="small"
-                            title="Delete team"
-                            description="Permanently delete your team"
+                            title="Delete organization"
+                            description="Permanently delete your organization"
                         />
                         <div className="space-y-4 rounded-lg border border-red-100 bg-red-50 p-4 dark:border-red-200/10 dark:bg-red-700/10">
                             <div className="relative space-y-0.5 text-red-600 dark:text-red-100">
@@ -343,10 +343,10 @@ export default function TeamEdit({
                             </div>
                             <Button
                                 variant="destructive"
-                                data-test="delete-team-button"
+                                data-test="delete-organization-button"
                                 onClick={() => setDeleteDialogOpen(true)}
                             >
-                                Delete team
+                                Delete organization
                             </Button>
                         </div>
                     </div>
@@ -355,7 +355,7 @@ export default function TeamEdit({
 
             {permissions.canCreateInvitation ? (
                 <InviteMemberModal
-                    team={team}
+                    organization={organization}
                     availableRoles={availableRoles}
                     open={inviteDialogOpen}
                     onOpenChange={setInviteDialogOpen}
@@ -363,22 +363,22 @@ export default function TeamEdit({
             ) : null}
 
             <RemoveMemberModal
-                team={team}
+                organization={organization}
                 member={memberToRemove}
                 open={removeMemberDialogOpen}
                 onOpenChange={setRemoveMemberDialogOpen}
             />
 
             <CancelInvitationModal
-                team={team}
+                organization={organization}
                 invitation={invitationToCancel}
                 open={cancelInvitationDialogOpen}
                 onOpenChange={setCancelInvitationDialogOpen}
             />
 
-            {permissions.canDeleteTeam && !team.isPersonal ? (
-                <DeleteTeamModal
-                    team={team}
+            {permissions.canDeleteOrganization && !organization.isPersonal ? (
+                <DeleteOrganizationModal
+                    organization={organization}
                     open={deleteDialogOpen}
                     onOpenChange={setDeleteDialogOpen}
                 />
@@ -387,15 +387,15 @@ export default function TeamEdit({
     );
 }
 
-TeamEdit.layout = (props: { team: { name: string; slug: string } }) => ({
+OrganizationEdit.layout = (props: { organization: { name: string; slug: string } }) => ({
     breadcrumbs: [
         {
-            title: 'Teams',
-            href: teamsUrl,
+            title: 'Organizations',
+            href: organizationsUrl,
         },
         {
-            title: props.team.name,
-            href: teamUrl(props.team.slug),
+            title: props.organization.name,
+            href: organizationUrl(props.organization.slug),
         },
     ],
 });

@@ -1,4 +1,4 @@
 export type * from './auth';
 export type * from './navigation';
-export type * from './teams';
+export type * from './organizations';
 export type * from './ui';

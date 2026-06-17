@@ -2,11 +2,11 @@
 
 namespace App\Data;
 
-readonly class TeamPermissions
+readonly class OrganizationPermissions
 {
     public function __construct(
-        public bool $canUpdateTeam,
-        public bool $canDeleteTeam,
+        public bool $canUpdateOrganization,
+        public bool $canDeleteOrganization,
         public bool $canAddMember,
         public bool $canUpdateMember,
         public bool $canRemoveMember,

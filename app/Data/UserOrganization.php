@@ -2,7 +2,7 @@
 
 namespace App\Data;
 
-readonly class UserTeam
+readonly class UserOrganization
 {
     public function __construct(
         public int $id,

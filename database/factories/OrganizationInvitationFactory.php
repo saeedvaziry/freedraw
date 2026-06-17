@@ -2,16 +2,16 @@
 
 namespace Database\Factories;
 
-use App\Enums\TeamRole;
-use App\Models\Team;
-use App\Models\TeamInvitation;
+use App\Enums\OrganizationRole;
+use App\Models\Organization;
+use App\Models\OrganizationInvitation;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<TeamInvitation>
+ * @extends Factory<OrganizationInvitation>
  */
-class TeamInvitationFactory extends Factory
+class OrganizationInvitationFactory extends Factory
 {
     /**
      * Define the model's default state.
@@ -21,9 +21,9 @@ class TeamInvitationFactory extends Factory
     public function definition(): array
     {
         return [
-            'team_id' => Team::factory(),
+            'organization_id' => Organization::factory(),
             'email' => fake()->unique()->safeEmail(),
-            'role' => TeamRole::Member,
+            'role' => OrganizationRole::Member,
             'invited_by' => User::factory(),
             'expires_at' => null,
             'accepted_at' => null,

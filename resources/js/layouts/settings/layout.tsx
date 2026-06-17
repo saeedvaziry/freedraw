@@ -19,8 +19,8 @@ const sidebarNavItems: NavItem[] = [
         icon: null,
     },
     {
-        title: 'Teams',
-        href: '/settings/teams',
+        title: 'Organizations',
+        href: '/settings/organizations',
         icon: null,
     },
     {

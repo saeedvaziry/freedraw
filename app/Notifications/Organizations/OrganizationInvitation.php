@@ -1,21 +1,21 @@
 <?php
 
-namespace App\Notifications\Teams;
+namespace App\Notifications\Organizations;
 
-use App\Models\TeamInvitation as TeamInvitationModel;
+use App\Models\OrganizationInvitation as OrganizationInvitationModel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class TeamInvitation extends Notification implements ShouldQueue
+class OrganizationInvitation extends Notification implements ShouldQueue
 {
     use Queueable;
 
     /**
      * Create a new notification instance.
      */
-    public function __construct(public TeamInvitationModel $invitation)
+    public function __construct(public OrganizationInvitationModel $invitation)
     {
         //
     }
@@ -35,14 +35,14 @@ class TeamInvitation extends Notification implements ShouldQueue
      */
     public function toMail(object $notifiable): MailMessage
     {
-        $team = $this->invitation->team;
+        $organization = $this->invitation->organization;
         $inviter = $this->invitation->inviter;
 
         return (new MailMessage)
-            ->subject(__("You've been invited to join :teamName", ['teamName' => $team->name]))
-            ->line(__(':inviterName has invited you to join the :teamName team.', [
+            ->subject(__("You've been invited to join :organizationName", ['organizationName' => $organization->name]))
+            ->line(__(':inviterName has invited you to join the :organizationName organization.', [
                 'inviterName' => $inviter->name,
-                'teamName' => $team->name,
+                'organizationName' => $organization->name,
             ]))
             ->line(__('Log in and visit your dashboard to accept or decline this invitation.'))
             ->action(
@@ -60,8 +60,8 @@ class TeamInvitation extends Notification implements ShouldQueue
     {
         return [
             'invitation_id' => $this->invitation->id,
-            'team_id' => $this->invitation->team_id,
-            'team_name' => $this->invitation->team->name,
+            'organization_id' => $this->invitation->organization_id,
+            'organization_name' => $this->invitation->organization->name,
             'role' => $this->invitation->role->value,
         ];
     }

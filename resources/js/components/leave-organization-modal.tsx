@@ -10,23 +10,23 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import type { Team } from '@/types';
+import type { Organization } from '@/types';
 
 type Props = {
-    team: Team | null;
+    organization: Organization | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
 };
 
-export default function LeaveTeamModal({ team, open, onOpenChange }: Props) {
+export default function LeaveOrganizationModal({ organization, open, onOpenChange }: Props) {
     const [processing, setProcessing] = useState(false);
 
-    const leaveTeam = () => {
-        if (!team) {
+    const leaveOrganization = () => {
+        if (!organization) {
             return;
         }
 
-        router.visit(`/settings/teams/${encodeURIComponent(team.slug)}/leave`, {
+        router.visit(`/settings/organizations/${encodeURIComponent(organization.slug)}/leave`, {
             method: 'delete',
             onStart: () => setProcessing(true),
             onFinish: () => setProcessing(false),
@@ -38,10 +38,10 @@ export default function LeaveTeamModal({ team, open, onOpenChange }: Props) {
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Leave team</DialogTitle>
+                    <DialogTitle>Leave organization</DialogTitle>
                     <DialogDescription>
                         Are you sure you want to leave{' '}
-                        <strong>{team?.name}</strong>?
+                        <strong>{organization?.name}</strong>?
                     </DialogDescription>
                 </DialogHeader>
 
@@ -52,11 +52,11 @@ export default function LeaveTeamModal({ team, open, onOpenChange }: Props) {
 
                     <Button
                         variant="destructive"
-                        data-test="leave-team-confirm"
+                        data-test="leave-organization-confirm"
                         disabled={processing}
-                        onClick={leaveTeam}
+                        onClick={leaveOrganization}
                     >
-                        Leave team
+                        Leave organization
                     </Button>
                 </DialogFooter>
             </DialogContent>

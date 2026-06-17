@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use App\Enums\TeamRole;
-use Database\Factories\TeamInvitationFactory;
+use App\Enums\OrganizationRole;
+use Database\Factories\OrganizationInvitationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,21 +14,21 @@ use Illuminate\Support\Str;
 /**
  * @property int $id
  * @property string $code
- * @property int $team_id
+ * @property int $organization_id
  * @property string $email
- * @property TeamRole $role
+ * @property OrganizationRole $role
  * @property int $invited_by
  * @property Carbon|null $expires_at
  * @property Carbon|null $accepted_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
- * @property-read Team $team
+ * @property-read Organization $organization
  * @property-read User $inviter
  */
-#[Fillable(['team_id', 'email', 'role', 'invited_by', 'expires_at', 'accepted_at'])]
-class TeamInvitation extends Model
+#[Fillable(['organization_id', 'email', 'role', 'invited_by', 'expires_at', 'accepted_at'])]
+class OrganizationInvitation extends Model
 {
-    /** @use HasFactory<TeamInvitationFactory> */
+    /** @use HasFactory<OrganizationInvitationFactory> */
     use HasFactory;
 
     /**
@@ -38,7 +38,7 @@ class TeamInvitation extends Model
     {
         parent::boot();
 
-        static::creating(function (TeamInvitation $invitation) {
+        static::creating(function (OrganizationInvitation $invitation) {
             if (empty($invitation->code)) {
                 $invitation->code = Str::random(64);
             }
@@ -46,13 +46,13 @@ class TeamInvitation extends Model
     }
 
     /**
-     * Get the team that the invitation belongs to.
+     * Get the organization that the invitation belongs to.
      *
-     * @return BelongsTo<Team, $this>
+     * @return BelongsTo<Organization, $this>
      */
-    public function team(): BelongsTo
+    public function organization(): BelongsTo
     {
-        return $this->belongsTo(Team::class);
+        return $this->belongsTo(Organization::class);
     }
 
     /**
@@ -97,7 +97,7 @@ class TeamInvitation extends Model
     protected function casts(): array
     {
         return [
-            'role' => TeamRole::class,
+            'role' => OrganizationRole::class,
             'expires_at' => 'datetime',
             'accepted_at' => 'datetime',
         ];

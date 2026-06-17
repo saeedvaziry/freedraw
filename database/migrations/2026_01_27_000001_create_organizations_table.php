@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('teams', function (Blueprint $table) {
+        Schema::create('organizations', function (Blueprint $table) {
             $table->id();
             $table->string('name');
             $table->string('slug')->unique();
@@ -20,20 +20,20 @@ return new class extends Migration
             $table->softDeletes();
         });
 
-        Schema::create('team_members', function (Blueprint $table) {
+        Schema::create('organization_members', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('team_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('role');
             $table->timestamps();
 
-            $table->unique(['team_id', 'user_id']);
+            $table->unique(['organization_id', 'user_id']);
         });
 
-        Schema::create('team_invitations', function (Blueprint $table) {
+        Schema::create('organization_invitations', function (Blueprint $table) {
             $table->id();
             $table->string('code', 64)->unique();
-            $table->foreignId('team_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
             $table->string('email');
             $table->string('role');
             $table->foreignId('invited_by')->constrained('users')->cascadeOnDelete();
@@ -48,8 +48,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('team_invitations');
-        Schema::dropIfExists('team_members');
-        Schema::dropIfExists('teams');
+        Schema::dropIfExists('organization_invitations');
+        Schema::dropIfExists('organization_members');
+        Schema::dropIfExists('organizations');
     }
 };

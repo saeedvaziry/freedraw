@@ -1,6 +1,6 @@
 import { router, usePage } from '@inertiajs/react';
 import { Check, ChevronsUpDown, Plus, Users } from 'lucide-react';
-import CreateTeamModal from '@/components/create-team-modal';
+import CreateOrganizationModal from '@/components/create-organization-modal';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -11,38 +11,38 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useIsMobile } from '@/hooks/use-mobile';
-import type { Team } from '@/types';
+import type { Organization } from '@/types';
 
-type TeamSwitcherProps = {
+type OrganizationSwitcherProps = {
     inHeader?: boolean;
 };
 
-export function TeamSwitcher({ inHeader = false }: TeamSwitcherProps) {
+export function OrganizationSwitcher({ inHeader = false }: OrganizationSwitcherProps) {
     const page = usePage();
     const isMobile = useIsMobile();
-    const currentTeam = page.props.currentTeam;
-    const teams = page.props.teams ?? [];
+    const currentOrganization = page.props.currentOrganization;
+    const organizations = page.props.organizations ?? [];
 
-    const switchTeam = (team: Team) => {
-        const previousTeamSlug = currentTeam?.slug;
+    const switchOrganization = (organization: Organization) => {
+        const previousOrganizationSlug = currentOrganization?.slug;
 
         router.visit(
-            `/settings/teams/${encodeURIComponent(team.slug)}/switch`,
+            `/settings/organizations/${encodeURIComponent(organization.slug)}/switch`,
             {
                 method: 'post',
                 onFinish: () => {
-                    if (!previousTeamSlug || typeof window === 'undefined') {
+                    if (!previousOrganizationSlug || typeof window === 'undefined') {
                         router.reload();
 
                         return;
                     }
 
                     const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-                    const segment = `/${previousTeamSlug}`;
+                    const segment = `/${previousOrganizationSlug}`;
 
                     if (currentUrl.includes(segment)) {
                         router.visit(
-                            currentUrl.replace(segment, `/${team.slug}`),
+                            currentUrl.replace(segment, `/${organization.slug}`),
                             {
                                 replace: true,
                             },
@@ -62,7 +62,7 @@ export function TeamSwitcher({ inHeader = false }: TeamSwitcherProps) {
             <DropdownMenuTrigger asChild>
                 <Button
                     variant="ghost"
-                    data-test="team-switcher-trigger"
+                    data-test="organization-switcher-trigger"
                     className={
                         inHeader
                             ? 'h-8 gap-1 px-2'
@@ -90,7 +90,7 @@ export function TeamSwitcher({ inHeader = false }: TeamSwitcherProps) {
                                     : 'truncate font-semibold'
                             }
                         >
-                            {currentTeam?.name ?? 'Select team'}
+                            {currentOrganization?.name ?? 'Select organization'}
                         </span>
                     </div>
                     <ChevronsUpDown
@@ -113,21 +113,21 @@ export function TeamSwitcher({ inHeader = false }: TeamSwitcherProps) {
                 sideOffset={inHeader ? undefined : 4}
             >
                 <DropdownMenuLabel className="text-xs text-muted-foreground">
-                    Teams
+                    Organizations
                 </DropdownMenuLabel>
-                {teams.map((team) => (
+                {organizations.map((organization) => (
                     <DropdownMenuItem
-                        key={team.id}
-                        data-test="team-switcher-item"
+                        key={organization.id}
+                        data-test="organization-switcher-item"
                         className={
                             inHeader
                                 ? 'cursor-pointer gap-2'
                                 : 'cursor-pointer gap-2 p-2'
                         }
-                        onSelect={() => switchTeam(team)}
+                        onSelect={() => switchOrganization(organization)}
                     >
-                        {team.name}
-                        {currentTeam?.id === team.id && (
+                        {organization.name}
+                        {currentOrganization?.id === organization.id && (
                             <Check
                                 className={
                                     inHeader
@@ -139,9 +139,9 @@ export function TeamSwitcher({ inHeader = false }: TeamSwitcherProps) {
                     </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
-                <CreateTeamModal>
+                <CreateOrganizationModal>
                     <DropdownMenuItem
-                        data-test="team-switcher-new-team"
+                        data-test="organization-switcher-new-organization"
                         className={
                             inHeader
                                 ? 'cursor-pointer gap-2'
@@ -150,9 +150,9 @@ export function TeamSwitcher({ inHeader = false }: TeamSwitcherProps) {
                         onSelect={(event) => event.preventDefault()}
                     >
                         <Plus className={inHeader ? 'size-4' : 'h-4 w-4'} />
-                        <span className="text-muted-foreground">New team</span>
+                        <span className="text-muted-foreground">New organization</span>
                     </DropdownMenuItem>
-                </CreateTeamModal>
+                </CreateOrganizationModal>
             </DropdownMenuContent>
         </DropdownMenu>
     );

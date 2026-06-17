@@ -2,14 +2,14 @@
 
 namespace Database\Factories;
 
-use App\Models\Team;
+use App\Models\Organization;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
 /**
- * @extends Factory<Team>
+ * @extends Factory<Organization>
  */
-class TeamFactory extends Factory
+class OrganizationFactory extends Factory
 {
     /**
      * Define the model's default state.
@@ -28,7 +28,7 @@ class TeamFactory extends Factory
     }
 
     /**
-     * Indicate that the team is a personal team.
+     * Indicate that the organization is a personal organization.
      */
     public function personal(): static
     {
@@ -38,7 +38,7 @@ class TeamFactory extends Factory
     }
 
     /**
-     * Indicate that the team has been deleted.
+     * Indicate that the organization has been deleted.
      */
     public function trashed(): static
     {
