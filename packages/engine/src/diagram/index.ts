@@ -2,13 +2,14 @@ import { defaultStyle } from '../model/schema.js'
 import type { Element, ElementId, Point, Style } from '../model/types.js'
 import type { DiagramError, Direction } from './ast.js'
 import { buildElements } from './build.js'
-import { layoutDiagram } from './layout.js'
+import { layoutDiagram, type LayoutOptions } from './layout.js'
 import { parse } from './parse.js'
 
 export interface ParseOptions {
   direction?: Direction
   origin?: Point
   style?: Partial<Style>
+  layout?: LayoutOptions
 }
 
 export interface DiagramParseResult {
@@ -23,7 +24,7 @@ export function parseDiagram(text: string, options: ParseOptions = {}): DiagramP
 
   const direction = options.direction ?? ast.direction
   const style: Style = { ...defaultStyle, ...options.style }
-  const layout = layoutDiagram({ ...ast, direction }, options.origin, style)
+  const layout = layoutDiagram({ ...ast, direction }, options.origin, style, options.layout)
   const { elements, order } = buildElements({ ...ast, direction }, layout, style)
   return { elements, order, errors }
 }
@@ -33,7 +34,7 @@ export type { SerializeReport } from './serialize.js'
 export { parse } from './parse.js'
 export type { ParseResult } from './parse.js'
 export { layoutDiagram } from './layout.js'
-export type { LayoutResult, NodeBox } from './layout.js'
+export type { LayoutResult, LayoutOptions, NodeBox } from './layout.js'
 export { buildElements } from './build.js'
 export type { BuildResult } from './build.js'
 export type { DiagramAst, AstNode, AstEdge, EdgeStyle, Direction, DiagramError } from './ast.js'

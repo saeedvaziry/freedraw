@@ -4,7 +4,7 @@ import {
   EXPORT_DEFAULT_SCALE,
   type ExportFormat,
 } from '@freedraw/engine/render/exportScene'
-import type { Direction } from '@freedraw/engine/diagram'
+import type { Direction, LayoutOptions } from '@freedraw/engine/diagram'
 import type { Style } from '@freedraw/engine/model/types'
 import { buildScene, type BuildSceneOptions, type DiagramScene } from './scene.js'
 
@@ -15,22 +15,29 @@ export interface RenderOptions {
   dark?: boolean
   format?: ExportFormat
   quality?: number
+}
+
+export interface RenderFromCodeOptions extends RenderOptions {
   direction?: Direction
   style?: Partial<Style>
+  layout?: LayoutOptions
 }
+
+type Input = string | DiagramScene
+type OptionsFor<T extends Input> = T extends string ? RenderFromCodeOptions : RenderOptions
 
 const MIME: Record<ExportFormat, string> = {
   png: 'image/png',
   jpg: 'image/jpeg',
 }
 
-function toScene(input: string | DiagramScene, options: RenderOptions): DiagramScene {
+function toScene(input: Input, options: RenderFromCodeOptions): DiagramScene {
   if (typeof input !== 'string') return input
-  const buildOptions: BuildSceneOptions = { direction: options.direction, style: options.style }
+  const buildOptions: BuildSceneOptions = { direction: options.direction, style: options.style, layout: options.layout }
   return buildScene(input, buildOptions)
 }
 
-function toCanvas(input: string | DiagramScene, options: RenderOptions): HTMLCanvasElement | null {
+function toCanvas(input: Input, options: RenderFromCodeOptions): HTMLCanvasElement | null {
   const scene = toScene(input, options)
   return renderSceneToCanvas(scene.snapshot, {
     format: options.format ?? 'png',
@@ -42,27 +49,27 @@ function toCanvas(input: string | DiagramScene, options: RenderOptions): HTMLCan
   })
 }
 
-export function renderToCanvas(input: string | DiagramScene, options: RenderOptions = {}): HTMLCanvasElement | null {
+export function renderToCanvas<T extends Input>(input: T, options: OptionsFor<T> = {} as OptionsFor<T>): HTMLCanvasElement | null {
   return toCanvas(input, options)
 }
 
-export function renderToDataURL(input: string | DiagramScene, options: RenderOptions = {}): string | null {
+export function renderToDataURL<T extends Input>(input: T, options: OptionsFor<T> = {} as OptionsFor<T>): string | null {
   const canvas = toCanvas(input, options)
   if (!canvas) return null
   const format = options.format ?? 'png'
   return canvas.toDataURL(MIME[format], options.quality)
 }
 
-export function renderToBlob(input: string | DiagramScene, options: RenderOptions = {}): Promise<Blob | null> {
+export function renderToBlob<T extends Input>(input: T, options: OptionsFor<T> = {} as OptionsFor<T>): Promise<Blob | null> {
   const canvas = toCanvas(input, options)
   if (!canvas) return Promise.resolve(null)
   return canvasToBlob(canvas, { format: options.format ?? 'png', quality: options.quality })
 }
 
-export function mount(
+export function mount<T extends Input>(
   container: HTMLElement,
-  input: string | DiagramScene,
-  options: RenderOptions = {},
+  input: T,
+  options: OptionsFor<T> = {} as OptionsFor<T>,
 ): HTMLCanvasElement | null {
   const canvas = toCanvas(input, options)
   if (!canvas) return null

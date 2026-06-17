@@ -10,6 +10,8 @@ npm run -w @freedraw/example-markdown-viewer dev
 ```
 
 The interesting part is `src/main.ts`: it scans the markdown for fenced diagram blocks
-and calls `mount(container, code)` for each — the same way any external consumer would.
-The handwritten font is loaded via `@fontsource/architects-daughter`; without it text
-falls back to a system font.
+and calls `mount(container, scene, options)` for each — the same way any external consumer
+would. Diagrams render with the clean defaults (no sloppiness, sans-serif font); adding
+`sketchy` after the language (` ```freedraw sketchy `) passes a `style` override to render
+the hand-drawn look. That handwritten font is loaded via `@fontsource/architects-daughter`;
+without it text falls back to a system font.

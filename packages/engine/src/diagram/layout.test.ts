@@ -33,6 +33,21 @@ describe('layoutDiagram', () => {
     expect(positions.get('A')!.x).toBe(positions.get('C')!.x)
   })
 
+  it('places a single child directly under its parent', () => {
+    const { ast } = parse('A --> B\nA --> C\nB --> D')
+    const { positions } = layoutDiagram(ast)
+    const centerX = (id: string) => positions.get(id)!.x + positions.get(id)!.width / 2
+    expect(centerX('D')).toBe(centerX('B'))
+  })
+
+  it('aligns a single-child chain on one axis', () => {
+    const { ast } = parse('A --> B --> C')
+    const { positions } = layoutDiagram(ast)
+    const centerX = (id: string) => positions.get(id)!.x + positions.get(id)!.width / 2
+    expect(centerX('A')).toBe(centerX('B'))
+    expect(centerX('B')).toBe(centerX('C'))
+  })
+
   it('leaves a routing channel wider than a node between siblings', () => {
     const { ast } = parse('A --> B\nA --> C')
     const { positions } = layoutDiagram(ast)
