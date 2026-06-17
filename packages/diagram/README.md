@@ -145,3 +145,9 @@ The syntax (and what does / doesn't round-trip) is documented in
 humans alike. In short: flowcharts only, and serialization (canvas → code) is
 intentionally lossy — positions, colors, freehand, images, sticky notes and unbound
 arrows are not represented in code.
+
+Install the skill into an agent (e.g. Claude Code) with [`skills`](https://github.com/obra/skills):
+
+```bash
+npx skills add github.com/saeedvaziry/freedraw/tree/main/packages/diagram
+```
