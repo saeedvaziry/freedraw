@@ -10,13 +10,13 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
+          "relative bg-primary text-primary-foreground shadow-xs-skeuomorphic hover:bg-primary/90 before:pointer-events-none before:absolute before:inset-px before:rounded-[calc(var(--radius-md)-1px)] before:border before:border-white/12 before:[mask-image:linear-gradient(to_bottom,black,transparent)]",
         destructive:
-          "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
+          "relative bg-destructive text-white shadow-xs-skeuomorphic hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 before:pointer-events-none before:absolute before:inset-px before:rounded-[calc(var(--radius-md)-1px)] before:border before:border-white/12 before:[mask-image:linear-gradient(to_bottom,black,transparent)]",
         outline:
-          "border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground",
+          "border border-input bg-background shadow-xs hover:bg-muted dark:bg-input/10 dark:hover:bg-input/20",
         secondary:
-          "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
+          "bg-secondary text-secondary-foreground shadow-xs-skeuomorphic hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },

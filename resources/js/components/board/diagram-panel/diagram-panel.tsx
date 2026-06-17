@@ -1,5 +1,5 @@
 import { BookOpen, Copy, FileInput, Play, X } from 'lucide-react'
-import { Button } from '../ui/button.js'
+import { Button } from '@/components/ui/button'
 
 export interface DiagramPanelProps {
   code: string

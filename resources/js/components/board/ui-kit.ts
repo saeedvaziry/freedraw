@@ -1,5 +1,4 @@
-export { Button, buttonVariants } from './ui/button.js'
-export type { ButtonProps } from './ui/button.js'
+export { Button, buttonVariants } from '@/components/ui/button'
 export { cn } from '@/lib/utils'
 
 export {

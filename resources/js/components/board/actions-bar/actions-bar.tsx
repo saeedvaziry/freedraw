@@ -35,6 +35,7 @@ export interface ActionsBarProps {
   snapGuidesEnabled: boolean
   onToggleSnapGuides(): void
   compact?: boolean
+  userMenu?: React.ReactNode
 }
 
 interface ActionDef {
@@ -65,6 +66,7 @@ export function ActionsBar({
   snapGuidesEnabled,
   onToggleSnapGuides,
   compact = false,
+  userMenu,
 }: ActionsBarProps) {
   const actions: ActionDef[] = [
     { key: 'undo', label: 'Undo', Icon: Undo2, onClick: onUndo, disabled: !canUndo },
@@ -84,6 +86,12 @@ export function ActionsBar({
           compact && 'max-w-full overflow-x-auto',
         )}
       >
+        {userMenu ? (
+          <>
+            {userMenu}
+            <div className="mx-1 h-7 w-px shrink-0 bg-border" />
+          </>
+        ) : null}
         {actions.map(({ key, label, Icon, onClick, disabled }) => (
           <ActionButton key={key} label={label} onClick={onClick} disabled={disabled}>
             <Icon />

@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import type { EditorController, SceneStore } from '@freedraw/engine'
 import { ActionsBar } from '@/components/board/ui-kit'
+import { BoardUserMenu } from './board-user-menu.js'
 import type { BoardExport } from '@/hooks/board/use-export.js'
 
 interface ActionsBarHostProps {
@@ -55,6 +56,7 @@ export function ActionsBarHost({
       snapGuidesEnabled={snapshot.appState.snapGuidesEnabled}
       onToggleSnapGuides={() => store.setSnapGuidesEnabled(!store.getSnapshot().appState.snapGuidesEnabled)}
       compact={compact}
+      userMenu={compact ? undefined : <BoardUserMenu />}
     />
   )
 }
