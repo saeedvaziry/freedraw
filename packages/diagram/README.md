@@ -58,9 +58,13 @@ The lower-level step: parse text into a renderable scene (with arrow routes reso
 Use it to read parse `errors` before rendering, or to render the same scene repeatedly:
 
 ```ts
-const scene = buildScene(code)
+const scene = buildScene(code, { style: { sloppiness: 0.5 } })
 if (scene.errors.length === 0) renderToCanvas(scene)
 ```
+
+`style` and `direction` are build-time settings: pass them to `buildScene` (or to
+`renderToCanvas`/`mount` when you give it raw code). When you render a prebuilt scene,
+those render options are ignored — the scene is already laid out — so apply them here.
 
 ### Re-exports
 
@@ -78,17 +82,54 @@ along with the `Element`, `Style`, `SceneSnapshot`, `Direction` and related type
 | `format` | `'png'` | `'png'` or `'jpg'` — used by `renderToBlob` / `renderToDataURL`. |
 | `quality` | `0.92` | JPEG quality (0–1). |
 | `direction` | from code | Override layout direction (`TD`, `LR`, …). |
-| `style` | engine default | Partial style overrides (stroke, fill, `fontFamily`, …). |
+| `style` | see below | Partial style overrides (`sloppiness`, `fontFamily`, stroke, fill, …). |
+| `layout` | see below | Box sizing and spacing (`uniform`, `minNodeSize`, `layerGap`, `siblingGap`). |
 
-## Fonts
+## Style
 
-FreeDraw's default font is the handwritten **Architects Daughter**. The browser must
-have it loaded for text to look right; otherwise it falls back to a system font. Either
-load the font yourself (e.g. `import '@fontsource/architects-daughter/400.css'`) or
-override it:
+The `style` option is merged over the diagram defaults, so you only pass the fields you
+want to change. The defaults are a clean, neutral look — no hand-drawn sloppiness and a
+system sans-serif font:
+
+| Field | Default | Description |
+| --- | --- | --- |
+| `sloppiness` | `0` | Hand-drawn roughness. `0` is clean/precise; raise toward `1` for a sketchy look. |
+| `fontFamily` | `ui-sans-serif, system-ui, …` | Text font. |
+| `fontSize` | `14` | Text size in diagram units. |
 
 ```ts
-renderToCanvas(code, { style: { fontFamily: 'Inter, sans-serif' } })
+renderToCanvas(code, { style: { sloppiness: 0.5, fontFamily: 'Inter, sans-serif' } })
+```
+
+## Layout
+
+The `layout` option controls box sizing and spacing. The defaults are compact: each node
+is sized to its own label, with a small minimum and tight gaps.
+
+| Field | Default | Description |
+| --- | --- | --- |
+| `uniform` | `false` | When `true`, every box is sized to the largest node (a grid look). |
+| `minNodeSize` | `{ width: 80, height: 40 }` | Minimum box size; labels grow the box beyond it. |
+| `layerGap` | `60` | Gap between layers (rows in `TD`, columns in `LR`). |
+| `siblingGap` | `48` | Gap between siblings in the same layer. |
+
+```ts
+renderToCanvas(code, {
+  layout: { layerGap: 100, siblingGap: 80, minNodeSize: { height: 56 } },
+})
+```
+
+### Hand-drawn look
+
+To match the FreeDraw editor's sketchy style, raise `sloppiness` and use the handwritten
+**Architects Daughter** font. The browser must have the font loaded — either load it
+yourself (e.g. `import '@fontsource/architects-daughter/400.css'`) or it falls back to a
+system font:
+
+```ts
+renderToCanvas(code, {
+  style: { sloppiness: 0.5, fontFamily: "'Architects Daughter', cursive" },
+})
 ```
 
 ## Requirements

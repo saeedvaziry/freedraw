@@ -5,6 +5,7 @@ export type {
   SerializeReport,
   Direction,
   DiagramError,
+  LayoutOptions,
 } from '@freedraw/engine/diagram'
 
 export { defaultStyle, defaultAppState } from '@freedraw/engine/model/schema'
@@ -21,9 +22,9 @@ export type {
 export { buildScene, buildSceneFromElements } from './scene.js'
 export type { BuildSceneOptions, DiagramScene } from './scene.js'
 
-export { defaultDiagramStyle } from './style.js'
+export { defaultDiagramStyle, defaultDiagramLayout } from './style.js'
 
 export { resolveDiagramArrows } from './resolve.js'
 
 export { renderToCanvas, renderToDataURL, renderToBlob, mount } from './render.js'
-export type { RenderOptions } from './render.js'
+export type { RenderOptions, RenderFromCodeOptions } from './render.js'
