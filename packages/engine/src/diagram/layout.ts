@@ -1,6 +1,8 @@
-import { SHAPE_DEFAULT_HEIGHT, SHAPE_DEFAULT_WIDTH } from '../model/factory.js'
-import type { Point } from '../model/types.js'
-import type { DiagramAst, Direction } from './ast.js'
+import { defaultShapeSize } from '../model/factory.js'
+import { defaultStyle } from '../model/schema.js'
+import { measureTextBox } from '../text/size.js'
+import type { Point, ShapeType, Style } from '../model/types.js'
+import type { AstNode, DiagramAst, Direction } from './ast.js'
 
 export interface NodeBox {
   x: number
@@ -13,25 +15,64 @@ export interface LayoutResult {
   positions: Map<string, NodeBox>
 }
 
+interface BoxSize {
+  width: number
+  height: number
+}
+
 const LAYER_GAP = 140
 const SIBLING_GAP = 90
 
-export function layoutDiagram(ast: DiagramAst, origin: Point = { x: 0, y: 0 }): LayoutResult {
+const SHAPE_TEXT_INFLATION: Partial<Record<ShapeType, { x: number; y: number }>> = {
+  diamond: { x: 1.7, y: 1.7 },
+  ellipse: { x: 1.4, y: 1.4 },
+  hexagon: { x: 1.3, y: 1 },
+  triangle: { x: 1.6, y: 1.8 },
+}
+
+export function layoutDiagram(
+  ast: DiagramAst,
+  origin: Point = { x: 0, y: 0 },
+  style: Style = defaultStyle,
+): LayoutResult {
   const order = ast.nodes.map((node) => node.id)
   const forward = forwardEdges(ast, order)
   const layers = assignLayers(order, forward)
   const lanes = groupByLayer(order, layers)
   const components = componentBands(order, ast)
   const widest = Math.max(...[...lanes.values()].map((ids) => ids.length), 1)
+  const size = uniformBox(ast.nodes, style)
 
   const positions = new Map<string, NodeBox>()
   for (const [layer, ids] of lanes) {
     ids.forEach((id, lane) => {
-      positions.set(id, place(layer, lane, ids.length, widest, components.get(id) ?? 0, ast.direction, origin))
+      positions.set(id, place(layer, lane, ids.length, widest, components.get(id) ?? 0, ast.direction, origin, size))
     })
   }
 
   return { positions }
+}
+
+function uniformBox(nodes: AstNode[], style: Style): BoxSize {
+  let width = 0
+  let height = 0
+  for (const node of nodes) {
+    const box = nodeBox(node, style)
+    width = Math.max(width, box.width)
+    height = Math.max(height, box.height)
+  }
+  return { width, height }
+}
+
+function nodeBox(node: AstNode, style: Style): BoxSize {
+  const floor = defaultShapeSize(node.shape)
+  if (node.text.length === 0) return floor
+  const text = measureTextBox(node.text, style)
+  const inflation = SHAPE_TEXT_INFLATION[node.shape] ?? { x: 1, y: 1 }
+  return {
+    width: Math.max(floor.width, Math.ceil(text.width * inflation.x)),
+    height: Math.max(floor.height, Math.ceil(text.height * inflation.y)),
+  }
 }
 
 function forwardEdges(ast: DiagramAst, order: string[]): Map<string, string[]> {
@@ -131,9 +172,9 @@ function place(
   band: number,
   direction: Direction,
   origin: Point,
+  size: BoxSize,
 ): NodeBox {
-  const width = SHAPE_DEFAULT_WIDTH
-  const height = SHAPE_DEFAULT_HEIGHT
+  const { width, height } = size
   const vertical = direction === 'TD' || direction === 'TB' || direction === 'BT'
   const crossPitch = (vertical ? width : height) + SIBLING_GAP
   const cross = (lane - (count - 1) / 2) * crossPitch + ((widest - 1) / 2) * crossPitch

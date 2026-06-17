@@ -1,0 +1,44 @@
+name: Release diagram
+
+on:
+  push:
+    tags:
+      - 'diagram-v*'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Install
+        run: npm ci --ignore-scripts
+
+      - name: Verify tag matches package version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#diagram-v}"
+          PKG_VERSION="$(node -p "require('./packages/diagram/package.json').version")"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "Tag version ($TAG_VERSION) does not match package.json version ($PKG_VERSION)"
+            exit 1
+          fi
+
+      - name: Build
+        run: npm run build --workspace @freedraw/diagram
+
+      - name: Test
+        run: npm run test --workspace @freedraw/diagram
+
+      - name: Publish
+        run: npm publish --workspace @freedraw/diagram
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

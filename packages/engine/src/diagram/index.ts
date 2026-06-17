@@ -22,8 +22,8 @@ export function parseDiagram(text: string, options: ParseOptions = {}): DiagramP
   if (errors.length > 0) return { elements: [], order: [], errors }
 
   const direction = options.direction ?? ast.direction
-  const layout = layoutDiagram({ ...ast, direction }, options.origin)
   const style: Style = { ...defaultStyle, ...options.style }
+  const layout = layoutDiagram({ ...ast, direction }, options.origin, style)
   const { elements, order } = buildElements({ ...ast, direction }, layout, style)
   return { elements, order, errors }
 }

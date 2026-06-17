@@ -78,6 +78,7 @@ function edgePoint(shape: ShapeElement, direction: Point): Point {
 
 function edgeStyle(base: Style, edge: EdgeStyle): Partial<Style> {
   return {
+    ...base,
     strokeStyle: edge.strokeStyle,
     strokeWidth: edge.thick ? THICK_STROKE_WIDTH : base.strokeWidth,
   }
