@@ -7,7 +7,7 @@
     "./tsconfig.base.json": "./tsconfig.base.json",
     "./eslint": "./eslint.config.js",
     "./tailwind-preset": "./tailwind-preset.js",
-    "./vitest": "./vitest.config.ts"
+    "./vitest": "./vitest.config.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

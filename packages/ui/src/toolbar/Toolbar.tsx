@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import {
+  Code2,
   Hand,
   MousePointer2,
   MoveUpRight,
@@ -60,9 +61,11 @@ export interface ToolbarProps {
   activeShapeType: ShapeType
   activeStickyColor: StickyColorKey
   layout?: ToolbarLayout
+  diagramOpen?: boolean
   onSelectTool(tool: ToolKey): void
   onSelectShape(type: ShapeType): void
   onSelectStickyColor(color: StickyColorKey): void
+  onToggleDiagram?(): void
 }
 
 export function Toolbar({
@@ -70,9 +73,11 @@ export function Toolbar({
   activeShapeType,
   activeStickyColor,
   layout = 'vertical',
+  diagramOpen = false,
   onSelectTool,
   onSelectShape,
   onSelectStickyColor,
+  onToggleDiagram,
 }: ToolbarProps) {
   const [stickyOpen, setStickyOpen] = useState(false)
   const [shapesOpen, setShapesOpen] = useState(false)
@@ -135,6 +140,14 @@ export function Toolbar({
             </ToolButton>
           ))
         )}
+        {onToggleDiagram ? (
+          <>
+            <Divider horizontal={horizontal} />
+            <ToolButton label="Diagram code" active={diagramOpen} onClick={onToggleDiagram}>
+              <Code2 />
+            </ToolButton>
+          </>
+        ) : null}
       </div>
     </TooltipProvider>
   )

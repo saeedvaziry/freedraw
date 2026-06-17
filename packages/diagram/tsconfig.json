@@ -1,0 +1,7 @@
+{
+  "extends": "@freedraw/config/tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["src", "vite.config.ts", "vitest.config.ts"]
+}

@@ -22,6 +22,12 @@ export type { SceneClipboardPayload, SceneClipboardClone } from './store/clipboa
 export { deriveSelectionStyle, MIXED } from './store/selectionStyle.js'
 export type { SelectionStyle, StyleValue } from './store/selectionStyle.js'
 
+export { parseDiagram, serializeDiagram } from './diagram/index.js'
+export { importDiagram } from './diagram/import.js'
+export type { ParseOptions, DiagramParseResult } from './diagram/index.js'
+export type { SerializeReport } from './diagram/serialize.js'
+export type { DiagramError, Direction } from './diagram/ast.js'
+
 export { EditorController } from './controller/EditorController.js'
 export type { ExportImageOptions } from './controller/EditorController.js'
 export {

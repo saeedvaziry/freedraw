@@ -1,0 +1,14 @@
+{
+  "extends": "@freedraw/config/tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist/types",
+    "rootDir": "src",
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationMap": false,
+    "incremental": false
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
+}
