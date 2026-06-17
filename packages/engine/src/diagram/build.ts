@@ -2,7 +2,7 @@ import { anchorFromPoint } from '../connectors/binding.js'
 import { elementCenter } from '../geometry/hitTest.js'
 import { createArrow, createShape } from '../model/factory.js'
 import type { Element, ElementId, Point, ShapeElement, Style } from '../model/types.js'
-import type { AstEdge, AstNode, DiagramAst, EdgeStyle } from './ast.js'
+import type { AstEdge, AstNode, DiagramAst, Direction, EdgeStyle } from './ast.js'
 import type { LayoutResult, NodeBox } from './layout.js'
 
 const BINDING_GAP = 6
@@ -29,7 +29,7 @@ export function buildElements(ast: DiagramAst, layout: LayoutResult, style: Styl
     const source = shapes.get(edge.source)
     const target = shapes.get(edge.target)
     if (!source || !target) continue
-    elements.push(buildEdge(edge, source, target, style))
+    elements.push(buildEdge(edge, source, target, style, ast.direction))
   }
 
   return { elements, order: elements.map((element) => element.id) }
@@ -41,8 +41,14 @@ function buildNode(node: AstNode, box: NodeBox, style: Style): ShapeElement {
   return shape
 }
 
-function buildEdge(edge: AstEdge, source: ShapeElement, target: ShapeElement, style: Style): Element {
-  const direction = edgeDirection(source, target)
+function buildEdge(
+  edge: AstEdge,
+  source: ShapeElement,
+  target: ShapeElement,
+  style: Style,
+  layoutDirection: Direction,
+): Element {
+  const direction = edgeDirection(source, target, layoutDirection)
   const sourcePort = edgePoint(source, direction)
   const targetPort = edgePoint(target, { x: -direction.x, y: -direction.y })
   const arrow = createArrow({
@@ -59,13 +65,30 @@ function buildEdge(edge: AstEdge, source: ShapeElement, target: ShapeElement, st
   return arrow
 }
 
-function edgeDirection(source: ShapeElement, target: ShapeElement): Point {
+function edgeDirection(source: ShapeElement, target: ShapeElement, layoutDirection: Direction): Point {
   const from = elementCenter(source)
   const to = elementCenter(target)
   const dx = to.x - from.x
   const dy = to.y - from.y
+  const mainVertical = isVerticalDirection(layoutDirection)
+
+  if (mainVertical && !overlapsOnAxis(source, target, 'y')) return { x: 0, y: Math.sign(dy) || 1 }
+  if (!mainVertical && !overlapsOnAxis(source, target, 'x')) return { x: Math.sign(dx) || 1, y: 0 }
+
   if (Math.abs(dx) >= Math.abs(dy)) return { x: Math.sign(dx) || 1, y: 0 }
   return { x: 0, y: Math.sign(dy) || 1 }
+}
+
+function isVerticalDirection(direction: Direction): boolean {
+  return direction === 'TD' || direction === 'TB' || direction === 'BT'
+}
+
+function overlapsOnAxis(a: ShapeElement, b: ShapeElement, axis: 'x' | 'y'): boolean {
+  const aStart = axis === 'x' ? a.x : a.y
+  const aEnd = aStart + (axis === 'x' ? a.width : a.height)
+  const bStart = axis === 'x' ? b.x : b.y
+  const bEnd = bStart + (axis === 'x' ? b.width : b.height)
+  return aStart < bEnd && bStart < aEnd
 }
 
 function edgePoint(shape: ShapeElement, direction: Point): Point {

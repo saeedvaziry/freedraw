@@ -50,4 +50,20 @@ describe('buildElements', () => {
     expect(arrow.start?.anchor).toMatchObject({ nx: 1, ny: 0.5 })
     expect(arrow.end?.anchor).toMatchObject({ nx: 0, ny: 0.5 })
   })
+
+  it('connects parent to child along the main axis even when the child is offset', () => {
+    const { elements } = build('flowchart TD\nA[Root] --> B[Left]\nA --> C[Right]')
+    const arrows = elements.filter((element) => element.type === 'arrow') as ArrowElement[]
+    for (const arrow of arrows) {
+      expect(arrow.start?.anchor).toMatchObject({ nx: 0.5, ny: 1 })
+      expect(arrow.end?.anchor).toMatchObject({ nx: 0.5, ny: 0 })
+    }
+  })
+
+  it('connects a back edge into the parent from below in a vertical layout', () => {
+    const { elements } = build('flowchart TD\nA[Start] --> B[Mid]\nB --> A')
+    const back = (elements.filter((element) => element.type === 'arrow') as ArrowElement[])[1]!
+    expect(back.start?.anchor).toMatchObject({ nx: 0.5, ny: 0 })
+    expect(back.end?.anchor).toMatchObject({ nx: 0.5, ny: 1 })
+  })
 })
