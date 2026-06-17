@@ -60,4 +60,12 @@ describe('layoutDiagram', () => {
     const second = Math.min(positions.get('C')!.y, positions.get('D')!.y)
     expect(second).toBeGreaterThan(first)
   })
+
+  it('lays out a deep chain without overflowing the stack', () => {
+    const ids = Array.from({ length: 20000 }, (_, position) => `n${position}`)
+    const { ast } = parse(ids.join(' --> '))
+    const { positions } = layoutDiagram(ast)
+    expect(positions.size).toBe(ids.length)
+    expect(positions.get('n0')!.y).toBeLessThan(positions.get(ids[ids.length - 1]!)!.y)
+  })
 })

@@ -86,19 +86,30 @@ function forwardEdges(ast: DiagramAst, order: string[]): Map<string, string[]> {
   const forward = new Map<string, string[]>()
   for (const id of order) forward.set(id, [])
 
-  const visit = (id: string): void => {
+  const frames: { id: string; cursor: number }[] = []
+  const enter = (id: string): void => {
     visited.add(id)
     stack.add(id)
-    for (const target of adjacency.get(id) ?? []) {
-      if (stack.has(target)) continue
-      forward.get(id)?.push(target)
-      if (!visited.has(target)) visit(target)
-    }
-    stack.delete(id)
+    frames.push({ id, cursor: 0 })
   }
 
   for (const id of [...order].sort((a, b) => (index.get(a) ?? 0) - (index.get(b) ?? 0))) {
-    if (!visited.has(id)) visit(id)
+    if (visited.has(id)) continue
+    enter(id)
+    while (frames.length > 0) {
+      const frame = frames[frames.length - 1]!
+      const targets = adjacency.get(frame.id) ?? []
+      if (frame.cursor >= targets.length) {
+        stack.delete(frame.id)
+        frames.pop()
+        continue
+      }
+      const target = targets[frame.cursor]!
+      frame.cursor += 1
+      if (stack.has(target)) continue
+      forward.get(frame.id)?.push(target)
+      if (!visited.has(target)) enter(target)
+    }
   }
 
   return forward

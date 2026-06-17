@@ -16,7 +16,30 @@ describe('serializeDiagram', () => {
       }),
     )
     const { text } = serializeDiagram(store.getSnapshot())
-    expect(text).toBe('flowchart TD\nstart[Start]\ndone[Done]\nstart --> done')
+    expect(text).toBe('flowchart LR\nstart[Start]\ndone[Done]\nstart --> done')
+  })
+
+  it('infers the direction from the dominant edge flow', () => {
+    const store = new SceneStore()
+    store.transact((api) => {
+      const a = labeled('a', 'Top')
+      const b = labeled('b', 'Bottom')
+      b.y = 200
+      api.addElement(a)
+      api.addElement(b)
+      api.addElement(
+        createArrow({
+          points: [
+            { x: 0, y: 0 },
+            { x: 0, y: 200 },
+          ],
+          start: { elementId: 'a', anchor: { nx: 0.5, ny: 1 }, gap: 6 },
+          end: { elementId: 'b', anchor: { nx: 0.5, ny: 0 }, gap: 6 },
+        }),
+      )
+    })
+    const { text } = serializeDiagram(store.getSnapshot())
+    expect(text.startsWith('flowchart TD')).toBe(true)
   })
 
   it('derives unique short ids from labels', () => {

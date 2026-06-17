@@ -53,4 +53,11 @@ describe('parse', () => {
     expect(errors).toHaveLength(0)
     expect(ast.edges).toHaveLength(1)
   })
+
+  it('keeps a quoted label containing percent signs', () => {
+    const { ast, errors } = parse('A["50%% done"] --> B')
+    expect(errors).toHaveLength(0)
+    const node = ast.nodes.find((candidate) => candidate.id === 'A')
+    expect(node?.text).toBe('50%% done')
+  })
 })

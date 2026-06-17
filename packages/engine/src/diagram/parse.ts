@@ -45,8 +45,19 @@ export function parse(text: string): ParseResult {
 }
 
 function stripStatement(line: string): string {
-  const withoutComment = line.split('%%')[0] ?? ''
-  return withoutComment.replace(/;\s*$/, '').trim()
+  return stripComment(line).replace(/;\s*$/, '').trim()
+}
+
+function stripComment(line: string): string {
+  let quoted = false
+  for (let i = 0; i < line.length; i += 1) {
+    if (line[i] === '"') {
+      quoted = !quoted
+      continue
+    }
+    if (!quoted && line[i] === '%' && line[i + 1] === '%') return line.slice(0, i)
+  }
+  return line
 }
 
 function readHeader(line: string): Direction | null {

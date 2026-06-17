@@ -25,4 +25,14 @@ describe('diagram round trip', () => {
     const text = roundTrip('a[A] -.-> b[B]')
     expect(text).toContain('a -.-> b')
   })
+
+  it('preserves a left-to-right direction', () => {
+    const canonical = ['flowchart LR', 'a[A]', 'b[B]', 'a --> b'].join('\n')
+    expect(roundTrip(canonical)).toBe(canonical)
+  })
+
+  it('preserves a bottom-to-top direction', () => {
+    const canonical = ['flowchart BT', 'a[A]', 'b[B]', 'a --> b'].join('\n')
+    expect(roundTrip(canonical)).toBe(canonical)
+  })
 })

@@ -37,9 +37,9 @@ function renderDiagram(parent: HTMLElement, code: string): void {
   container.className = 'block'
   parent.appendChild(container)
 
-  const { errors } = buildScene(code)
-  if (errors.length > 0) {
-    const message = errors.map((error) => `line ${error.line}: ${error.message}`).join('\n')
+  const scene = buildScene(code)
+  if (scene.errors.length > 0) {
+    const message = scene.errors.map((error) => `line ${error.line}: ${error.message}`).join('\n')
     const pre = document.createElement('pre')
     pre.className = 'error'
     pre.textContent = message
@@ -47,7 +47,7 @@ function renderDiagram(parent: HTMLElement, code: string): void {
     return
   }
 
-  mount(container, code, { scale: 2, padding: 24, background: '#ffffff' })
+  mount(container, scene, { scale: 2, padding: 24, background: '#ffffff' })
 }
 
 function renderText(parent: HTMLElement, text: string): void {
