@@ -15,4 +15,4 @@ Other scripts: `npm run build`, `npm run test`, `npm run lint`, `npm run typeche
 
 ## License
 
-[AGPL-3.0-or-later](./LICENSE)
+[Apache-2.0](./LICENSE)

@@ -2,7 +2,7 @@
   "name": "@freedraw/diagram",
   "version": "0.2.0",
   "type": "module",
-  "license": "AGPL-3.0-or-later",
+  "license": "Apache-2.0",
   "description": "Embeddable renderer for FreeDraw diagram code (a Mermaid flowchart subset). Turn text into a canvas diagram.",
   "repository": {
     "type": "git",
