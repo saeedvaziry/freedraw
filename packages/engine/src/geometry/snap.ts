@@ -1,7 +1,7 @@
 import type { Element, Point, SceneSnapshot } from '../model/types.js'
 import { snapPointToGrid, snapValueToGrid } from './grid.js'
-import { elementBounds, elementCenter, hitTestElement, toLocalPoint } from './hitTest.js'
-import { getOutline, type Outline } from './shapeOutline.js'
+import { elementBounds, elementCenter, hitTestElement, toLocalPoint } from './hit-test.js'
+import { getOutline, type Outline } from './shape-outline.js'
 
 export const SNAP_DISTANCE = 8
 const EDGE_CENTER_MAGNET_FACTOR = 0.5

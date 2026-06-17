@@ -1,8 +1,8 @@
 import rough from 'roughjs'
 import type { RoughGenerator } from 'roughjs/bin/generator.js'
 import type { Drawable, Op, OpSet, Options } from 'roughjs/bin/core.js'
-import type { Outline } from '../geometry/shapeOutline.js'
-import { outlinePathD } from '../geometry/shapeOutline.js'
+import type { Outline } from '../geometry/shape-outline.js'
+import { outlinePathD } from '../geometry/shape-outline.js'
 import type { Point } from '../model/types.js'
 
 const MAX_ROUGHNESS = 2.5

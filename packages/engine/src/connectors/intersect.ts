@@ -1,5 +1,5 @@
-import { elementBounds, elementCenter } from '../geometry/hitTest.js'
-import { getOutline } from '../geometry/shapeOutline.js'
+import { elementBounds, elementCenter } from '../geometry/hit-test.js'
+import { getOutline } from '../geometry/shape-outline.js'
 import type { Element, Point } from '../model/types.js'
 
 function rotate(point: Point, center: Point, angle: number): Point {

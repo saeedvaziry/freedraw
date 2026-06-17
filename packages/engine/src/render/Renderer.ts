@@ -1,4 +1,4 @@
-import { Camera } from '../geometry/Camera.js'
+import { Camera } from '../geometry/camera.js'
 import { expand, intersects, type Rect } from '../geometry/rect.js'
 import type { SelectionFrame } from '../geometry/handles.js'
 import type { SnapGuide } from '../geometry/snap.js'
@@ -14,7 +14,7 @@ import { paintElement } from './painters/index.js'
 import { invertingContext } from './invert.js'
 import { paintHover, paintMarquee, paintSelection } from './overlay/selection.js'
 import { paintPorts, paintTargetHighlight } from './overlay/ports.js'
-import { paintArrowHandles } from './overlay/arrowHandles.js'
+import { paintArrowHandles } from './overlay/arrow-handles.js'
 import { paintGuides } from './overlay/guides.js'
 
 export interface SpawnPreview {

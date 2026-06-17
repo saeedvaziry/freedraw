@@ -1,6 +1,6 @@
-import type { Camera } from '../../geometry/Camera.js'
+import type { Camera } from '../../geometry/camera.js'
 import { shapeAnchors } from '../../geometry/snap.js'
-import { elementCenter } from '../../geometry/hitTest.js'
+import { elementCenter } from '../../geometry/hit-test.js'
 import type { Element, Point } from '../../model/types.js'
 
 const ACCENT = '#4f6bff'

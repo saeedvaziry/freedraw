@@ -1,4 +1,4 @@
-import type { Camera } from '../../geometry/Camera.js'
+import type { Camera } from '../../geometry/camera.js'
 import {
   HANDLE_SIZE,
   ROTATE_HANDLE_RADIUS,
@@ -6,8 +6,8 @@ import {
   rotateHandleScreen,
   type SelectionFrame,
 } from '../../geometry/handles.js'
-import { getOutline, traceOutline } from '../../geometry/shapeOutline.js'
-import { elementBounds, elementCenter } from '../../geometry/hitTest.js'
+import { getOutline, traceOutline } from '../../geometry/shape-outline.js'
+import { elementBounds, elementCenter } from '../../geometry/hit-test.js'
 import type { Element, Point } from '../../model/types.js'
 import type { Rect } from '../../geometry/rect.js'
 

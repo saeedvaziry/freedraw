@@ -1,7 +1,0 @@
-[build]
-  command = "npm run build"
-  publish = "apps/web/dist"
-
-[build.environment]
-  NODE_VERSION = "20"
-  NPM_FLAGS = "--ignore-scripts"

@@ -1,6 +1,6 @@
-import type { ImageCache } from '../../assets/imageCache.js'
+import type { ImageCache } from '../../assets/image-cache.js'
 import type { Element, ImageElement } from '../../model/types.js'
-import { getOutline, traceOutline } from '../../geometry/shapeOutline.js'
+import { getOutline, traceOutline } from '../../geometry/shape-outline.js'
 
 const PLACEHOLDER_FILL = '#e5e7eb'
 const PLACEHOLDER_STROKE = '#cbd5e1'

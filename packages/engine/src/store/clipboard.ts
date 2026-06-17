@@ -1,5 +1,5 @@
 import { createId, pointsBounds } from '../model/factory.js'
-import { selectionBounds } from '../geometry/hitTest.js'
+import { selectionBounds } from '../geometry/hit-test.js'
 import type {
   ArrowElement,
   Arrowhead,

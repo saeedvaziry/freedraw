@@ -1,10 +1,10 @@
-import type { Camera } from '../geometry/Camera.js'
+import type { Camera } from '../geometry/camera.js'
 import type { Rect } from '../geometry/rect.js'
 import type { SnapGuide } from '../geometry/snap.js'
-import type { SceneStore } from '../store/SceneStore.js'
+import type { SceneStore } from '../store/scene-store.js'
 import type { Element, ElementId, Point } from '../model/types.js'
 import type { SpawnMenuRequest } from '../connectors/spawn.js'
-import type { SpawnPreview } from '../render/Renderer.js'
+import type { SpawnPreview } from '../render/renderer.js'
 import type { EditRequest } from '../text/edit.js'
 
 export interface PointerInfo {

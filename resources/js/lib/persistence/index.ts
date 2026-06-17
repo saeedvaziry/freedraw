@@ -1,0 +1,6 @@
+export { createAssetRepo, assetRepo } from './asset-repo.js'
+export type { AssetRepo } from './asset-repo.js'
+export { ASSET_STORE } from './db.js'
+export type { IndexedDbFactory } from './db.js'
+export { createDocumentPersistence, DOCUMENT_DB_NAME } from './document-persistence.js'
+export type { DocumentPersistence } from './document-persistence.js'

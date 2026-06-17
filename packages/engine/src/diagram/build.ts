@@ -1,5 +1,5 @@
 import { anchorFromPoint } from '../connectors/binding.js'
-import { elementCenter } from '../geometry/hitTest.js'
+import { elementCenter } from '../geometry/hit-test.js'
 import { createArrow, createShape } from '../model/factory.js'
 import type { Element, ElementId, Point, ShapeElement, Style } from '../model/types.js'
 import type { AstEdge, AstNode, DiagramAst, Direction, EdgeStyle } from './ast.js'
