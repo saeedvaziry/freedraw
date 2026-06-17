@@ -76,7 +76,7 @@ function resolveLayout(options: LayoutOptions): ResolvedLayout {
   return {
     layerGap: options.layerGap ?? DEFAULT_LAYER_GAP,
     siblingGap: options.siblingGap ?? DEFAULT_SIBLING_GAP,
-    uniform: options.uniform ?? true,
+    uniform: options.uniform ?? false,
   }
 }
 
@@ -104,10 +104,11 @@ function placeBand(
     const layer = layers.get(id) ?? 0
     const layerMain = mainOffsets.get(layer) ?? 0
     const size = sizes.get(id)!
-    const main = (bandMain + layerMain) * mainSign
+    const mainSize = vertical ? size.height : size.width
+    const main = (bandMain + layerMain) * mainSign - (mainSign < 0 ? mainSize : 0)
     const cross = centers.get(id)! - (vertical ? size.width : size.height) / 2
     positions.set(id, toBox(vertical, main, cross, size, origin))
-    mainSpan = Math.max(mainSpan, layerMain + (vertical ? size.height : size.width))
+    mainSpan = Math.max(mainSpan, layerMain + mainSize)
   }
 
   return mainSpan

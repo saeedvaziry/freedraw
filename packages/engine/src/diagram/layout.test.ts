@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parse } from './parse.js'
-import { layoutDiagram } from './layout.js'
+import { layoutDiagram, type NodeBox } from './layout.js'
 
 describe('layoutDiagram', () => {
   it('stacks a chain into descending layers for TD', () => {
@@ -74,6 +74,33 @@ describe('layoutDiagram', () => {
     const first = Math.min(positions.get('A')!.y, positions.get('B')!.y)
     const second = Math.min(positions.get('C')!.y, positions.get('D')!.y)
     expect(second).toBeGreaterThan(first)
+  })
+
+  it('does not overlap nodes in reversed directions with varied sizes', () => {
+    const overlaps = (a: NodeBox, b: NodeBox) =>
+      a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+
+    for (const direction of ['RL', 'BT'] as const) {
+      const { ast } = parse(`flowchart ${direction}\nN0[X] --> N1[A really quite long label here] --> N2[Y]`)
+      const boxes = [...layoutDiagram(ast).positions.values()]
+      for (let i = 0; i < boxes.length; i += 1) {
+        for (let j = i + 1; j < boxes.length; j += 1) {
+          expect(overlaps(boxes[i]!, boxes[j]!)).toBe(false)
+        }
+      }
+    }
+  })
+
+  it('orders layers toward the origin for reversed directions', () => {
+    const rl = parse('flowchart RL\nA --> B --> C').ast
+    const rlPositions = layoutDiagram(rl).positions
+    expect(rlPositions.get('A')!.x).toBeGreaterThan(rlPositions.get('B')!.x)
+    expect(rlPositions.get('B')!.x).toBeGreaterThan(rlPositions.get('C')!.x)
+
+    const bt = parse('flowchart BT\nA --> B --> C').ast
+    const btPositions = layoutDiagram(bt).positions
+    expect(btPositions.get('A')!.y).toBeGreaterThan(btPositions.get('B')!.y)
+    expect(btPositions.get('B')!.y).toBeGreaterThan(btPositions.get('C')!.y)
   })
 
   it('lays out a deep chain without overflowing the stack', () => {
