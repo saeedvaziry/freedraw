@@ -8,9 +8,15 @@ use App\Http\Responses\LoginResponse;
 use App\Http\Responses\RegisterResponse;
 use App\Http\Responses\TwoFactorLoginResponse;
 use App\Http\Responses\VerifyEmailResponse;
+use App\Mail\Auth\ResetPasswordMail;
+use App\Mail\Auth\VerifyEmailMail;
 use App\Models\OrganizationInvitation;
+use App\Models\User;
+use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -42,7 +48,31 @@ class FortifyServiceProvider extends ServiceProvider
     {
         $this->configureActions();
         $this->configureViews();
+        $this->configureEmails();
         $this->configureRateLimiting();
+    }
+
+    /**
+     * Configure branded authentication emails.
+     */
+    private function configureEmails(): void
+    {
+        VerifyEmail::toMailUsing(fn (User $notifiable, string $verificationUrl) => (new VerifyEmailMail(
+            verificationUrl: $verificationUrl,
+            name: $notifiable->name,
+        ))->to($notifiable->getEmailForVerification()));
+
+        ResetPassword::toMailUsing(fn (User $notifiable, string $token) => (new ResetPasswordMail(
+            resetUrl: route('password.reset', [
+                'token' => $token,
+                'email' => $notifiable->getEmailForPasswordReset(),
+            ]),
+            name: $notifiable->name,
+            expiresInMinutes: (int) Config::get(
+                'auth.passwords.'.Config::get('auth.defaults.passwords').'.expire',
+                60,
+            ),
+        ))->to($notifiable->getEmailForPasswordReset()));
     }
 
     /**
