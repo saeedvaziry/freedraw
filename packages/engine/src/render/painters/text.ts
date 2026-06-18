@@ -1,7 +1,7 @@
 import { LayoutCache } from '../../text/cache.js'
 import { canvasMeasureContext, fontString } from '../../text/measure.js'
 import type { TextAlign, TextLayout, VerticalAlign } from '../../text/layout.js'
-import { labelRect } from '../../geometry/shapeOutline.js'
+import { labelRect } from '../../geometry/shape-outline.js'
 import type { Element, Style, TextElement } from '../../model/types.js'
 
 const layoutCache = new LayoutCache()

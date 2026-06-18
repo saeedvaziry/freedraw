@@ -1,5 +1,5 @@
 import type { Element } from '../../model/types.js'
-import { getOutline, traceOutline } from '../../geometry/shapeOutline.js'
+import { getOutline, traceOutline } from '../../geometry/shape-outline.js'
 import { dashPattern } from './dash.js'
 import { strokeOutline } from './sketch.js'
 import { paintLabel } from './text.js'

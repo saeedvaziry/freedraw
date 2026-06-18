@@ -1,5 +1,5 @@
 import type { Point } from '../model/types.js'
-import type { SceneStore } from '../store/SceneStore.js'
+import type { SceneStore } from '../store/scene-store.js'
 import type { DiagramError } from './ast.js'
 import { parseDiagram } from './index.js'
 

@@ -1,5 +1,5 @@
 import type { ArrowElement, Binding, Element, ElementId, Point } from '../model/types.js'
-import { ROUTE_AXIS_TOLERANCE as AXIS_TOLERANCE, simplifyRoute } from '../geometry/arrowGeometry.js'
+import { ROUTE_AXIS_TOLERANCE as AXIS_TOLERANCE, simplifyRoute } from '../geometry/arrow-geometry.js'
 import { anchorNormal, anchorPoint, sideNormal } from './binding.js'
 
 type Elements = Record<ElementId, Element>

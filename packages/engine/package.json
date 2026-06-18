@@ -13,7 +13,7 @@
     "./model/schema": "./src/model/schema.ts",
     "./model/factory": "./src/model/factory.ts",
     "./geometry/fit": "./src/geometry/fit.ts",
-    "./render/exportScene": "./src/render/exportScene.ts"
+    "./render/exportScene": "./src/render/export-scene.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

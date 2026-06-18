@@ -1,0 +1,114 @@
+import { Minus } from 'lucide-react'
+import { ColorPicker } from './color-picker.js'
+import { SegmentedControl, SliderControl } from './controls.js'
+import { DashedLineIcon, DottedLineIcon } from './icons.js'
+import {
+  type PanelStyle,
+  type PanelStylePatch,
+  type StrokeStyle,
+  isMixed,
+  pickValue,
+  resolveNumber,
+  resolveString,
+} from './types.js'
+
+const px = (value: number) => `${value}px`
+const percent = (value: number) => `${Math.round(value * 100)}%`
+
+const STROKE_STYLES = [
+  { value: 'solid' as StrokeStyle, label: 'Solid', Icon: Minus },
+  { value: 'dashed' as StrokeStyle, label: 'Dashed', Icon: DashedLineIcon },
+  { value: 'dotted' as StrokeStyle, label: 'Dotted', Icon: DottedLineIcon },
+]
+
+export interface StrokeControlsProps {
+  style: PanelStyle
+  showFill: boolean
+  showRoundness: boolean
+  onChange(patch: PanelStylePatch): void
+  onInteractStart(): void
+  onInteractEnd(): void
+}
+
+export function StrokeControls({
+  style,
+  showFill,
+  showRoundness,
+  onChange,
+  onInteractStart,
+  onInteractEnd,
+}: StrokeControlsProps) {
+  return (
+    <div className="flex flex-col gap-3">
+      <ColorPicker
+        label="Stroke"
+        value={resolveString(style.stroke, '#1e1e1e')}
+        mixed={isMixed(style.stroke)}
+        onChange={(stroke) => onChange({ stroke })}
+      />
+      {showFill && (
+        <ColorPicker
+          label="Fill"
+          value={resolveString(style.fill, 'transparent')}
+          mixed={isMixed(style.fill)}
+          allowTransparent
+          onChange={(fill) => onChange({ fill })}
+        />
+      )}
+      <SegmentedControl
+        label="Stroke style"
+        value={pickValue(style.strokeStyle)}
+        options={STROKE_STYLES}
+        onChange={(strokeStyle) => onChange({ strokeStyle })}
+      />
+      <SliderControl
+        label="Stroke width"
+        value={resolveNumber(style.strokeWidth, 2)}
+        mixed={isMixed(style.strokeWidth)}
+        format={px}
+        min={1}
+        max={20}
+        onChange={(strokeWidth) => onChange({ strokeWidth })}
+        onInteractStart={onInteractStart}
+        onInteractEnd={onInteractEnd}
+      />
+      <SliderControl
+        label="Opacity"
+        value={resolveNumber(style.opacity, 1)}
+        mixed={isMixed(style.opacity)}
+        format={percent}
+        min={0}
+        max={1}
+        step={0.05}
+        onChange={(opacity) => onChange({ opacity })}
+        onInteractStart={onInteractStart}
+        onInteractEnd={onInteractEnd}
+      />
+      <SliderControl
+        label="Sloppiness"
+        value={resolveNumber(style.sloppiness, 0)}
+        mixed={isMixed(style.sloppiness)}
+        format={percent}
+        min={0}
+        max={1}
+        step={0.05}
+        onChange={(sloppiness) => onChange({ sloppiness })}
+        onInteractStart={onInteractStart}
+        onInteractEnd={onInteractEnd}
+      />
+      {showRoundness && (
+        <SliderControl
+          label="Roundness"
+          value={resolveNumber(style.roundness, 0)}
+          mixed={isMixed(style.roundness)}
+          format={px}
+          min={0}
+          max={64}
+          onChange={(roundness) => onChange({ roundness })}
+          onInteractStart={onInteractStart}
+          onInteractEnd={onInteractEnd}
+        />
+      )}
+    </div>
+  )
+}

@@ -1,6 +1,6 @@
 import type { ArrowElement, Arrowhead, Element, Point } from '../../model/types.js'
 import { arrowRoute } from '../../connectors/resolve.js'
-import { polylineMidpoint } from '../../text/arrowLabel.js'
+import { polylineMidpoint } from '../../text/arrow-label.js'
 import { dashPattern } from './dash.js'
 import { isSloppy, strokeSloppyPath, strokeSloppyPathData, strokeSloppyPolygon } from './sketch.js'
 import { paintArrowLabel } from './text.js'

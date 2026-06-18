@@ -1,5 +1,5 @@
 import type { Element, Point } from '../../model/types.js'
-import { type Outline, traceOutline } from '../../geometry/shapeOutline.js'
+import { type Outline, traceOutline } from '../../geometry/shape-outline.js'
 import {
   hashSeed,
   strokeRoughOutline,

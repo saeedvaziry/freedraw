@@ -1,8 +1,8 @@
-import { elementBounds, elementCenter } from '../geometry/hitTest.js'
+import { elementBounds, elementCenter } from '../geometry/hit-test.js'
 import { intersects, type Rect } from '../geometry/rect.js'
 import { createArrow, createShape } from '../model/factory.js'
 import type { ArrowElement, Element, ElementId, Point, SceneSnapshot, ShapeElement, ShapeType, Style } from '../model/types.js'
-import type { SceneStore } from '../store/SceneStore.js'
+import type { SceneStore } from '../store/scene-store.js'
 import { anchorFromPoint } from './binding.js'
 
 type Store = Pick<SceneStore, 'transact' | 'stopCapturing' | 'setUiState' | 'getLastUsedStyle' | 'getSnapshot'>

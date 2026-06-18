@@ -1,4 +1,4 @@
-import type { Camera } from './Camera.js'
+import type { Camera } from './camera.js'
 import type { Point } from '../model/types.js'
 import type { Rect } from './rect.js'
 

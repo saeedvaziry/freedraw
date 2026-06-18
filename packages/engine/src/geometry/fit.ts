@@ -1,5 +1,5 @@
-import { clampZoom, type CameraState } from './Camera.js'
-import { elementBounds } from './hitTest.js'
+import { clampZoom, type CameraState } from './camera.js'
+import { elementBounds } from './hit-test.js'
 import type { Rect } from './rect.js'
 import type { Element, ElementId, SceneSnapshot } from '../model/types.js'
 

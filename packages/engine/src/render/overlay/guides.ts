@@ -1,4 +1,4 @@
-import type { Camera } from '../../geometry/Camera.js'
+import type { Camera } from '../../geometry/camera.js'
 import type { SnapGuide } from '../../geometry/snap.js'
 import type { Point } from '../../model/types.js'
 

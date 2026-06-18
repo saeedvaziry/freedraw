@@ -1,4 +1,4 @@
-import { elementBounds, elementCenter } from '../geometry/hitTest.js'
+import { elementBounds, elementCenter } from '../geometry/hit-test.js'
 import type { Binding, Element, Point } from '../model/types.js'
 
 export const DEFAULT_GAP = 0
