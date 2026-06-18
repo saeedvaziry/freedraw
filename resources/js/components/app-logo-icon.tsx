@@ -22,9 +22,9 @@ export default function AppLogoIcon(props: SVGAttributes<SVGElement>) {
                     x2="0.14644660940672627"
                     y2="0.8535533905932737"
                 >
-                    <stop offset="0" stopColor="#8B5CFF" />
-                    <stop offset="0.55" stopColor="#6C3CE9" />
-                    <stop offset="1" stopColor="#4318C9" />
+                    <stop offset="0" stopColor="#63A1FD" />
+                    <stop offset="0.55" stopColor="#2875E8" />
+                    <stop offset="1" stopColor="#2875E8" />
                 </linearGradient>
                 <linearGradient
                     id={nodeGrad}
