@@ -17,7 +17,7 @@ export default function AuthSplitLayout({
                     href="/"
                     className="relative z-20 flex items-center text-lg font-medium"
                 >
-                    <AppLogoIcon className="mr-2 size-8 fill-current text-white" />
+                    <AppLogoIcon className="mr-2 size-8 rounded-md" />
                     {name}
                 </Link>
             </div>
@@ -27,7 +27,7 @@ export default function AuthSplitLayout({
                         href="/"
                         className="relative z-20 flex items-center justify-center lg:hidden"
                     >
-                        <AppLogoIcon className="h-10 fill-current text-black sm:h-12" />
+                        <AppLogoIcon className="size-10 rounded-lg sm:size-12" />
                     </Link>
                     <div className="flex flex-col items-start gap-2 text-left sm:items-center sm:text-center">
                         <h1 className="text-xl font-medium">{title}</h1>

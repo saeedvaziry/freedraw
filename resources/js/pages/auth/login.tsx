@@ -2,6 +2,7 @@ import { Form, Head } from '@inertiajs/react';
 import InputError from '@/components/input-error';
 import OrganizationInvitationAlert from '@/components/organization-invitation-alert';
 import PasswordInput from '@/components/password-input';
+import SocialLoginButtons from '@/components/social-login-buttons';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -35,6 +36,8 @@ export default function Login({
                     action="Log in"
                 />
             )}
+
+            <SocialLoginButtons />
 
             <Form
                 action="/login"

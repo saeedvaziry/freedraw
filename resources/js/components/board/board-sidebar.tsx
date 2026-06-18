@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useCallback, useLayoutEffect, useState } from 'react'
+import AppLogoIcon from '@/components/app-logo-icon'
 import CreateOrganizationModal from '@/components/create-organization-modal'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -169,6 +170,10 @@ export function BoardSidebar() {
   if (collapsed) {
     return (
       <div className="pointer-events-auto flex h-full w-12 flex-col items-center gap-1 rounded-lg border bg-background/90 p-1.5 shadow-sm backdrop-blur">
+        <Link href="/" prefetch aria-label="Home" className="mb-1 flex size-9 items-center justify-center">
+          <AppLogoIcon className="size-7 rounded-md" />
+        </Link>
+
         <RailButton onClick={toggle} label="Expand sidebar">
           <PanelLeftOpen />
         </RailButton>
@@ -224,9 +229,10 @@ export function BoardSidebar() {
           href="/"
           prefetch
           aria-label="Home"
-          className="truncate rounded-md px-1 text-sm font-semibold transition-colors hover:text-foreground/70"
+          className="flex min-w-0 items-center gap-1.5 rounded-md px-1 text-sm font-semibold transition-colors hover:text-foreground/70"
         >
-          FreeDraw
+          <AppLogoIcon className="size-5 shrink-0 rounded" />
+          <span className="truncate">FreeDraw</span>
         </Link>
         <button
           type="button"

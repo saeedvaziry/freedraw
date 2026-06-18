@@ -2,6 +2,7 @@ import { Form, Head } from '@inertiajs/react';
 import InputError from '@/components/input-error';
 import OrganizationInvitationAlert from '@/components/organization-invitation-alert';
 import PasswordInput from '@/components/password-input';
+import SocialLoginButtons from '@/components/social-login-buttons';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +23,9 @@ export default function Register({ passwordRules, organizationInvitation }: Prop
     return (
         <>
             <Head title="Register" />
+
+            <SocialLoginButtons />
+
             <Form
                 action="/register"
                 method="post"
