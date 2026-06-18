@@ -32,7 +32,7 @@ export type OrganizationInvitationContext = {
     organizationName: string;
 };
 
-export type DashboardInvitation = {
+export type PendingInvitation = {
     code: string;
     inviterName: string;
     organization: {

@@ -1,3 +1,4 @@
+import { usePage } from '@inertiajs/react'
 import { useSyncExternalStore } from 'react'
 import type { EditorController, SceneStore } from '@freedraw/engine'
 import { ActionsBar } from '@/components/board/ui-kit'
@@ -35,6 +36,10 @@ export function ActionsBarHost({
   )
   const { exportImage, copyImage } = boardExport
 
+  // Signed-in users get the full sidebar (org / settings / logout), so the
+  // actions-bar avatar menu is only needed by guests to log in or register.
+  const isAuthenticated = Boolean(usePage().props.auth?.user)
+
   return (
     <ActionsBar
       canUndo={history.canUndo}
@@ -56,7 +61,7 @@ export function ActionsBarHost({
       snapGuidesEnabled={snapshot.appState.snapGuidesEnabled}
       onToggleSnapGuides={() => store.setSnapGuidesEnabled(!store.getSnapshot().appState.snapGuidesEnabled)}
       compact={compact}
-      userMenu={compact ? undefined : <BoardUserMenu />}
+      userMenu={compact || isAuthenticated ? undefined : <BoardUserMenu />}
     />
   )
 }

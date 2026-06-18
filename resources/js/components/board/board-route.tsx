@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { EditorController, SceneStore } from '@freedraw/engine'
-import { ActionsBarHost } from './actions-bar-host.js'
+import { BoardSidebar } from './board-sidebar.js'
+import { BottomBar } from './bottom-bar.js'
 import { CanvasHost } from './canvas-host.js'
 import { DiagramPanelHost } from './diagram-panel-host.js'
 import { EmptyState } from './empty-state.js'
 import { LinksBar } from './links-bar.js'
 import { MobileBar } from './mobile-bar.js'
 import { StylePanelHost } from './style-panel-host.js'
-import { ToolbarHost } from './toolbar-host.js'
 import { ZoomIndicator } from './zoom-indicator.js'
 import { createBoard } from './create-board.js'
 import { useBoardClipboard } from '@/hooks/board/use-board-clipboard.js'
@@ -81,26 +81,39 @@ function Board({ store }: BoardProps) {
         />
       </div>
 
-      <div className="pointer-events-none absolute top-6 right-6 hidden justify-end sm:flex">
+      <div className="pointer-events-none absolute top-3 right-3 hidden justify-end sm:flex">
         <StylePanelHost store={store} />
       </div>
-      <div className="pointer-events-none absolute top-6 left-6 hidden justify-start sm:flex">
-        {diagramOpen ? (
-          <DiagramPanelHost store={store} controller={controller} onClose={() => setDiagramOpen(false)} />
-        ) : (
-          <ToolbarHost store={store} diagramOpen={diagramOpen} onToggleDiagram={() => setDiagramOpen(true)} />
-        )}
+      <div className="pointer-events-none absolute top-3 bottom-3 left-3 hidden sm:block">
+        <BoardSidebar />
       </div>
-      <div className="pointer-events-none absolute bottom-6 left-6 hidden justify-start sm:flex">
-        <ActionsBarHost
+      {diagramOpen ? (
+        <div
+          className="pointer-events-none absolute top-3 hidden justify-start transition-[left] duration-200 ease-linear sm:flex"
+          style={{ left: 'calc(0.75rem + var(--board-sidebar-width, 0px))' }}
+        >
+          <DiagramPanelHost
+            store={store}
+            controller={controller}
+            onClose={() => setDiagramOpen(false)}
+          />
+        </div>
+      ) : null}
+      <div
+        className="pointer-events-none absolute bottom-3 hidden justify-center px-3 transition-[left] duration-200 ease-linear sm:flex"
+        style={{ left: 'calc(0.75rem + var(--board-sidebar-width, 0px))', right: '0.75rem' }}
+      >
+        <BottomBar
           store={store}
           controller={controller}
           boardExport={boardExport}
           theme={theme}
           onToggleTheme={toggle}
+          diagramOpen={diagramOpen}
+          onToggleDiagram={() => setDiagramOpen((open) => !open)}
         />
       </div>
-      <div className="pointer-events-none absolute right-6 bottom-6 hidden items-center gap-2 sm:flex">
+      <div className="pointer-events-none absolute right-3 bottom-3 hidden items-center gap-2 sm:flex">
         <LinksBar />
         <ZoomIndicator store={store} />
       </div>

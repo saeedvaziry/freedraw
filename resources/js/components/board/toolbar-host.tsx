@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react'
+import { useSyncExternalStore, type ReactNode } from 'react'
 import type { SceneStore, ShapeType, StickyColor, ToolId } from '@freedraw/engine'
 import { Toolbar, type StickyColorKey, type ToolbarLayout, type ToolKey } from '@/components/board/ui-kit'
 
@@ -6,10 +6,11 @@ interface ToolbarHostProps {
   store: SceneStore
   layout?: ToolbarLayout
   diagramOpen?: boolean
+  trailing?: ReactNode
   onToggleDiagram?(): void
 }
 
-export function ToolbarHost({ store, layout, diagramOpen, onToggleDiagram }: ToolbarHostProps) {
+export function ToolbarHost({ store, layout, diagramOpen, trailing, onToggleDiagram }: ToolbarHostProps) {
   const ui = useSyncExternalStore(
     (cb) => store.subscribeUi(cb),
     () => store.getUiState(),
@@ -31,6 +32,7 @@ export function ToolbarHost({ store, layout, diagramOpen, onToggleDiagram }: Too
     <Toolbar
       layout={layout}
       diagramOpen={diagramOpen}
+      trailing={trailing}
       activeTool={ui.activeTool as ToolKey}
       activeShapeType={ui.activeShapeType as ShapeType}
       activeStickyColor={ui.activeStickyColor as StickyColorKey}

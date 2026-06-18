@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   Code2,
   Hand,
@@ -62,6 +62,8 @@ export interface ToolbarProps {
   activeStickyColor: StickyColorKey
   layout?: ToolbarLayout
   diagramOpen?: boolean
+  /** Extra controls rendered inside the toolbar pill, after the diagram button. */
+  trailing?: ReactNode
   onSelectTool(tool: ToolKey): void
   onSelectShape(type: ShapeType): void
   onSelectStickyColor(color: StickyColorKey): void
@@ -74,6 +76,7 @@ export function Toolbar({
   activeStickyColor,
   layout = 'vertical',
   diagramOpen = false,
+  trailing,
   onSelectTool,
   onSelectShape,
   onSelectStickyColor,
@@ -146,6 +149,12 @@ export function Toolbar({
             <ToolButton label="Diagram code" active={diagramOpen} onClick={onToggleDiagram}>
               <Code2 />
             </ToolButton>
+          </>
+        ) : null}
+        {trailing ? (
+          <>
+            <Divider horizontal={horizontal} />
+            {trailing}
           </>
         ) : null}
       </div>

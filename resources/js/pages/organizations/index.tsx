@@ -4,6 +4,7 @@ import { useState } from 'react';
 import CreateOrganizationModal from '@/components/create-organization-modal';
 import Heading from '@/components/heading';
 import LeaveOrganizationModal from '@/components/leave-organization-modal';
+import PendingInvitationsModal from '@/components/pending-invitations-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,19 +13,28 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import type { Organization } from '@/types';
+import type { PendingInvitation, Organization } from '@/types';
 
 type Props = {
     organizations: Organization[];
+    pendingInvitations?: PendingInvitation[];
 };
 
 const organizationsUrl = '/settings/organizations';
 const organizationUrl = (organizationSlug: string) =>
     `${organizationsUrl}/${encodeURIComponent(organizationSlug)}`;
 
-export default function OrganizationsIndex({ organizations }: Props) {
-    const [leaveOrganizationDialogOpen, setLeaveOrganizationDialogOpen] = useState(false);
-    const [organizationLeaving, setOrganizationLeaving] = useState<Organization | null>(null);
+export default function OrganizationsIndex({
+    organizations,
+    pendingInvitations = [],
+}: Props) {
+    const [leaveOrganizationDialogOpen, setLeaveOrganizationDialogOpen] =
+        useState(false);
+    const [organizationLeaving, setOrganizationLeaving] =
+        useState<Organization | null>(null);
+    const [showInvitations, setShowInvitations] = useState(
+        pendingInvitations.length > 0,
+    );
 
     const openLeaveOrganizationDialog = (organization: Organization) => {
         setOrganizationLeaving(organization);
@@ -34,6 +44,12 @@ export default function OrganizationsIndex({ organizations }: Props) {
     return (
         <>
             <Head title="Organizations" />
+
+            <PendingInvitationsModal
+                invitations={pendingInvitations}
+                open={pendingInvitations.length > 0 && showInvitations}
+                onOpenChange={setShowInvitations}
+            />
 
             <h1 className="sr-only">Organizations</h1>
 
@@ -55,7 +71,8 @@ export default function OrganizationsIndex({ organizations }: Props) {
                 <div className="space-y-3">
                     {organizations.map((organization) => {
                         const canLeaveOrganization =
-                            !organization.isPersonal && organization.role !== 'owner';
+                            !organization.isPersonal &&
+                            organization.role !== 'owner';
 
                         return (
                             <div

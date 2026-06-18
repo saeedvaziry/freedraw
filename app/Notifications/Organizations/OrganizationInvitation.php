@@ -44,7 +44,7 @@ class OrganizationInvitation extends Notification implements ShouldQueue
                 'inviterName' => $inviter->name,
                 'organizationName' => $organization->name,
             ]))
-            ->line(__('Log in and visit your dashboard to accept or decline this invitation.'))
+            ->line(__('Log in and visit your organization settings to accept or decline this invitation.'))
             ->action(
                 __('Log in'),
                 route('login', ['invitation' => $this->invitation->code]),
