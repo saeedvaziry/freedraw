@@ -12,7 +12,7 @@ export default function Board() {
 
     return (
         <>
-            <Head title="FreeDraw" />
+            <Head title="Home" />
             <ToastProvider>
                 <BoardRoute />
             </ToastProvider>
