@@ -42,7 +42,7 @@ class PageController extends Controller
     {
         $user = $request->user();
 
-        abort_unless($user, 403);
+        abort_unless($user !== null, 403);
         $this->authorize('update', $page);
 
         $validated = $request->validate([
@@ -67,7 +67,7 @@ class PageController extends Controller
     {
         $user = $request->user();
 
-        abort_unless($user, 403);
+        abort_unless($user !== null, 403);
         $this->authorize('delete', $page);
 
         $organization = $page->organization;

@@ -21,7 +21,7 @@ class PageShareController extends Controller
     {
         $user = $request->user();
 
-        abort_unless($user, 403);
+        abort_unless($user !== null, 403);
         $this->authorize('share', $page);
 
         $validated = $request->validate([
