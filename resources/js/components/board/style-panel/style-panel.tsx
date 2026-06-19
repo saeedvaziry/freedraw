@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { ArrowControls } from './arrow-controls.js'
 import { FontControls } from './font-controls.js'
 import { StrokeControls } from './stroke-controls.js'
@@ -20,6 +21,8 @@ export interface StylePanelProps {
   onArrowChange(patch: ArrowPanelPatch): void
   onInteractStart(): void
   onInteractEnd(): void
+  /** Optional pinned header row rendered above the (scrolling) controls. */
+  header?: ReactNode
 }
 
 export function StylePanel({
@@ -30,35 +33,39 @@ export function StylePanel({
   onArrowChange,
   onInteractStart,
   onInteractEnd,
+  header,
 }: StylePanelProps) {
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="pointer-events-auto flex max-h-[50vh] w-full max-w-sm flex-col gap-3 overflow-y-auto rounded-2xl border bg-background/95 p-4 shadow-lg backdrop-blur sm:max-h-[calc(100vh-3rem)] sm:w-64">
-        <StrokeControls
-          style={style}
-          showFill={selection.hasFill}
-          showRoundness={selection.hasRoundness}
-          onChange={onStyleChange}
-          onInteractStart={onInteractStart}
-          onInteractEnd={onInteractEnd}
-        />
-        {selection.hasArrow && (
-          <>
-            <Divider />
-            <ArrowControls arrow={arrow} onChange={onArrowChange} />
-          </>
-        )}
-        {selection.hasText && (
-          <>
-            <Divider />
-            <FontControls
-              style={style}
-              onChange={onStyleChange}
-              onInteractStart={onInteractStart}
-              onInteractEnd={onInteractEnd}
-            />
-          </>
-        )}
+      <div className="pointer-events-auto flex max-h-[50vh] w-full max-w-sm flex-col rounded-2xl border bg-background/95 shadow-lg backdrop-blur sm:max-h-[calc(100vh-3rem)] sm:w-64">
+        {header ? <div className="shrink-0 border-b px-2 py-1.5">{header}</div> : null}
+        <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
+          <StrokeControls
+            style={style}
+            showFill={selection.hasFill}
+            showRoundness={selection.hasRoundness}
+            onChange={onStyleChange}
+            onInteractStart={onInteractStart}
+            onInteractEnd={onInteractEnd}
+          />
+          {selection.hasArrow && (
+            <>
+              <Divider />
+              <ArrowControls arrow={arrow} onChange={onArrowChange} />
+            </>
+          )}
+          {selection.hasText && (
+            <>
+              <Divider />
+              <FontControls
+                style={style}
+                onChange={onStyleChange}
+                onInteractStart={onInteractStart}
+                onInteractEnd={onInteractEnd}
+              />
+            </>
+          )}
+        </div>
       </div>
     </TooltipProvider>
   )

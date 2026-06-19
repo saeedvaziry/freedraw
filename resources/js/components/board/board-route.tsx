@@ -1,5 +1,8 @@
+import { router, usePage } from '@inertiajs/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { EditorController, SceneStore } from '@freedraw/engine'
+import { BoardMobileMenu } from './board-mobile-menu.js'
+import { BoardPagesBar } from './board-pages-bar.js'
 import { BoardSidebar } from './board-sidebar.js'
 import { BottomBar } from './bottom-bar.js'
 import { CanvasHost } from './canvas-host.js'
@@ -9,34 +12,89 @@ import { LinksBar } from './links-bar.js'
 import { MobileBar } from './mobile-bar.js'
 import { StylePanelHost } from './style-panel-host.js'
 import { ZoomIndicator } from './zoom-indicator.js'
-import { createBoard } from './create-board.js'
+import { createBoard, type Board as CreatedBoard } from './create-board.js'
 import { useBoardClipboard } from '@/hooks/board/use-board-clipboard.js'
 import { useExport } from '@/hooks/board/use-export.js'
 import { useKeyboard } from '@/hooks/board/use-keyboard.js'
 import { useTheme } from '@/hooks/board/use-theme.js'
+import type { BoardPage } from '@/types'
+
+function destroyBoard(board: CreatedBoard): void {
+  void board.sync?.flush()
+  board.sync?.destroy()
+  board.persistence.destroy()
+}
 
 export function BoardRoute() {
-  const [store, setStore] = useState<SceneStore | null>(null)
+  const { auth, boardPage, currentOrganization } = usePage().props
+  const [board, setBoard] = useState<{ store: SceneStore; page: BoardPage | null } | null>(null)
+  // The board currently mounted on screen. We hold onto it across navigation so
+  // the old canvas keeps painting while the next board hydrates in the
+  // background, then swap atomically — no blank frame in between.
+  const displayed = useRef<CreatedBoard | null>(null)
 
   useEffect(() => {
-    let board: Awaited<ReturnType<typeof createBoard>> | null = null
     let cancelled = false
-    void createBoard().then((result) => {
+
+    const adopt = (next: CreatedBoard) => {
       if (cancelled) {
-        result.persistence.destroy()
+        destroyBoard(next)
         return
       }
-      board = result
-      setStore(result.store)
+      // Replace the on-screen board only once the next one is ready, then tear
+      // down the one it replaced.
+      const previous = displayed.current
+      displayed.current = next
+      setBoard({ store: next.store, page: next.page })
+      if (previous) destroyBoard(previous)
+    }
+
+    void createBoard({
+      userId: auth?.user?.id ?? null,
+      organizationId: currentOrganization?.id ?? null,
+      initialPage: boardPage ?? null,
     })
+      .then((result) => {
+        if (cancelled) {
+          if ('persistence' in result) destroyBoard(result)
+          return
+        }
+        if ('redirectTo' in result) {
+          router.visit(result.redirectTo, { replace: true })
+          return
+        }
+        adopt(result)
+      })
+      .catch((error) => {
+        console.warn('Failed to initialize board', error)
+        void createBoard({ userId: null, organizationId: null, initialPage: null })
+          .then((fallback) => {
+            if (!('persistence' in fallback)) return
+            adopt(fallback)
+          })
+          .catch((fallbackError) => {
+            console.warn('Failed to initialize fallback board', fallbackError)
+          })
+      })
+
     return () => {
       cancelled = true
-      board?.persistence.destroy()
+    }
+  }, [auth?.user?.id, boardPage, currentOrganization?.id])
+
+  // Destroy the last board only when the route itself unmounts (leaving the
+  // board entirely), not on every navigation between boards.
+  useEffect(() => {
+    return () => {
+      if (displayed.current) {
+        destroyBoard(displayed.current)
+        displayed.current = null
+      }
     }
   }, [])
 
-  if (!store) return <BoardLoading />
-  return <Board store={store} />
+  if (!board) return <BoardLoading />
+  return <Board store={board.store} />
 }
 
 function BoardLoading() {
@@ -71,6 +129,10 @@ function Board({ store }: BoardProps) {
       <CanvasHost store={store} onImagePicker={registerPicker} onController={setController} />
       <EmptyState store={store} />
 
+      <div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-3 sm:hidden">
+        <BoardMobileMenu />
+      </div>
+
       <div className="pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] flex justify-center px-3 sm:hidden">
         <MobileBar
           store={store}
@@ -82,14 +144,20 @@ function Board({ store }: BoardProps) {
       </div>
 
       <div className="pointer-events-none absolute top-3 right-3 hidden justify-end sm:flex">
-        <StylePanelHost store={store} />
+        <StylePanelHost store={store} collapsible />
       </div>
       <div className="pointer-events-none absolute top-3 bottom-3 left-3 hidden sm:block">
         <BoardSidebar />
       </div>
+      <div
+        className="pointer-events-none absolute top-3 hidden transition-[left] duration-200 ease-linear sm:flex"
+        style={{ left: 'calc(1.25rem + var(--board-sidebar-width, 0px))' }}
+      >
+        <BoardPagesBar />
+      </div>
       {diagramOpen ? (
         <div
-          className="pointer-events-none absolute top-3 hidden justify-start transition-[left] duration-200 ease-linear sm:flex"
+          className="pointer-events-none absolute top-16 hidden justify-start transition-[left] duration-200 ease-linear sm:flex"
           style={{ left: 'calc(0.75rem + var(--board-sidebar-width, 0px))' }}
         >
           <DiagramPanelHost

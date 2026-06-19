@@ -1,7 +1,12 @@
-import { useSyncExternalStore } from 'react'
+import { PanelRightClose, SlidersHorizontal } from 'lucide-react'
+import { useCallback, useLayoutEffect, useState, useSyncExternalStore } from 'react'
 import type { ArrowElement, Element, SceneStore, SelectionStyle } from '@freedraw/engine'
 import {
   StylePanel,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   type ArrowPanelPatch,
   type ArrowPanelState,
   type PanelStyle,
@@ -11,6 +16,19 @@ import {
 
 interface StylePanelHostProps {
   store: SceneStore
+  /**
+   * When true (desktop), the panel can collapse to a single icon button in the
+   * corner. On mobile the panel already lives inside a toggled popover, so it is
+   * always rendered in full.
+   */
+  collapsible?: boolean
+}
+
+const COLLAPSE_KEY = 'freedraw:style-panel'
+
+function readCollapsed(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.localStorage.getItem(COLLAPSE_KEY) === 'collapsed'
 }
 
 interface PanelSnapshot {
@@ -28,11 +46,21 @@ const DEFAULT_SELECTION: StylePanelSelection = {
   hasArrow: false,
 }
 
-export function StylePanelHost({ store }: StylePanelHostProps) {
+export function StylePanelHost({ store, collapsible = false }: StylePanelHostProps) {
   const snapshot = useSyncExternalStore(
     (cb) => store.subscribeStyle(cb),
     () => readSnapshot(store),
   )
+
+  // Collapsed-to-icon state, persisted like the left sidebar and read
+  // synchronously on mount so it never flickers open on reload.
+  const [collapsed, setCollapsed] = useState<boolean>(() => collapsible && readCollapsed())
+  useLayoutEffect(() => {
+    if (collapsible) window.localStorage.setItem(COLLAPSE_KEY, collapsed ? 'collapsed' : 'expanded')
+  }, [collapsible, collapsed])
+
+  const collapse = useCallback(() => setCollapsed(true), [])
+  const expand = useCallback(() => setCollapsed(false), [])
 
   const updateStyle = (patch: PanelStylePatch): void => {
     const selectedIds = store.getUiState().selectedIds
@@ -49,6 +77,26 @@ export function StylePanelHost({ store }: StylePanelHostProps) {
     store.updateArrowheads(selectedIds, patch)
   }
 
+  if (collapsed) {
+    return (
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={expand}
+              aria-label="Show style panel"
+              className="pointer-events-auto flex size-10 items-center justify-center rounded-xl border bg-background/95 text-foreground/70 shadow-lg backdrop-blur transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-5"
+            >
+              <SlidersHorizontal />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left">Style</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  }
+
   return (
     <StylePanel
       selection={snapshot.selection}
@@ -58,7 +106,25 @@ export function StylePanelHost({ store }: StylePanelHostProps) {
       onArrowChange={updateArrow}
       onInteractStart={() => store.stopCapturing()}
       onInteractEnd={() => store.stopCapturing()}
+      header={collapsible ? <PanelHeader onCollapse={collapse} /> : undefined}
     />
+  )
+}
+
+function PanelHeader({ onCollapse }: { onCollapse(): void }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-sm font-medium">Style</span>
+      <button
+        type="button"
+        onClick={onCollapse}
+        aria-label="Collapse style panel"
+        title="Collapse style panel"
+        className="flex size-7 shrink-0 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4"
+      >
+        <PanelRightClose />
+      </button>
+    </div>
   )
 }
 

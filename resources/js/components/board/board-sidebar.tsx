@@ -275,7 +275,6 @@ export function BoardSidebar() {
         {organizationMenu}
       </DropdownMenu>
 
-      {/* Settings */}
       <nav className="flex flex-col gap-0.5">
         <Link
           href="/settings/profile"

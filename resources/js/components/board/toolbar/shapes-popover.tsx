@@ -1,8 +1,8 @@
-import { ChevronUp } from 'lucide-react'
+import { Shapes } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover.js'
 import { cn } from '@/lib/utils'
 import { ToolButton } from './tool-button.js'
-import { SHAPES, type ShapeType } from './shapes.js'
+import { SHAPES, type ShapeEntry, type ShapeType } from './shapes.js'
 
 export interface ShapesPopoverProps {
   open: boolean
@@ -10,6 +10,9 @@ export interface ShapesPopoverProps {
   activeShapeType: ShapeType
   shapeToolActive: boolean
   onSelectShape(type: ShapeType): void
+  /** Shapes to list in the popover. Defaults to the full set. */
+  shapes?: ShapeEntry[]
+  label?: string
 }
 
 export function ShapesPopover({
@@ -18,12 +21,14 @@ export function ShapesPopover({
   activeShapeType,
   shapeToolActive,
   onSelectShape,
+  shapes = SHAPES,
+  label = 'More shapes',
 }: ShapesPopoverProps) {
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
-        <ToolButton label="Shapes" active={shapeToolActive}>
-          <ChevronUp />
+        <ToolButton label={label} active={shapeToolActive}>
+          <Shapes />
         </ToolButton>
       </PopoverTrigger>
       <PopoverContent
@@ -33,7 +38,7 @@ export function ShapesPopover({
         className="w-auto rounded-2xl p-2"
       >
         <div className="grid grid-cols-4 gap-1">
-          {SHAPES.map(({ type, label, Icon }) => (
+          {shapes.map(({ type, label, Icon }) => (
             <button
               key={type}
               type="button"

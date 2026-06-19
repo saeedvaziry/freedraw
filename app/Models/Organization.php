@@ -25,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, OrganizationInvitation> $invitations
  * @property-read Collection<int, Membership> $memberships
  * @property-read Collection<int, User> $members
+ * @property-read Collection<int, Page> $pages
  */
 #[Fillable(['name', 'slug', 'is_personal'])]
 class Organization extends Model
@@ -93,6 +94,16 @@ class Organization extends Model
     public function invitations(): HasMany
     {
         return $this->hasMany(OrganizationInvitation::class);
+    }
+
+    /**
+     * Get all pages for this organization.
+     *
+     * @return HasMany<Page, $this>
+     */
+    public function pages(): HasMany
+    {
+        return $this->hasMany(Page::class);
     }
 
     /**

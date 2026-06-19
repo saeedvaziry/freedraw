@@ -1,12 +1,14 @@
 <?php
 
+use App\Http\Controllers\BoardController;
 use App\Http\Controllers\Organizations\OrganizationInvitationController;
+use App\Http\Controllers\PageController;
 use App\Http\Controllers\SocialLoginController;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'board')->name('home');
+Route::get('/', [BoardController::class, 'home'])->name('home');
 
-Route::inertia('/board', 'board')->name('board');
+Route::get('/board', [BoardController::class, 'home'])->name('board');
 
 // Social Login (GitHub, Google)
 Route::middleware('guest')->group(function () {
@@ -19,6 +21,11 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware(['auth'])->group(function () {
+    Route::get('pages/{page}', [BoardController::class, 'show'])->name('pages.show');
+    Route::post('pages', [PageController::class, 'store'])->name('pages.store');
+    Route::patch('pages/{page}', [PageController::class, 'update'])->name('pages.update');
+    Route::delete('pages/{page}', [PageController::class, 'destroy'])->name('pages.destroy');
+
     Route::get('invitations/{invitation}/accept', [OrganizationInvitationController::class, 'accept'])->name('invitations.accept');
     Route::delete('invitations/{invitation}', [OrganizationInvitationController::class, 'decline'])->name('invitations.decline');
 });

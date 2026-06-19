@@ -45,3 +45,18 @@ export const SHAPES: ShapeEntry[] = [
   { type: 'cloud', label: 'Cloud', Icon: Cloud },
   { type: 'heart', label: 'Heart', Icon: Heart },
 ]
+
+/**
+ * Shapes promoted to their own buttons in the compact horizontal toolbar — the
+ * universal flowchart primitives (process, terminator, decision). The rest live
+ * in the shapes popover.
+ */
+export const FEATURED_SHAPE_TYPES: ShapeType[] = ['rect', 'ellipse', 'diamond']
+
+export const FEATURED_SHAPES: ShapeEntry[] = FEATURED_SHAPE_TYPES.map(
+  (type) => SHAPES.find((shape) => shape.type === type)!,
+)
+
+export const MORE_SHAPES: ShapeEntry[] = SHAPES.filter(
+  (shape) => !FEATURED_SHAPE_TYPES.includes(shape.type),
+)
