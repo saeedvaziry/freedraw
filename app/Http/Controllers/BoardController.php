@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\SerializesPages;
 use App\Models\Page;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -11,9 +13,11 @@ use Inertia\Response;
 
 class BoardController extends Controller
 {
+    use SerializesPages;
+
     /**
      * Display the board. Guests use a local-only board; authenticated users are
-     * moved to their most recently updated organization page when one exists.
+     * moved to their most recently updated visible page when one exists.
      */
     public function home(Request $request): Response|RedirectResponse
     {
@@ -21,10 +25,11 @@ class BoardController extends Controller
         $organization = $user?->currentOrganization;
 
         if (! $user || ! $organization) {
-            return Inertia::render('board', $this->props());
+            return Inertia::render('board', $this->props($user));
         }
 
         $page = $organization->pages()
+            ->visibleTo($user)
             ->latest('updated_at')
             ->first();
 
@@ -32,7 +37,7 @@ class BoardController extends Controller
             return to_route('pages.show', $page);
         }
 
-        return Inertia::render('board', $this->props(pages: collect()));
+        return Inertia::render('board', $this->props($user, pages: collect()));
     }
 
     /**
@@ -42,15 +47,17 @@ class BoardController extends Controller
     {
         $user = $request->user();
 
-        abort_unless($user && $user->belongsToOrganization($page->organization), 403);
+        abort_unless($user, 403);
+        $this->authorize('view', $page);
 
         if (! $user->isCurrentOrganization($page->organization)) {
             $user->switchOrganization($page->organization);
         }
 
         return Inertia::render('board', $this->props(
+            $user,
             page: $page,
-            pages: $page->organization->pages()->latest('updated_at')->get(),
+            pages: $page->organization->pages()->visibleTo($user)->latest('updated_at')->get(),
         ));
     }
 
@@ -58,26 +65,11 @@ class BoardController extends Controller
      * @param  Collection<int, Page>|null  $pages
      * @return array<string, mixed>
      */
-    private function props(?Page $page = null, ?Collection $pages = null): array
+    private function props(?User $user, ?Page $page = null, ?Collection $pages = null): array
     {
         return [
-            'boardPage' => $page ? $this->serializePage($page) : null,
-            'boardPages' => $pages?->map(fn (Page $page) => $this->serializePage($page, includeDocument: false))->values() ?? [],
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function serializePage(Page $page, bool $includeDocument = true): array
-    {
-        return [
-            'publicId' => $page->public_id,
-            'organizationId' => $page->organization_id,
-            'title' => $page->title,
-            'document' => $includeDocument ? $page->document : null,
-            'url' => route('pages.show', $page),
-            'updatedAt' => $page->updated_at?->toISOString(),
+            'boardPage' => $page ? $this->serializePage($page, $user) : null,
+            'boardPages' => $pages?->map(fn (Page $page) => $this->serializePage($page, $user, includeDocument: false))->values() ?? [],
         ];
     }
 }

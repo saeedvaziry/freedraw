@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react'
-import { Check, ChevronsUpDown, House, LogIn, LogOut, Menu, Plus, Settings, UserPlus, Users } from 'lucide-react'
+import { Check, ChevronsUpDown, House, LogIn, LogOut, Menu, Plus, Settings, Share2, UserPlus, Users } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import AppLogoIcon from '@/components/app-logo-icon'
 import CreateOrganizationModal from '@/components/create-organization-modal'
@@ -16,6 +16,7 @@ import { usePages } from '@/hooks/board/use-pages'
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation'
 import type { Organization } from '@/types'
 import { PageRow } from './page-row.js'
+import { SharePageModal } from './share-page-modal.js'
 
 /**
  * Mobile navigation. The desktop sidebar is hidden on small screens, so this
@@ -239,6 +240,7 @@ function PagesSection({
     saveRename,
     confirmDelete,
   } = pages
+  const [shareOpen, setShareOpen] = useState(false)
 
   return (
     <div className="flex flex-col gap-0.5">
@@ -267,6 +269,19 @@ function PagesSection({
           />
         ))
       )}
+      {activePage?.canShare ? (
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate()
+            setShareOpen(true)
+          }}
+          className="flex items-center gap-2 rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <Share2 className="size-4 shrink-0" />
+          <span>Share page</span>
+        </button>
+      ) : null}
       <button
         type="button"
         disabled={creating}
@@ -276,6 +291,9 @@ function PagesSection({
         <Plus className="size-4 shrink-0" />
         <span>{creating ? 'Creating…' : 'New page'}</span>
       </button>
+      {activePage ? (
+        <SharePageModal boardPage={activePage} open={shareOpen} onOpenChange={setShareOpen} />
+      ) : null}
     </div>
   )
 }

@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\SerializesPages;
 use App\Models\Page;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class PageController extends Controller
 {
+    use SerializesPages;
+
     /**
      * Store a new page in the user's current organization.
      */
@@ -29,7 +32,7 @@ class PageController extends Controller
             'document' => $validated['document'] ?? null,
         ]);
 
-        return response()->json($this->serializePage($page), 201);
+        return response()->json($this->serializePage($page, $user), 201);
     }
 
     /**
@@ -39,7 +42,8 @@ class PageController extends Controller
     {
         $user = $request->user();
 
-        abort_unless($user && $user->belongsToOrganization($page->organization), 403);
+        abort_unless($user, 403);
+        $this->authorize('update', $page);
 
         $validated = $request->validate([
             'title' => ['sometimes', 'nullable', 'string', 'max:120'],
@@ -53,7 +57,7 @@ class PageController extends Controller
         $page->fill($validated);
         $page->save();
 
-        return response()->json($this->serializePage($page->refresh()));
+        return response()->json($this->serializePage($page->refresh(), $user));
     }
 
     /**
@@ -63,34 +67,21 @@ class PageController extends Controller
     {
         $user = $request->user();
 
-        abort_unless($user && $user->belongsToOrganization($page->organization), 403);
+        abort_unless($user, 403);
+        $this->authorize('delete', $page);
 
         $organization = $page->organization;
 
         $page->delete();
 
         $nextPage = $organization->pages()
+            ->visibleTo($user)
             ->latest('updated_at')
             ->first();
 
         return response()->json([
             'redirectUrl' => $nextPage ? route('pages.show', $nextPage) : route('home'),
         ]);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function serializePage(Page $page): array
-    {
-        return [
-            'publicId' => $page->public_id,
-            'organizationId' => $page->organization_id,
-            'title' => $page->title,
-            'document' => $page->document,
-            'url' => route('pages.show', $page),
-            'updatedAt' => $page->updated_at?->toISOString(),
-        ];
     }
 
     private function normalizeTitle(?string $title): string

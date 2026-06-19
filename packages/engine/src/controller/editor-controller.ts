@@ -66,6 +66,7 @@ export class EditorController {
   private blobLoader: BlobLoader = () => Promise.resolve(undefined)
   private lastPointerScreen: Point | null = null
   private darkMode = false
+  private readOnly = false
 
   constructor(
     private readonly store: SceneStore,
@@ -112,7 +113,28 @@ export class EditorController {
       onPointerInfo: (info) => {
         this.lastPointerScreen = info.screen
       },
+      isReadOnly: () => this.readOnly,
     })
+  }
+
+  /**
+   * Toggle read-only mode. Navigation (pan/zoom) stays enabled while every
+   * mutation path — tools, text editing, spawn menu — is suppressed. Used for
+   * public share links that should be viewable but not editable.
+   */
+  setReadOnly(readOnly: boolean): void {
+    if (this.readOnly === readOnly) return
+    this.readOnly = readOnly
+    if (readOnly) {
+      this.cancelEdit()
+      this.closeSpawnMenu()
+      this.store.setUiState({ selectedIds: new Set() })
+    }
+    this.loop.markDirty()
+  }
+
+  get isReadOnly(): boolean {
+    return this.readOnly
   }
 
   mount(): Cleanup {

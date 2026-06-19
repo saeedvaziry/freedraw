@@ -193,4 +193,24 @@ trait HasOrganizations
     {
         return $this->organizationRole($organization)?->hasPermission($permission) ?? false;
     }
+
+    /**
+     * Determine if the user administers the given organization (owner or admin).
+     */
+    public function administersOrganization(Organization $organization): bool
+    {
+        return $this->organizationRole($organization)?->isAtLeast(OrganizationRole::Admin) ?? false;
+    }
+
+    /**
+     * Get the ids of the organizations the user owns or administers.
+     *
+     * @return Collection<int, int>
+     */
+    public function administeredOrganizationIds(): Collection
+    {
+        return $this->organizationMemberships()
+            ->whereIn('role', [OrganizationRole::Owner->value, OrganizationRole::Admin->value])
+            ->pluck('organization_id');
+    }
 }

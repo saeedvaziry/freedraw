@@ -26,7 +26,8 @@ function destroyBoard(board: CreatedBoard): void {
 }
 
 export function BoardRoute() {
-  const { auth, boardPage, currentOrganization } = usePage().props
+  const { auth, boardPage, currentOrganization, boardAccess } = usePage().props
+  const publicView = boardAccess?.isPublic ?? false
   const [board, setBoard] = useState<{ store: SceneStore; page: BoardPage | null } | null>(null)
   // The board currently mounted on screen. We hold onto it across navigation so
   // the old canvas keeps painting while the next board hydrates in the
@@ -53,6 +54,7 @@ export function BoardRoute() {
       userId: auth?.user?.id ?? null,
       organizationId: currentOrganization?.id ?? null,
       initialPage: boardPage ?? null,
+      publicView,
     })
       .then((result) => {
         if (cancelled) {
@@ -80,7 +82,7 @@ export function BoardRoute() {
     return () => {
       cancelled = true
     }
-  }, [auth?.user?.id, boardPage, currentOrganization?.id])
+  }, [auth?.user?.id, boardPage, currentOrganization?.id, publicView])
 
   // Destroy the last board only when the route itself unmounts (leaving the
   // board entirely), not on every navigation between boards.
@@ -94,7 +96,7 @@ export function BoardRoute() {
   }, [])
 
   if (!board) return <BoardLoading />
-  return <Board store={board.store} />
+  return <Board store={board.store} readOnly={publicView} />
 }
 
 function BoardLoading() {
@@ -103,9 +105,11 @@ function BoardLoading() {
 
 interface BoardProps {
   store: SceneStore
+  /** Read-only public share: pan/zoom/copy/export stay, document edits are blocked. */
+  readOnly?: boolean
 }
 
-function Board({ store }: BoardProps) {
+function Board({ store, readOnly = false }: BoardProps) {
   const [controller, setController] = useState<EditorController | null>(null)
   const [diagramOpen, setDiagramOpen] = useState(false)
   const pickerRef = useRef<(() => void) | null>(null)
@@ -123,6 +127,12 @@ function Board({ store }: BoardProps) {
   useEffect(() => {
     controller?.setDark(theme === 'dark')
   }, [controller, theme])
+
+  // Read-only public shares can still pan, zoom, copy and export; only document
+  // mutation (drawing, moving, deleting, text editing) is suppressed.
+  useEffect(() => {
+    controller?.setReadOnly(readOnly)
+  }, [controller, readOnly])
 
   return (
     <div className="relative h-full w-full">
