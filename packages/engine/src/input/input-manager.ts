@@ -11,6 +11,12 @@ export interface InputHandlers {
   onGesture(delta: PinchDelta): void
   onGestureEnd(): void
   onPointerInfo?(info: PointerInfo): void
+  /**
+   * When true, tool interactions (create/select/move/edit) are suppressed while
+   * navigation (pan/zoom via wheel and pinch) keeps working. Read each time so
+   * the mode can be toggled after the manager is attached.
+   */
+  isReadOnly?(): boolean
 }
 
 type Cleanup = () => void
@@ -45,6 +51,10 @@ export class InputManager {
     this.cleanups.length = 0
   }
 
+  private get readOnly(): boolean {
+    return this.handlers.isReadOnly?.() ?? false
+  }
+
   private info(event: PointerEvent | MouseEvent): PointerInfo {
     const screen = this.localPoint(event.clientX, event.clientY)
     return {
@@ -68,7 +78,7 @@ export class InputManager {
       const tool = this.handlers.getActiveTool()
       const info = this.info(event)
       this.handlers.onPointerInfo?.(info)
-      if (!tool.onPointerDown) return
+      if (this.readOnly || !tool.onPointerDown) return
       this.toolPointerId = event.pointerId
       this.pendingCaptureId = event.pointerId
       this.lastToolInfo = info
@@ -87,7 +97,7 @@ export class InputManager {
       const info = this.info(event)
       this.handlers.onPointerInfo?.(info)
       this.lastToolInfo = info
-      if (!tool.onPointerMove) return
+      if (this.readOnly || !tool.onPointerMove) return
       if (this.pendingCaptureId === event.pointerId && !this.capturing) {
         try {
           this.overlay.setPointerCapture(event.pointerId)
@@ -115,7 +125,7 @@ export class InputManager {
       this.capturing = false
       this.pendingCaptureId = null
       this.toolPointerId = null
-      if (!tool.onPointerUp) return
+      if (this.readOnly || !tool.onPointerUp) return
       this.handlers.onResult(tool.onPointerUp(info, this.handlers.context))
     }
     this.overlay.addEventListener('pointerdown', onDown)
@@ -190,6 +200,7 @@ export class InputManager {
 
   private attachDoubleClick(): void {
     const onDoubleClick = (event: MouseEvent): void => {
+      if (this.readOnly) return
       const tool = this.handlers.getActiveTool()
       const info = this.info(event)
       this.handlers.onPointerInfo?.(info)
@@ -202,6 +213,7 @@ export class InputManager {
 
   private attachContextMenu(): void {
     const onContextMenu = (event: MouseEvent): void => {
+      if (this.readOnly) return
       const tool = this.handlers.getActiveTool()
       if (!tool.onContextMenu) return
       const info = this.info(event)
@@ -216,6 +228,7 @@ export class InputManager {
 
   private attachKeyboard(): void {
     const onKeyDown = (event: KeyboardEvent): void => {
+      if (this.readOnly) return
       const tool = this.handlers.getActiveTool()
       if (!tool.onKeyDown) return
       this.handlers.onResult(tool.onKeyDown(event, this.handlers.context))

@@ -1,9 +1,14 @@
 import * as Y from 'yjs'
-import type { BoardPage } from '@/types'
+import type { BoardPage, PagePermission, PageVisibility } from '@/types'
 
 export interface SavePagePayload {
   title?: string | null
   document?: string | null
+}
+
+export interface SharePagePayload {
+  visibility: PageVisibility
+  permission: PagePermission
 }
 
 export interface DeletePageResult {
@@ -82,6 +87,16 @@ export async function updateRemotePage(
 export async function deleteRemotePage(publicId: string): Promise<DeletePageResult> {
   return requestJson<DeletePageResult>(`/pages/${encodeURIComponent(publicId)}`, {
     method: 'DELETE',
+  })
+}
+
+export async function updateRemoteShare(
+  publicId: string,
+  payload: SharePagePayload,
+): Promise<BoardPage> {
+  return requestJson<BoardPage>(`/pages/${encodeURIComponent(publicId)}/share`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
   })
 }
 

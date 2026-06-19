@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react'
-import { ChevronsUpDown, FileText, Plus } from 'lucide-react'
+import { ChevronsUpDown, FileText, Plus, Share2 } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import {
   DropdownMenu,
@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { usePages } from '@/hooks/board/use-pages'
 import { PageRow } from './page-row.js'
+import { SharePageModal } from './share-page-modal.js'
 
 /**
  * Floating page switcher anchored top-left, beside the sidebar. A single
@@ -22,6 +23,7 @@ import { PageRow } from './page-row.js'
 export function BoardPagesBar() {
   const user = usePage().props.auth?.user ?? null
   const [open, setOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const pages = usePages(useCallback(() => setOpen(false), []))
   const {
     boardPages,
@@ -55,12 +57,12 @@ export function BoardPagesBar() {
   const count = boardPages.length
 
   return (
-    <div className="pointer-events-auto max-w-[min(22rem,calc(100vw-7rem))]">
+    <div className="pointer-events-auto flex items-center gap-2">
       <DropdownMenu open={open} onOpenChange={handleOpenChange}>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="flex h-9 w-full min-w-0 items-center gap-2 rounded-lg border bg-background/90 px-2.5 text-left text-sm shadow-sm backdrop-blur transition-colors hover:bg-accent data-[state=open]:bg-accent"
+            className="flex h-9 min-w-0 max-w-[min(22rem,calc(100vw-10rem))] items-center gap-2 rounded-lg border bg-background/90 px-2.5 text-left text-sm shadow-sm backdrop-blur transition-colors hover:bg-accent data-[state=open]:bg-accent"
           >
             <FileText className="size-4 shrink-0 text-foreground/70" />
             <span className="min-w-0 flex-1 truncate font-medium">
@@ -125,6 +127,23 @@ export function BoardPagesBar() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {activePage?.canShare ? (
+        <button
+          type="button"
+          aria-label="Share page"
+          title="Share page"
+          onClick={() => setShareOpen(true)}
+          className="flex h-9 shrink-0 items-center gap-2 rounded-lg border bg-background/90 px-2.5 text-sm shadow-sm backdrop-blur transition-colors hover:bg-accent"
+        >
+          <Share2 className="size-4 shrink-0 text-foreground/70" />
+          <span className="font-medium">Share</span>
+        </button>
+      ) : null}
+
+      {activePage ? (
+        <SharePageModal boardPage={activePage} open={shareOpen} onOpenChange={setShareOpen} />
+      ) : null}
     </div>
   )
 }

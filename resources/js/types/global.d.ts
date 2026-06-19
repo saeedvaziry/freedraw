@@ -1,6 +1,6 @@
 import type { Auth } from '@/types/auth';
 import type { Organization } from '@/types/organizations';
-import type { BoardPage } from '@/types/pages';
+import type { BoardAccess, BoardPage } from '@/types/pages';
 
 declare module 'react' {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -16,6 +16,7 @@ declare module '@inertiajs/core' {
             auth: Auth;
             boardPage: BoardPage | null;
             boardPages: BoardPage[];
+            boardAccess: BoardAccess | null;
             sidebarOpen: boolean;
             currentOrganization: Organization | null;
             organizations: Organization[];

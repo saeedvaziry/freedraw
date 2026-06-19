@@ -24,6 +24,8 @@ export interface BoardContext {
   userId: number | null
   organizationId: number | null
   initialPage: BoardPage | null
+  /** True when viewing a page through a public, read-only share link. */
+  publicView?: boolean
 }
 
 export type CreateBoardResult = Board | { redirectTo: string }
@@ -66,6 +68,48 @@ async function hydrate(doc: Y.Doc): Promise<boolean> {
 
 function isAuthenticatedContext(context: BoardContext): boolean {
   return Boolean(context.userId && context.organizationId)
+}
+
+/**
+ * An in-memory persistence that never touches IndexedDB. Used for read-only
+ * public shares so a visitor's browser doesn't accumulate copies of pages they
+ * merely viewed, and so edits (which the canvas may still allow locally) are
+ * never written anywhere.
+ */
+function createEphemeralPersistence(doc: Y.Doc): DocumentPersistence {
+  return {
+    doc,
+    // No IndexedDB provider: a public board never persists or syncs.
+    whenSynced: Promise.resolve(),
+    clear: () => Promise.resolve(),
+    destroy: () => doc.destroy(),
+  }
+}
+
+/**
+ * Build a read-only board from a server-provided document for a public share
+ * link. No IndexedDB persistence and no sync back to the server.
+ */
+async function createPublicBoard(page: BoardPage): Promise<Board> {
+  let doc = new Y.Doc()
+
+  if (page.document) {
+    try {
+      applyBase64Update(doc, page.document)
+    } catch (error) {
+      console.warn('Failed to load shared page document', error)
+    }
+  }
+
+  // A corrupt shared document can't be repaired here (there is no local copy to
+  // fall back to), so start from a clean board rather than rendering partial state.
+  if (!(await hydrate(doc))) {
+    doc = new Y.Doc()
+  }
+
+  seedAppState(doc)
+
+  return { store: new SceneStore(doc), persistence: createEphemeralPersistence(doc), page }
 }
 
 async function createAnonymousBoard(): Promise<Board> {
@@ -239,6 +283,10 @@ async function createAuthenticatedBoard(context: BoardContext): Promise<CreateBo
 }
 
 export async function createBoard(context: BoardContext): Promise<CreateBoardResult> {
+  if (context.publicView && context.initialPage) {
+    return createPublicBoard(context.initialPage)
+  }
+
   if (!isAuthenticatedContext(context)) {
     return createAnonymousBoard()
   }

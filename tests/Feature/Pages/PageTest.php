@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\OrganizationRole;
+use App\Enums\PagePermission;
 use App\Models\Page;
 use App\Models\User;
 use Illuminate\Support\Str;
@@ -89,14 +90,14 @@ test('pages can be created in the current organization', function () {
     ]);
 });
 
-test('page documents can be updated by organization members', function () {
+test('page documents can be updated by members when shared with edit permission', function () {
     $owner = User::factory()->create();
     $member = User::factory()->create();
     $organization = $owner->currentOrganization;
     $organization->members()->attach($member, ['role' => OrganizationRole::Member->value]);
     $member->switchOrganization($organization);
 
-    $page = Page::factory()->create([
+    $page = Page::factory()->sharedWithOrganization(PagePermission::Edit)->create([
         'organization_id' => $organization->id,
         'created_by' => $owner->id,
         'document' => base64_encode('old'),

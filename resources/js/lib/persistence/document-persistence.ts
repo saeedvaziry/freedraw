@@ -5,7 +5,8 @@ export const DOCUMENT_DB_NAME = 'freedraw-doc'
 
 export interface DocumentPersistence {
   readonly doc: Y.Doc
-  readonly provider: IndexeddbPersistence
+  /** Absent for ephemeral (in-memory) persistence such as public read-only shares. */
+  readonly provider?: IndexeddbPersistence
   whenSynced: Promise<void>
   clear(): Promise<void>
   destroy(): void
