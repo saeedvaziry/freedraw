@@ -20,6 +20,7 @@ const shapeTypes: ShapeType[] = [
   'star',
   'cloud',
   'heart',
+  'lightning',
 ]
 
 const painters: Partial<Record<string, Painter>> = {

@@ -9,6 +9,7 @@ import {
   Square,
   Star,
   Triangle,
+  Zap,
   type LucideIcon,
 } from 'lucide-react'
 import { ParallelogramIcon } from './icons.js'
@@ -25,6 +26,7 @@ export type ShapeType =
   | 'star'
   | 'cloud'
   | 'heart'
+  | 'lightning'
 
 export interface ShapeEntry {
   type: ShapeType
@@ -44,6 +46,7 @@ export const SHAPES: ShapeEntry[] = [
   { type: 'cylinder', label: 'Cylinder', Icon: Cylinder },
   { type: 'cloud', label: 'Cloud', Icon: Cloud },
   { type: 'heart', label: 'Heart', Icon: Heart },
+  { type: 'lightning', label: 'Lightning', Icon: Zap },
 ]
 
 /**

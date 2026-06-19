@@ -51,6 +51,7 @@ export type ShapeType =
   | 'star'
   | 'cloud'
   | 'heart'
+  | 'lightning'
 
 export interface ShapeElement extends BaseElement {
   type: ShapeType

@@ -8,7 +8,7 @@ export interface SerializeReport {
   skipped: { id: ElementId; type: string }[]
 }
 
-const NODE_TYPES = new Set<string>(['rect', 'roundRect', 'ellipse', 'diamond', 'triangle', 'cylinder', 'hexagon', 'parallelogram', 'star', 'cloud', 'heart', 'text'])
+const NODE_TYPES = new Set<string>(['rect', 'roundRect', 'ellipse', 'diamond', 'triangle', 'cylinder', 'hexagon', 'parallelogram', 'star', 'cloud', 'heart', 'lightning', 'text'])
 
 export function serializeDiagram(snapshot: SceneSnapshot): SerializeReport {
   const ordered = orderedElements(snapshot)

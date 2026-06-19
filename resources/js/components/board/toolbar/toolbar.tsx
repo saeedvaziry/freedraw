@@ -54,6 +54,7 @@ const SHAPE_SHORTCUTS: Record<ShapeType, string> = {
   star: 'S',
   cloud: 'L',
   heart: 'E',
+  lightning: 'Z',
 }
 
 export interface ToolbarProps {

@@ -121,6 +121,25 @@ function star(bounds: Rect): Outline {
   return { kind: 'polygon', points }
 }
 
+function lightning({ x, y, width, height }: Rect): Outline {
+  // A zig-zag bolt drawn as a closed polygon, traced as a fraction of the
+  // bounding box so it scales with any width/height.
+  const fx = (fraction: number) => x + width * fraction
+  const fy = (fraction: number) => y + height * fraction
+  return {
+    kind: 'polygon',
+    points: [
+      { x: fx(0.55), y: fy(0) },
+      { x: fx(0.1), y: fy(0.55) },
+      { x: fx(0.42), y: fy(0.55) },
+      { x: fx(0.3), y: fy(1) },
+      { x: fx(0.9), y: fy(0.4) },
+      { x: fx(0.55), y: fy(0.4) },
+      { x: fx(0.72), y: fy(0) },
+    ],
+  }
+}
+
 function ellipseOutline({ x, y, width, height }: Rect): Outline {
   return {
     kind: 'ellipse',
@@ -209,6 +228,7 @@ const outlineFns: Record<string, OutlineFn> = {
   star,
   cloud: cloudOutline,
   heart: heartOutline,
+  lightning,
 }
 
 export function getOutline(type: string, bounds: Rect, roundness = 0): Outline | undefined {
