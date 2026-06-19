@@ -12,7 +12,34 @@ export interface DeletePageResult {
 
 const BASE64_CHUNK_SIZE = 0x8000
 
+/** Thrown when a request fails; `status` lets callers special-case 419 (CSRF). */
+export class PageRequestError extends Error {
+  constructor(public readonly status: number) {
+    super(`Page request failed with ${status}`)
+    this.name = 'PageRequestError'
+  }
+}
+
+/** True when the session's CSRF token has expired and the page must reload. */
+export function isCsrfExpired(error: unknown): boolean {
+  return error instanceof PageRequestError && error.status === 419
+}
+
+/**
+ * Read Laravel's XSRF-TOKEN cookie. Unlike the Blade meta tag this rotates with
+ * the session, so long-lived board tabs keep sending a valid token instead of a
+ * stale one. The cookie value is URL-encoded by Laravel.
+ */
 function csrfToken(): string {
+  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/)
+  if (match) {
+    try {
+      return decodeURIComponent(match[1])
+    } catch {
+      // Fall through to the meta tag below.
+    }
+  }
+
   return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
 }
 
@@ -23,13 +50,13 @@ async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      'X-CSRF-TOKEN': csrfToken(),
+      'X-XSRF-TOKEN': csrfToken(),
       ...init.headers,
     },
   })
 
   if (!response.ok) {
-    throw new Error(`Page request failed with ${response.status}`)
+    throw new PageRequestError(response.status)
   }
 
   return (await response.json()) as T

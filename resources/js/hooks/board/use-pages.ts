@@ -1,10 +1,22 @@
 import { router, usePage } from '@inertiajs/react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useToast } from '@/components/board/ui-kit'
-import { createRemotePage, deleteRemotePage, updateRemotePage } from '@/lib/persistence'
+import {
+  createRemotePage,
+  deleteRemotePage,
+  isCsrfExpired,
+  updateRemotePage,
+} from '@/lib/persistence'
 import type { BoardPage } from '@/types'
 
 const EMPTY_BOARD_PAGES: BoardPage[] = []
+
+const CSRF_EXPIRED_MESSAGE = 'Your session expired. Refresh the page and try again.'
+
+/** Pick the right message for a failed page request: CSRF rotation vs. generic. */
+function failureMessage(error: unknown, fallback: string): string {
+  return isCsrfExpired(error) ? CSRF_EXPIRED_MESSAGE : fallback
+}
 
 export type PageEditMode = 'rename' | 'delete'
 
@@ -70,7 +82,7 @@ export function usePages(onNavigate?: () => void): UsePagesResult {
         onNavigate?.()
         router.visit(created.url)
       })
-      .catch(() => toast('Could not create the page. Try again.', 'error'))
+      .catch((error) => toast(failureMessage(error, 'Could not create the page. Try again.'), 'error'))
       .finally(() => setCreating(false))
   }, [creating, onNavigate, toast])
 
@@ -103,7 +115,7 @@ export function usePages(onNavigate?: () => void): UsePagesResult {
           )
           resetEditing()
         })
-        .catch(() => toast('Could not rename the page. Try again.', 'error'))
+        .catch((error) => toast(failureMessage(error, 'Could not rename the page. Try again.'), 'error'))
         .finally(() => setBusy(false))
     },
     [busy, renameDraft, resetEditing, toast],
@@ -125,7 +137,7 @@ export function usePages(onNavigate?: () => void): UsePagesResult {
           )
           resetEditing()
         })
-        .catch(() => toast('Could not delete the page. Try again.', 'error'))
+        .catch((error) => toast(failureMessage(error, 'Could not delete the page. Try again.'), 'error'))
         .finally(() => setBusy(false))
     },
     [activePage?.publicId, busy, onNavigate, resetEditing, toast],

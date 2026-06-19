@@ -29,6 +29,9 @@ export interface BoardContext {
 export type CreateBoardResult = Board | { redirectTo: string }
 
 const BACKUP_KEY = 'freedraw:corrupt-backup'
+// Set after a successful promotion create but BEFORE the local board is cleared,
+// so a reload that interrupts the clear() doesn't create the page a second time.
+const PROMOTED_KEY = 'freedraw:promoted-page'
 let promotionPromise: Promise<BoardPage | null> | null = null
 let initialPageCreation:
   | {
@@ -82,11 +85,46 @@ async function createAnonymousBoard(): Promise<Board> {
   return { store: new SceneStore(persistence.doc), persistence, page: null }
 }
 
+function readPromotedMarker(): BoardPage | null {
+  try {
+    const raw = localStorage.getItem(PROMOTED_KEY)
+    return raw ? (JSON.parse(raw) as BoardPage) : null
+  } catch {
+    return null
+  }
+}
+
+function writePromotedMarker(page: BoardPage): void {
+  try {
+    localStorage.setItem(PROMOTED_KEY, JSON.stringify(page))
+  } catch (error) {
+    console.warn('Failed to record promoted page', error)
+  }
+}
+
+function clearPromotedMarker(): void {
+  try {
+    localStorage.removeItem(PROMOTED_KEY)
+  } catch {
+    // Ignore: a leftover marker is only read again after a successful clear().
+  }
+}
+
 async function promoteAnonymousBoard(): Promise<BoardPage | null> {
   const persistence = createDocumentPersistence(new Y.Doc(), DOCUMENT_DB_NAME)
   await persistence.whenSynced
 
   try {
+    // A previous attempt created the page but didn't finish clearing the local
+    // board (reload/crash mid-clear). Finish the clear and reuse that page
+    // instead of creating a duplicate.
+    const promoted = readPromotedMarker()
+    if (promoted) {
+      await persistence.clear()
+      clearPromotedMarker()
+      return promoted
+    }
+
     if (!(await hydrate(persistence.doc))) {
       await persistence.clear()
       return null
@@ -103,7 +141,11 @@ async function promoteAnonymousBoard(): Promise<BoardPage | null> {
       document: encodeDocAsBase64(persistence.doc),
     })
 
+    // Record the page before clearing so an interrupted clear() is recoverable
+    // without re-creating the page.
+    writePromotedMarker(page)
     await persistence.clear()
+    clearPromotedMarker()
 
     return page
   } finally {

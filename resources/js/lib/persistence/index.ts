@@ -8,6 +8,8 @@ export {
   deleteRemotePage,
   documentHasContent,
   encodeDocAsBase64,
+  isCsrfExpired,
+  PageRequestError,
   updateRemotePage,
 } from './page-api.js'
 export type { DeletePageResult, SavePagePayload } from './page-api.js'
