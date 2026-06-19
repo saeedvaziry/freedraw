@@ -1,5 +1,6 @@
 import type { Auth } from '@/types/auth';
 import type { Organization } from '@/types/organizations';
+import type { BoardPage } from '@/types/pages';
 
 declare module 'react' {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -13,6 +14,8 @@ declare module '@inertiajs/core' {
         sharedPageProps: {
             name: string;
             auth: Auth;
+            boardPage: BoardPage | null;
+            boardPages: BoardPage[];
             sidebarOpen: boolean;
             currentOrganization: Organization | null;
             organizations: Organization[];

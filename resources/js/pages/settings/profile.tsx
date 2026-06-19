@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import type { Auth } from '@/types';
 
 type PageProps = {
-    auth: Auth;
+    auth: Auth & { user: NonNullable<Auth['user']> };
 };
 
 export default function Profile({

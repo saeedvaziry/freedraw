@@ -13,7 +13,7 @@ import { TooltipProvider } from '../ui/tooltip.js'
 import { ToolButton } from './tool-button.js'
 import { ShapesPopover } from './shapes-popover.js'
 import { StickyPopover, type StickyColorKey } from './sticky-popover.js'
-import { SHAPES, type ShapeType } from './shapes.js'
+import { FEATURED_SHAPES, FEATURED_SHAPE_TYPES, MORE_SHAPES, SHAPES, type ShapeType } from './shapes.js'
 
 export type ToolKey =
   | 'select'
@@ -120,16 +120,32 @@ export function Toolbar({
         />
         <Divider horizontal={horizontal} />
         {horizontal ? (
-          <ShapesPopover
-            open={shapesOpen}
-            onOpenChange={setShapesOpen}
-            activeShapeType={activeShapeType}
-            shapeToolActive={activeTool === 'shape'}
-            onSelectShape={(type) => {
-              onSelectShape(type)
-              setShapesOpen(false)
-            }}
-          />
+          <>
+            {FEATURED_SHAPES.map(({ type, label, Icon }) => (
+              <ToolButton
+                key={type}
+                label={label}
+                shortcut={SHAPE_SHORTCUTS[type]}
+                active={activeTool === 'shape' && activeShapeType === type}
+                onClick={() => onSelectShape(type)}
+              >
+                <Icon />
+              </ToolButton>
+            ))}
+            <ShapesPopover
+              open={shapesOpen}
+              onOpenChange={setShapesOpen}
+              shapes={MORE_SHAPES}
+              activeShapeType={activeShapeType}
+              shapeToolActive={
+                activeTool === 'shape' && !FEATURED_SHAPE_TYPES.includes(activeShapeType)
+              }
+              onSelectShape={(type) => {
+                onSelectShape(type)
+                setShapesOpen(false)
+              }}
+            />
+          </>
         ) : (
           SHAPES.map(({ type, label, Icon }) => (
             <ToolButton
