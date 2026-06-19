@@ -79,9 +79,7 @@ function isAuthenticatedContext(context: BoardContext): boolean {
 function createEphemeralPersistence(doc: Y.Doc): DocumentPersistence {
   return {
     doc,
-    // The provider is only consumed for its lifecycle hooks elsewhere; a public
-    // board never reaches that code, so an unused stub is sufficient.
-    provider: undefined as unknown as DocumentPersistence['provider'],
+    // No IndexedDB provider: a public board never persists or syncs.
     whenSynced: Promise.resolve(),
     clear: () => Promise.resolve(),
     destroy: () => doc.destroy(),
@@ -93,7 +91,7 @@ function createEphemeralPersistence(doc: Y.Doc): DocumentPersistence {
  * link. No IndexedDB persistence and no sync back to the server.
  */
 async function createPublicBoard(page: BoardPage): Promise<Board> {
-  const doc = new Y.Doc()
+  let doc = new Y.Doc()
 
   if (page.document) {
     try {
@@ -103,8 +101,10 @@ async function createPublicBoard(page: BoardPage): Promise<Board> {
     }
   }
 
+  // A corrupt shared document can't be repaired here (there is no local copy to
+  // fall back to), so start from a clean board rather than rendering partial state.
   if (!(await hydrate(doc))) {
-    seedAppState(new Y.Doc())
+    doc = new Y.Doc()
   }
 
   seedAppState(doc)
