@@ -1,6 +1,13 @@
 {
   "version": 1,
   "skills": {
+    "freedraw-diagram-code": {
+      "source": "saeedvaziry/freedraw",
+      "ref": "main",
+      "sourceType": "github",
+      "skillPath": "skills/freedraw-diagram-code/SKILL.md",
+      "computedHash": "2308cdfa56bcfe505ca4177ad32c60775b72b469a2664e6482c346f5abf888ac"
+    },
     "frontend-design": {
       "source": "anthropics/skills",
       "sourceType": "github",

@@ -140,14 +140,14 @@ polyfill.
 
 ## The diagram language
 
-The syntax (and what does / doesn't round-trip) is documented in
-[`SKILL.md`](./SKILL.md), which ships with the package as a reference for AI agents and
-humans alike. In short: flowcharts only, and serialization (canvas → code) is
-intentionally lossy — positions, colors, freehand, images, sticky notes and unbound
-arrows are not represented in code.
+The syntax (and what does / doesn't round-trip) is documented in the
+[`freedraw-diagram-code` skill](https://github.com/saeedvaziry/freedraw/tree/main/skills/freedraw-diagram-code)
+as a reference for AI agents and humans alike. In short: flowcharts only, and
+serialization (canvas → code) is intentionally lossy — positions, colors, freehand,
+images, sticky notes and unbound arrows are not represented in code.
 
 Install the skill into an agent (e.g. Claude Code) with [`skills`](https://github.com/obra/skills):
 
 ```bash
-npx skills add github.com/saeedvaziry/freedraw/tree/main/packages/diagram
+npx skills add github.com/saeedvaziry/freedraw/tree/main/skills/freedraw-diagram-code
 ```

@@ -7,6 +7,7 @@ use App\Http\Controllers\PageShareController;
 use App\Http\Controllers\PublicPageController;
 use App\Http\Controllers\SocialLoginController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 
 Route::get('/', [BoardController::class, 'home'])->name('home');
 
@@ -17,7 +18,15 @@ Route::get('/docs/diagram', fn () => response(file_get_contents(resource_path('d
 ]))
     ->name('docs.diagram');
 Route::redirect('/docs/diagram.html', '/docs/diagram');
-Route::get('/docs/SKILL.md', fn () => response(file_get_contents(resource_path('docs/SKILL.md')), 200, [
+Route::get('/docs/packages/diagram', fn () => response(view('docs.markdown', [
+    'body' => Str::markdown(file_get_contents(base_path('packages/diagram/README.md'))),
+    'title' => '@freedraw/diagram — FreeDraw',
+]), 200, [
+    'Content-Type' => 'text/html; charset=UTF-8',
+]))
+    ->name('docs.packages.diagram');
+Route::redirect('/docs/diagram-package', '/docs/packages/diagram');
+Route::get('/docs/SKILL.md', fn () => response(file_get_contents(base_path('skills/freedraw-diagram-code/SKILL.md')), 200, [
     'Content-Type' => 'text/markdown; charset=UTF-8',
 ]));
 
