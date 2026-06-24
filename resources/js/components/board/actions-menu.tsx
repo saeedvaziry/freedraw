@@ -6,10 +6,8 @@ import {
   Crosshair,
   Download,
   ImageDown,
-  Moon,
   Redo2,
   Scissors,
-  Sun,
   Trash2,
   Undo2,
   type LucideIcon,
@@ -32,7 +30,6 @@ interface ActionsMenuProps {
   controller: EditorController | null
   boardExport: BoardExport
   theme: 'light' | 'dark'
-  onToggleTheme(): void
   children: ReactNode
 }
 
@@ -46,7 +43,6 @@ export function ActionsMenu({
   controller,
   boardExport,
   theme,
-  onToggleTheme,
   children,
 }: ActionsMenuProps) {
   const canUndo = useSyncExternalStore(
@@ -97,14 +93,6 @@ export function ActionsMenu({
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem onSelect={onToggleTheme}>
-          {theme === 'dark' ? (
-            <Sun className="text-foreground/70" />
-          ) : (
-            <Moon className="text-foreground/70" />
-          )}
-          <span className="flex-1">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
-        </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={(event) => {
             event.preventDefault()

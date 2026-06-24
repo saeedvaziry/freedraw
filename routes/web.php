@@ -12,6 +12,15 @@ Route::get('/', [BoardController::class, 'home'])->name('home');
 
 Route::get('/board', [BoardController::class, 'home'])->name('board');
 
+Route::get('/docs/diagram', fn () => response(file_get_contents(resource_path('docs/diagram.html')), 200, [
+    'Content-Type' => 'text/html; charset=UTF-8',
+]))
+    ->name('docs.diagram');
+Route::redirect('/docs/diagram.html', '/docs/diagram');
+Route::get('/docs/SKILL.md', fn () => response(file_get_contents(resource_path('docs/SKILL.md')), 200, [
+    'Content-Type' => 'text/markdown; charset=UTF-8',
+]));
+
 // Public share links (open to anyone, read-only).
 Route::get('s/{slug}', [PublicPageController::class, 'show'])->name('share.show');
 

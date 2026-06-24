@@ -12,7 +12,6 @@ interface BottomBarProps {
   controller: EditorController | null
   boardExport: BoardExport
   theme: 'light' | 'dark'
-  onToggleTheme(): void
   diagramOpen: boolean
   onToggleDiagram(): void
 }
@@ -20,15 +19,14 @@ interface BottomBarProps {
 /**
  * Compact desktop dock centered at the bottom of the canvas: one pill with the
  * drawing tools (shapes / sticky as upward popovers) plus a single "Actions"
- * button that opens the editing actions — undo, redo, delete, … plus theme /
- * snap / export — as an upward dropdown menu.
+ * button that opens the editing actions — undo, redo, delete, … plus snap /
+ * export — as an upward dropdown menu.
  */
 export function BottomBar({
   store,
   controller,
   boardExport,
   theme,
-  onToggleTheme,
   diagramOpen,
   onToggleDiagram,
 }: BottomBarProps) {
@@ -49,7 +47,6 @@ export function BottomBar({
             controller={controller}
             boardExport={boardExport}
             theme={theme}
-            onToggleTheme={onToggleTheme}
           >
             <ToolButton label="Actions">
               <Wrench />

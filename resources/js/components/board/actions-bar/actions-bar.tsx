@@ -4,10 +4,8 @@ import {
   ClipboardPaste,
   CopyPlus,
   Crosshair,
-  Moon,
   Redo2,
   Scissors,
-  Sun,
   Trash2,
   Undo2,
 } from 'lucide-react'
@@ -31,7 +29,6 @@ export interface ActionsBarProps {
   onExport(format: ExportFormat, transparent: boolean, dark: boolean): void
   onCopyToClipboard(): void
   theme: 'light' | 'dark'
-  onToggleTheme(): void
   snapGuidesEnabled: boolean
   onToggleSnapGuides(): void
   compact?: boolean
@@ -62,7 +59,6 @@ export function ActionsBar({
   onExport,
   onCopyToClipboard,
   theme,
-  onToggleTheme,
   snapGuidesEnabled,
   onToggleSnapGuides,
   compact = false,
@@ -98,12 +94,6 @@ export function ActionsBar({
           </ActionButton>
         ))}
         <div className="mx-1 h-7 w-px shrink-0 bg-border" />
-        <ActionButton
-          label={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-          onClick={onToggleTheme}
-        >
-          {theme === 'dark' ? <Sun /> : <Moon />}
-        </ActionButton>
         <ActionButton
           label={snapGuidesEnabled ? 'Hide guides' : 'Show guides'}
           aria-pressed={snapGuidesEnabled}

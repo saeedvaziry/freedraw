@@ -16,7 +16,7 @@ import { createBoard, type Board as CreatedBoard } from './create-board.js'
 import { useBoardClipboard } from '@/hooks/board/use-board-clipboard.js'
 import { useExport } from '@/hooks/board/use-export.js'
 import { useKeyboard } from '@/hooks/board/use-keyboard.js'
-import { useTheme } from '@/hooks/board/use-theme.js'
+import { useAppearance } from '@/hooks/use-appearance'
 import type { BoardPage } from '@/types'
 
 function destroyBoard(board: CreatedBoard): void {
@@ -119,7 +119,9 @@ function Board({ store, readOnly = false }: BoardProps) {
   const openImagePicker = useCallback(() => {
     pickerRef.current?.()
   }, [])
-  const { theme, toggle } = useTheme()
+  // The board consumes the app-wide appearance (light / dark / system) hook; the
+  // canvas and export only care about the *resolved* light/dark value.
+  const { resolvedAppearance: theme } = useAppearance()
   const boardExport = useExport(controller)
   useKeyboard(store, controller, openImagePicker, boardExport)
   useBoardClipboard(store, controller)
@@ -149,7 +151,6 @@ function Board({ store, readOnly = false }: BoardProps) {
           controller={controller}
           boardExport={boardExport}
           theme={theme}
-          onToggleTheme={toggle}
         />
       </div>
 
@@ -186,7 +187,6 @@ function Board({ store, readOnly = false }: BoardProps) {
           controller={controller}
           boardExport={boardExport}
           theme={theme}
-          onToggleTheme={toggle}
           diagramOpen={diagramOpen}
           onToggleDiagram={() => setDiagramOpen((open) => !open)}
         />

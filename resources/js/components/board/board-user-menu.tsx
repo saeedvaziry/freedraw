@@ -13,6 +13,7 @@ import {
 import { UserInfo } from '@/components/user-info'
 import { useInitials } from '@/hooks/use-initials'
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation'
+import { AppearanceSegmented } from './appearance-segmented.js'
 
 export function BoardUserMenu() {
   const page = usePage()
@@ -54,6 +55,10 @@ export function BoardUserMenu() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <div className="px-1 py-1">
+              <AppearanceSegmented />
+            </div>
+            <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
                 <Link
@@ -83,20 +88,26 @@ export function BoardUserMenu() {
             </DropdownMenuItem>
           </>
         ) : (
-          <DropdownMenuGroup>
-            <DropdownMenuItem asChild>
-              <Link className="block w-full cursor-pointer" href="/login" onClick={cleanup}>
-                <LogIn className="mr-2" />
-                Log in
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link className="block w-full cursor-pointer" href="/register" onClick={cleanup}>
-                <UserPlus className="mr-2" />
-                Register
-              </Link>
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
+          <>
+            <div className="px-1 py-1">
+              <AppearanceSegmented />
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem asChild>
+                <Link className="block w-full cursor-pointer" href="/login" onClick={cleanup}>
+                  <LogIn className="mr-2" />
+                  Log in
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link className="block w-full cursor-pointer" href="/register" onClick={cleanup}>
+                  <UserPlus className="mr-2" />
+                  Register
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

@@ -15,6 +15,7 @@ import { cn } from '@/components/board/ui-kit'
 import { usePages } from '@/hooks/board/use-pages'
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation'
 import type { Organization } from '@/types'
+import { AppearanceSegmented } from './appearance-segmented.js'
 import { PageRow } from './page-row.js'
 import { SharePageModal } from './share-page-modal.js'
 
@@ -132,8 +133,9 @@ export function BoardMobileMenu() {
           )}
         </div>
 
-        {user ? (
-          <div className="border-t p-2">
+        <div className="border-t p-2">
+          <AppearanceSegmented className="mb-1" />
+          {user ? (
             <div className="flex items-center gap-2 rounded-md px-2 py-1.5">
               <UserInfo user={user} showEmail />
               <Link
@@ -149,8 +151,8 @@ export function BoardMobileMenu() {
                 <LogOut />
               </Link>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </SheetContent>
     </Sheet>
   )

@@ -25,6 +25,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn, Tooltip, TooltipContent, TooltipTrigger } from '@/components/board/ui-kit'
+import { AppearanceSegmented } from './appearance-segmented.js'
 import { UserInfo } from '@/components/user-info'
 import { useInitials } from '@/hooks/use-initials'
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation'
@@ -136,6 +137,10 @@ export function BoardSidebar() {
           <UserInfo user={user} showEmail={true} />
         </div>
       </DropdownMenuLabel>
+      <DropdownMenuSeparator />
+      <div className="px-1 py-1">
+        <AppearanceSegmented />
+      </div>
       <DropdownMenuSeparator />
       <DropdownMenuGroup>
         <DropdownMenuItem asChild>

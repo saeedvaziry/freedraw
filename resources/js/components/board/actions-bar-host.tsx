@@ -10,7 +10,6 @@ interface ActionsBarHostProps {
   controller: EditorController | null
   boardExport: BoardExport
   theme: 'light' | 'dark'
-  onToggleTheme(): void
   compact?: boolean
 }
 
@@ -19,7 +18,6 @@ export function ActionsBarHost({
   controller,
   boardExport,
   theme,
-  onToggleTheme,
   compact,
 }: ActionsBarHostProps) {
   const history = useSyncExternalStore(
@@ -57,7 +55,6 @@ export function ActionsBarHost({
       onExport={(format, transparent, dark) => void exportImage(format, transparent, dark)}
       onCopyToClipboard={() => void copyImage()}
       theme={theme}
-      onToggleTheme={onToggleTheme}
       snapGuidesEnabled={snapshot.appState.snapGuidesEnabled}
       onToggleSnapGuides={() => store.setSnapGuidesEnabled(!store.getSnapshot().appState.snapGuidesEnabled)}
       compact={compact}

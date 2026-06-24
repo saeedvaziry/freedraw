@@ -23,7 +23,6 @@ interface MobileBarProps {
   controller: EditorController | null
   boardExport: BoardExport
   theme: 'light' | 'dark'
-  onToggleTheme(): void
 }
 
 export function MobileBar({
@@ -31,7 +30,6 @@ export function MobileBar({
   controller,
   boardExport,
   theme,
-  onToggleTheme,
 }: MobileBarProps) {
   const [section, setSection] = useState<Section | null>(null)
   const hasSelection = useHasSelection(store)
@@ -76,7 +74,6 @@ export function MobileBar({
             controller={controller}
             boardExport={boardExport}
             theme={theme}
-            onToggleTheme={onToggleTheme}
             compact
           />
         </SectionItem>
