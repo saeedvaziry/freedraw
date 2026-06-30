@@ -16,6 +16,8 @@ import {
 } from '../connectors/spawn.js'
 import type { EditListener, EditRequest } from '../text/edit.js'
 import { measureTextBox, type TextSize } from '../text/size.js'
+import { fitShapeToLabel } from '../text/label-size.js'
+import { defaultShapeSize } from '../model/factory.js'
 import type { Style } from '../model/types.js'
 import { createRenderLoop, type RenderLoopHandle } from '../render/loop.js'
 import { Renderer, type OverlayState, type SpawnPreview } from '../render/renderer.js'
@@ -34,6 +36,12 @@ import type { ToolContext, ToolResult } from '../tools/tool.js'
 
 function isArrow(element: Element): element is ArrowElement {
   return element.type === 'arrow' || element.type === 'line'
+}
+
+const NON_GROWING_TYPES = new Set(['text', 'arrow', 'line', 'freedraw', 'image'])
+
+function canGrowForLabel(element: Element): boolean {
+  return !NON_GROWING_TYPES.has(element.type)
 }
 
 const ZOOM_SENSITIVITY = 0.0015
@@ -56,6 +64,8 @@ export class EditorController {
   private guides: SnapGuide[] = []
   private portTargetId: ElementId | null = null
   private editRequest: EditRequest | null = null
+  private editBaseline: { id: ElementId; x: number; y: number; width: number; height: number } | null =
+    null
   private readonly editListeners = new Set<EditListener>()
   private readonly spawnMenuListeners = new Set<SpawnMenuListener>()
   private isSpaceDown = false
@@ -335,8 +345,46 @@ export class EditorController {
     )
   }
 
+  resizeShapeForLabel(elementId: ElementId, text: string): void {
+    const element = this.store.getSnapshot().elements[elementId]
+    if (!element || !canGrowForLabel(element)) return
+    const next = this.sizeForLabel(element, text)
+    if (
+      next.width === element.width &&
+      next.height === element.height &&
+      next.x === element.x &&
+      next.y === element.y
+    ) {
+      return
+    }
+    this.store.transact((api) => api.updateElement(elementId, next))
+    const request = this.editRequest
+    if (request && request.elementId === elementId) {
+      this.editRequest = { ...request, world: labelRect(element.type, next) }
+    }
+  }
+
+  private sizeForLabel(
+    element: Element,
+    text: string,
+  ): { x: number; y: number; width: number; height: number } {
+    const baseline =
+      this.editBaseline?.id === element.id
+        ? this.editBaseline
+        : { x: element.x, y: element.y, width: element.width, height: element.height }
+    return (
+      fitShapeToLabel(element.type, baseline, text, element.style) ?? {
+        x: baseline.x,
+        y: baseline.y,
+        width: baseline.width,
+        height: baseline.height,
+      }
+    )
+  }
+
   private beginEdit(request: EditRequest): void {
     this.editRequest = request
+    this.editBaseline = labelBaseline(this.store.getSnapshot().elements[request.elementId])
     this.store.stopCapturing()
     this.loop.markDirty()
     this.editListeners.forEach((listener) => listener(request))
@@ -345,6 +393,7 @@ export class EditorController {
   commitText(elementId: ElementId, target: EditRequest['target'], text: string): void {
     const trimmed = text
     const request = this.editRequest
+    const baseline = this.editBaseline
     const element = this.store.getSnapshot().elements[elementId]
     this.endEdit()
     if (!element) return
@@ -378,7 +427,21 @@ export class EditorController {
             align: element.label?.align ?? request?.align ?? element.style.textAlign,
             verticalAlign: element.label?.verticalAlign ?? request?.verticalAlign ?? 'middle',
           }
-    this.store.transact((api) => api.updateElement(elementId, { label: nextLabel }))
+    const floor =
+      baseline?.id === elementId
+        ? baseline
+        : { x: element.x, y: element.y, width: element.width, height: element.height }
+    const size = canGrowForLabel(element)
+      ? fitShapeToLabel(element.type, floor, trimmed, element.style) ?? {
+          x: floor.x,
+          y: floor.y,
+          width: floor.width,
+          height: floor.height,
+        }
+      : null
+    this.store.transact((api) =>
+      api.updateElement(elementId, { label: nextLabel, ...(size ?? {}) }),
+    )
     this.store.stopCapturing()
   }
 
@@ -393,6 +456,7 @@ export class EditorController {
   private endEdit(): void {
     if (!this.editRequest) return
     this.editRequest = null
+    this.editBaseline = null
     this.loop.markDirty()
     this.editListeners.forEach((listener) => listener(null))
   }
@@ -609,4 +673,29 @@ function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   if (target.isContentEditable) return true
   return ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
+}
+
+function labelBaseline(
+  element: Element | undefined,
+): { id: ElementId; x: number; y: number; width: number; height: number } | null {
+  if (!element || !canGrowForLabel(element)) return null
+  let width = element.width
+  let height = element.height
+  const labelText = element.label?.text
+  if (labelText) {
+    const base = defaultShapeSize(element.type as ShapeType)
+    const fitted = fitShapeToLabel(
+      element.type,
+      { x: element.x, y: element.y, width: base.width, height: base.height },
+      labelText,
+      element.style,
+    )
+    if (fitted) {
+      width = Math.max(base.width, element.width - (fitted.width - base.width))
+      height = Math.max(base.height, element.height - (fitted.height - base.height))
+    }
+  }
+  const cx = element.x + element.width / 2
+  const cy = element.y + element.height / 2
+  return { id: element.id, x: cx - width / 2, y: cy - height / 2, width, height }
 }

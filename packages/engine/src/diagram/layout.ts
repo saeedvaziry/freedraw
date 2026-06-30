@@ -1,7 +1,8 @@
 import { defaultShapeSize } from '../model/factory.js'
 import { defaultStyle } from '../model/schema.js'
 import { measureTextBox } from '../text/size.js'
-import type { Point, ShapeType, Style } from '../model/types.js'
+import { shapeTextInflation } from '../text/label-size.js'
+import type { Point, Style } from '../model/types.js'
 import type { AstNode, DiagramAst, Direction } from './ast.js'
 
 export interface NodeBox {
@@ -35,13 +36,6 @@ interface ResolvedLayout {
 
 const DEFAULT_LAYER_GAP = 140
 const DEFAULT_SIBLING_GAP = 90
-
-const SHAPE_TEXT_INFLATION: Partial<Record<ShapeType, { x: number; y: number }>> = {
-  diamond: { x: 1.7, y: 1.7 },
-  ellipse: { x: 1.4, y: 1.4 },
-  hexagon: { x: 1.3, y: 1 },
-  triangle: { x: 1.6, y: 1.8 },
-}
 
 export function layoutDiagram(
   ast: DiagramAst,
@@ -240,7 +234,7 @@ function nodeBox(node: AstNode, style: Style, floor: LayoutOptions['minNodeSize'
   const minHeight = floor?.height ?? base.height
   if (node.text.length === 0) return { width: minWidth, height: minHeight }
   const text = measureTextBox(node.text, style)
-  const inflation = SHAPE_TEXT_INFLATION[node.shape] ?? { x: 1, y: 1 }
+  const inflation = shapeTextInflation(node.shape)
   return {
     width: Math.max(minWidth, Math.ceil(text.width * inflation.x)),
     height: Math.max(minHeight, Math.ceil(text.height * inflation.y)),
