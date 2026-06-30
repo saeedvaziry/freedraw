@@ -5,11 +5,11 @@ import type { Element, Point } from '../../model/types.js'
 
 const ACCENT = '#4f6bff'
 const PORT_FILL = 'rgba(79, 107, 255, 0.16)'
-export const PORT_OFFSET = 16
+export const PORT_OFFSET = 20
 const PORT_RADIUS = 5
 
-const PORT_HIT_RADIUS = 8
-const PORT_HOVER_RADIUS = 12
+const PORT_HIT_RADIUS = 14
+const PORT_HOVER_RADIUS = 14
 
 interface ShapePortHandle {
   anchor: Point
@@ -47,7 +47,8 @@ export function portAtScreen(
 ): Point | null {
   let best: { anchor: Point; distance: number } | null = null
   for (const handle of shapePortHandlesScreen(element, camera)) {
-    const distance = Math.hypot(handle.position.x - screen.x, handle.position.y - screen.y)
+    const anchor = camera.worldToScreen(handle.anchor)
+    const distance = distanceToSegment(screen, anchor, handle.position)
     if (distance > PORT_HIT_RADIUS) continue
     if (!best || distance < best.distance) best = { anchor: handle.anchor, distance }
   }

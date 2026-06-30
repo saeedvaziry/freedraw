@@ -81,6 +81,9 @@ export class SelectTool implements Tool {
     const reshape = this.tryReshape(info, ctx, selected)
     if (reshape) return reshape
 
+    const portDrag = this.tryPortDrag(info, ctx)
+    if (portDrag) return portDrag
+
     const frame = selectionFrameFor(shapeSelectionElements)
     if (frame) {
       const handle = handleAtScreen(info.screen, frame, ctx.camera)
@@ -88,9 +91,6 @@ export class SelectTool implements Tool {
         return this.beginHandle(handle, frame, shapeSelectionElements, info.world, otherBounds(store.getSnapshot(), selected))
       }
     }
-
-    const portDrag = this.tryPortDrag(info, ctx)
-    if (portDrag) return portDrag
 
     const hit = hitTest(info.world, store.getSnapshot())
     if (!hit) {
