@@ -254,8 +254,9 @@ test('page URLs use the public id instead of the numeric primary key', function 
     ]);
 
     expect(Str::isUuid($page->public_id))->toBeTrue();
-    expect(route('pages.show', $page))->toContain($page->public_id);
-    expect(route('pages.show', $page))->not->toContain('/pages/'.$page->id);
+    expect(route('pages.show', $page))->toContain('/pages/'.$page->public_id);
+    expect(route('pages.show', $page))->not->toContain('/pages/'.$page->id.'?');
+    expect(route('pages.show', $page))->not->toEndWith('/pages/'.$page->id);
 
     $this
         ->actingAs($user)
