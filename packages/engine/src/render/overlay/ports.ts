@@ -5,11 +5,11 @@ import type { Element, Point } from '../../model/types.js'
 
 const ACCENT = '#4f6bff'
 const PORT_FILL = 'rgba(79, 107, 255, 0.16)'
-export const PORT_OFFSET = 16
+export const PORT_OFFSET = 20
 const PORT_RADIUS = 5
 
-const PORT_HIT_RADIUS = 8
-const PORT_HOVER_RADIUS = 12
+const PORT_HIT_RADIUS = 14
+const PORT_HOVER_RADIUS = 14
 
 interface ShapePortHandle {
   anchor: Point
@@ -40,33 +40,27 @@ export function portHandleWorld(element: Element, port: Point, camera: Camera): 
   return handle ? camera.screenToWorld(handle.position) : port
 }
 
-export function portAtScreen(
+function portAnchorWithin(
   screen: Point,
   element: Element,
   camera: Camera,
+  radius: number,
 ): Point | null {
   let best: { anchor: Point; distance: number } | null = null
   for (const handle of shapePortHandlesScreen(element, camera)) {
-    const distance = Math.hypot(handle.position.x - screen.x, handle.position.y - screen.y)
-    if (distance > PORT_HIT_RADIUS) continue
+    const distance = Math.hypot(screen.x - handle.position.x, screen.y - handle.position.y)
+    if (distance > radius) continue
     if (!best || distance < best.distance) best = { anchor: handle.anchor, distance }
   }
   return best?.anchor ?? null
 }
 
-export function portHoverAtScreen(
-  screen: Point,
-  element: Element,
-  camera: Camera,
-): Point | null {
-  let best: { anchor: Point; distance: number } | null = null
-  for (const handle of shapePortHandlesScreen(element, camera)) {
-    const anchor = camera.worldToScreen(handle.anchor)
-    const distance = distanceToSegment(screen, anchor, handle.position)
-    if (distance > PORT_HOVER_RADIUS) continue
-    if (!best || distance < best.distance) best = { anchor: handle.anchor, distance }
-  }
-  return best?.anchor ?? null
+export function portAtScreen(screen: Point, element: Element, camera: Camera): Point | null {
+  return portAnchorWithin(screen, element, camera, PORT_HIT_RADIUS)
+}
+
+export function portHoverAtScreen(screen: Point, element: Element, camera: Camera): Point | null {
+  return portAnchorWithin(screen, element, camera, PORT_HOVER_RADIUS)
 }
 
 export function paintPorts(ctx: CanvasRenderingContext2D, element: Element, camera: Camera): void {
@@ -116,13 +110,4 @@ function fallbackNormal(index: number): Point {
 
 function samePoint(a: Point, b: Point): boolean {
   return Math.hypot(a.x - b.x, a.y - b.y) < 0.0001
-}
-
-function distanceToSegment(point: Point, a: Point, b: Point): number {
-  const dx = b.x - a.x
-  const dy = b.y - a.y
-  const lengthSq = dx * dx + dy * dy
-  if (lengthSq === 0) return Math.hypot(point.x - a.x, point.y - a.y)
-  const t = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSq))
-  return Math.hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy))
 }

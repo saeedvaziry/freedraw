@@ -16,6 +16,8 @@ import {
 } from '../connectors/spawn.js'
 import type { EditListener, EditRequest } from '../text/edit.js'
 import { measureTextBox, type TextSize } from '../text/size.js'
+import { fitShapeToLabel } from '../text/label-size.js'
+import { elementBounds } from '../geometry/hit-test.js'
 import type { Style } from '../model/types.js'
 import { createRenderLoop, type RenderLoopHandle } from '../render/loop.js'
 import { Renderer, type OverlayState, type SpawnPreview } from '../render/renderer.js'
@@ -34,6 +36,26 @@ import type { ToolContext, ToolResult } from '../tools/tool.js'
 
 function isArrow(element: Element): element is ArrowElement {
   return element.type === 'arrow' || element.type === 'line'
+}
+
+const GROWABLE_TYPES = new Set<string>([
+  'rect',
+  'roundRect',
+  'ellipse',
+  'diamond',
+  'triangle',
+  'cylinder',
+  'hexagon',
+  'parallelogram',
+  'star',
+  'cloud',
+  'heart',
+  'lightning',
+  'sticky',
+])
+
+function canGrowForLabel(element: Element): boolean {
+  return GROWABLE_TYPES.has(element.type)
 }
 
 const ZOOM_SENSITIVITY = 0.0015
@@ -56,6 +78,7 @@ export class EditorController {
   private guides: SnapGuide[] = []
   private portTargetId: ElementId | null = null
   private editRequest: EditRequest | null = null
+  private editFloor: { id: ElementId; rect: Rect } | null = null
   private readonly editListeners = new Set<EditListener>()
   private readonly spawnMenuListeners = new Set<SpawnMenuListener>()
   private isSpaceDown = false
@@ -335,8 +358,44 @@ export class EditorController {
     )
   }
 
+  resizeShapeForLabel(elementId: ElementId, text: string): void {
+    const element = this.store.getSnapshot().elements[elementId]
+    if (!element || !canGrowForLabel(element)) return
+    const next = this.sizeForLabel(element, text)
+    if (
+      next.width === element.width &&
+      next.height === element.height &&
+      next.x === element.x &&
+      next.y === element.y
+    ) {
+      return
+    }
+    this.store.transact((api) => api.updateElement(elementId, next))
+    const request = this.editRequest
+    if (request && request.elementId === elementId) {
+      this.editRequest = { ...request, world: labelRect(element.type, next) }
+    }
+  }
+
+  private floorFor(element: Element): Rect {
+    if (this.editFloor?.id === element.id) return this.editFloor.rect
+    const { baseWidth, baseHeight } = element.label ?? {}
+    if (baseWidth === undefined || baseHeight === undefined) return elementBounds(element)
+    const cx = element.x + element.width / 2
+    const cy = element.y + element.height / 2
+    return { width: baseWidth, height: baseHeight, x: cx - baseWidth / 2, y: cy - baseHeight / 2 }
+  }
+
+  private sizeForLabel(element: Element, text: string): Rect {
+    const floor = this.floorFor(element)
+    return fitShapeToLabel(element.type, floor, text, element.style) ?? floor
+  }
+
   private beginEdit(request: EditRequest): void {
     this.editRequest = request
+    const element = this.store.getSnapshot().elements[request.elementId]
+    this.editFloor =
+      element && canGrowForLabel(element) ? { id: element.id, rect: this.floorFor(element) } : null
     this.store.stopCapturing()
     this.loop.markDirty()
     this.editListeners.forEach((listener) => listener(request))
@@ -346,8 +405,9 @@ export class EditorController {
     const trimmed = text
     const request = this.editRequest
     const element = this.store.getSnapshot().elements[elementId]
+    const floor = element ? this.floorFor(element) : null
     this.endEdit()
-    if (!element) return
+    if (!element || !floor) return
 
     if (target === 'text') {
       if (trimmed.length === 0) {
@@ -370,6 +430,7 @@ export class EditorController {
       return
     }
 
+    const growable = canGrowForLabel(element)
     const nextLabel: Label | undefined =
       trimmed.length === 0
         ? undefined
@@ -377,8 +438,12 @@ export class EditorController {
             text: trimmed,
             align: element.label?.align ?? request?.align ?? element.style.textAlign,
             verticalAlign: element.label?.verticalAlign ?? request?.verticalAlign ?? 'middle',
+            ...(growable ? { baseWidth: floor.width, baseHeight: floor.height } : {}),
           }
-    this.store.transact((api) => api.updateElement(elementId, { label: nextLabel }))
+    const size = growable ? (fitShapeToLabel(element.type, floor, trimmed, element.style) ?? floor) : null
+    this.store.transact((api) =>
+      api.updateElement(elementId, { label: nextLabel, ...(size ?? {}) }),
+    )
     this.store.stopCapturing()
   }
 
@@ -393,6 +458,7 @@ export class EditorController {
   private endEdit(): void {
     if (!this.editRequest) return
     this.editRequest = null
+    this.editFloor = null
     this.loop.markDirty()
     this.editListeners.forEach((listener) => listener(null))
   }

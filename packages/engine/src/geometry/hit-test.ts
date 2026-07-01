@@ -136,6 +136,18 @@ export function hitTest(point: Point, snapshot: SceneSnapshot): Element | null {
   return null
 }
 
+export function nearestShape(point: Point, snapshot: SceneSnapshot, margin: number): Element | null {
+  for (let i = snapshot.order.length - 1; i >= 0; i -= 1) {
+    const id = snapshot.order[i]
+    if (!id) continue
+    const element = snapshot.elements[id]
+    if (!element || element.type === 'arrow' || element.type === 'line') continue
+    const broad = expand(rotatedAabb(element), margin)
+    if (pointInRect(point, broad, 0)) return element
+  }
+  return null
+}
+
 export function selectionBounds(elements: Element[]): Rect | null {
   if (elements.length === 0) return null
   let minX = Infinity

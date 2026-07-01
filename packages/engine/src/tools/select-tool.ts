@@ -1,6 +1,6 @@
 import { createBinding } from '../connectors/binding.js'
 import { handleAtScreen, type HandleId, type ResizeHandleId } from '../geometry/handles.js'
-import { elementBounds, elementCenter, hitTest, marqueeHits } from '../geometry/hit-test.js'
+import { elementBounds, elementCenter, hitTest, marqueeHits, nearestShape } from '../geometry/hit-test.js'
 import type { Rect } from '../geometry/rect.js'
 import { snapPointToGrid } from '../geometry/grid.js'
 import { snapEndpoint, SNAP_DISTANCE } from '../geometry/snap.js'
@@ -14,7 +14,7 @@ import { createArrow, pointsBounds } from '../model/factory.js'
 import { polylineMidpoint } from '../text/arrow-label.js'
 import { arrowRoute, resolveArrowPoints } from '../connectors/resolve.js'
 import { arrowHandleAtScreen, type ArrowHandle } from '../render/overlay/arrow-handles.js'
-import { portAtScreen, portHandleWorld, portHoverAtScreen, shapePortsWorld } from '../render/overlay/ports.js'
+import { portAtScreen, portHandleWorld, portHoverAtScreen, shapePortsWorld, PORT_OFFSET } from '../render/overlay/ports.js'
 import type { ArrowElement, Binding, Element, ElementId, Point, SceneSnapshot } from '../model/types.js'
 import type { SceneStore } from '../store/scene-store.js'
 import type { PointerInfo, Tool, ToolContext, ToolResult } from './tool.js'
@@ -23,6 +23,7 @@ const MARQUEE_THRESHOLD = 3
 const ZERO_RECT: Rect = { x: 0, y: 0, width: 0, height: 0 }
 const SPAWN_GHOST_OPACITY = 0.4
 const PORT_DIRECTIONS: SpawnDirection[] = ['up', 'right', 'down', 'left']
+const PORT_REVEAL_MARGIN = PORT_OFFSET + 12
 
 function isArrow(element: Element): element is ArrowElement {
   return element.type === 'arrow' || element.type === 'line'
@@ -408,11 +409,13 @@ export class SelectTool implements Tool {
   }
 
   private trackHover(info: PointerInfo, ctx: ToolContext): ToolResult {
+    const snapshot = ctx.store.getSnapshot()
     const portHit = this.portShapeAt(info, ctx)
     const spawned = this.trackSpawnPreview(info, ctx, portHit)
-    const hit = hitTest(info.world, ctx.store.getSnapshot())
+    const hit = hitTest(info.world, snapshot)
     const portHover = portHit ?? (hit ? null : this.portHoverShapeAt(info, ctx))
-    const nextId = portHover?.shape.id ?? hit?.id ?? null
+    const near = hit ? null : nearestShape(info.world, snapshot, PORT_REVEAL_MARGIN / ctx.camera.zoom)
+    const nextId = portHover?.shape.id ?? hit?.id ?? near?.id ?? null
     if (nextId === ctx.store.getUiState().hoveredId) return spawned ? { overlay: true } : {}
     ctx.store.setUiState({ hoveredId: nextId })
     return { overlay: true }
