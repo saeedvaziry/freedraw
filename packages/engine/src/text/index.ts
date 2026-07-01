@@ -16,3 +16,10 @@ export {
   MIN_TEXT_WIDTH,
 } from './size.js'
 export type { TextSize } from './size.js'
+export {
+  SHAPE_TEXT_INFLATION,
+  shapeTextInflation,
+  labelContentSize,
+  fitShapeToLabel,
+  LABEL_PADDING,
+} from './label-size.js'

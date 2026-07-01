@@ -48,6 +48,11 @@ export function resizedBounds(
   }
 }
 
+function resizeLabelFloor(label: Element['label'], width: number, height: number): Element['label'] | null {
+  if (!label || label.baseWidth === undefined || label.baseHeight === undefined) return null
+  return { ...label, baseWidth: width, baseHeight: height }
+}
+
 export function resizeElements(
   elements: Element[],
   frame: SelectionFrame,
@@ -67,7 +72,8 @@ export function resizeElements(
       }))
       return { id: element.id, patch: { x, y, width, height, points } }
     }
-    return { id: element.id, patch: { x, y, width, height } }
+    const label = resizeLabelFloor(element.label, width, height)
+    return { id: element.id, patch: { x, y, width, height, ...(label ? { label } : {}) } }
   })
 }
 

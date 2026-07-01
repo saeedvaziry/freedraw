@@ -102,10 +102,12 @@ export function TextEditorOverlay({ controller }: TextEditorOverlayProps) {
       value={edit.value}
       onChange={(event) => {
         const value = event.target.value
-        setEdit({ request: edit.request, value })
         if (edit.request.target === 'text') {
           controller.resizeTextWhileEditing(edit.request.elementId, value)
+        } else if (edit.request.target === 'label') {
+          controller.resizeShapeForLabel(edit.request.elementId, value)
         }
+        setEdit({ request: controller.activeEdit ?? edit.request, value })
       }}
       onBlur={onBlur}
       onKeyDown={onKeyDown}
@@ -160,8 +162,10 @@ function editorStyle(
   }
 
   const innerWidth = Math.max(world.width - TEXT_PADDING * 2, 24)
-  const boxHeight = Math.max(world.height, lineHeight)
-  const offsetY = request.verticalAlign !== 'top' ? (boxHeight - lineHeight) / 2 : 0
+  const lineCount = Math.max(1, value.split('\n').length)
+  const textHeight = lineCount * lineHeight
+  const boxHeight = Math.max(world.height, textHeight)
+  const offsetY = request.verticalAlign !== 'top' ? (boxHeight - textHeight) / 2 : 0
   const screen = controller.worldToScreen({ x: world.x + TEXT_PADDING, y: world.y })
 
   return {
@@ -169,10 +173,10 @@ function editorStyle(
     left: `${screen.x}px`,
     top: `${screen.y + offsetY * zoom}px`,
     width: `${innerWidth * zoom}px`,
-    height: `${lineHeight * zoom}px`,
+    height: `${textHeight * zoom}px`,
     textAlign: request.align,
     background: 'transparent',
-    whiteSpace: 'pre-wrap',
+    whiteSpace: 'pre',
   }
 }
 
