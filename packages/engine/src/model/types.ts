@@ -25,6 +25,8 @@ export interface Label {
   text: string
   align: 'left' | 'center' | 'right'
   verticalAlign: 'top' | 'middle' | 'bottom'
+  baseWidth?: number
+  baseHeight?: number
 }
 
 export interface BaseElement {

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { defaultStyle } from '../model/schema.js'
+import { labelRect } from '../geometry/shape-outline.js'
+import { measureTextBox } from './size.js'
 import { fitShapeToLabel, labelContentSize } from './label-size.js'
 
 const bounds = { x: 0, y: 0, width: 120, height: 80 }
@@ -56,5 +58,22 @@ describe('fitShapeToLabel', () => {
     const diamond = labelContentSize('diamond', text, defaultStyle)
     expect(diamond.width).toBeGreaterThan(rect.width)
     expect(diamond.height).toBeGreaterThan(rect.height)
+  })
+
+  it('pads content on both axes', () => {
+    const text = 'label'
+    const measured = measureTextBox(text, defaultStyle)
+    const content = labelContentSize('rect', text, defaultStyle)
+    expect(content.width).toBeGreaterThan(measured.width)
+    expect(content.height).toBeGreaterThan(measured.height)
+  })
+
+  it('reserves the cylinder cap at the grown size, not the floor', () => {
+    const floor = { x: 0, y: 0, width: 100, height: 120 }
+    const text = 'one\ntwo\nthree\nfour\nfive\nsix'
+    const grown = fitShapeToLabel('cylinder', floor, text, defaultStyle)!
+    const content = labelContentSize('cylinder', text, defaultStyle)
+    const usable = labelRect('cylinder', grown)
+    expect(usable.height).toBeGreaterThanOrEqual(content.height)
   })
 })

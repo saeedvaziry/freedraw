@@ -104,15 +104,10 @@ export function TextEditorOverlay({ controller }: TextEditorOverlayProps) {
         const value = event.target.value
         if (edit.request.target === 'text') {
           controller.resizeTextWhileEditing(edit.request.elementId, value)
-          setEdit({ request: edit.request, value })
-          return
-        }
-        if (edit.request.target === 'label') {
+        } else if (edit.request.target === 'label') {
           controller.resizeShapeForLabel(edit.request.elementId, value)
-          setEdit({ request: controller.activeEdit ?? edit.request, value })
-          return
         }
-        setEdit({ request: edit.request, value })
+        setEdit({ request: controller.activeEdit ?? edit.request, value })
       }}
       onBlur={onBlur}
       onKeyDown={onKeyDown}

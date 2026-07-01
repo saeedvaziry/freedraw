@@ -1,4 +1,5 @@
 import type { ShapeType, Style } from '../model/types.js'
+import type { Rect } from '../geometry/rect.js'
 import { labelRect } from '../geometry/shape-outline.js'
 import { measureTextBox, type TextSize } from './size.js'
 
@@ -19,30 +20,36 @@ export function labelContentSize(type: string, text: string, style: Style): Text
   const measured = measureTextBox(text, style)
   const inflation = shapeTextInflation(type)
   return {
-    width: Math.ceil(measured.width + LABEL_PADDING * 2) * inflation.x,
-    height: Math.ceil(measured.height) * inflation.y,
+    width: Math.ceil((measured.width + LABEL_PADDING * 2) * inflation.x),
+    height: Math.ceil((measured.height + LABEL_PADDING * 2) * inflation.y),
   }
+}
+
+function centerRect(anchor: Rect, width: number, height: number): Rect {
+  const cx = anchor.x + anchor.width / 2
+  const cy = anchor.y + anchor.height / 2
+  return { width, height, x: cx - width / 2, y: cy - height / 2 }
 }
 
 export function fitShapeToLabel(
   type: string,
-  bounds: { x: number; y: number; width: number; height: number },
+  bounds: Rect,
   text: string,
   style: Style,
-): { x: number; y: number; width: number; height: number } | null {
+): Rect | null {
   const content = labelContentSize(type, text, style)
-  const rect = labelRect(type, bounds)
-  const capWidth = bounds.width - rect.width
-  const capHeight = bounds.height - rect.height
-  const width = Math.max(bounds.width, Math.ceil(content.width) + capWidth)
-  const height = Math.max(bounds.height, Math.ceil(content.height) + capHeight)
-  if (width === bounds.width && height === bounds.height) return null
-  const cx = bounds.x + bounds.width / 2
-  const cy = bounds.y + bounds.height / 2
-  return {
-    width,
-    height,
-    x: cx - width / 2,
-    y: cy - height / 2,
+  let width = bounds.width
+  let height = bounds.height
+  for (let i = 0; i < 4; i += 1) {
+    const rect = labelRect(type, { x: bounds.x, y: bounds.y, width, height })
+    const capWidth = width - rect.width
+    const capHeight = height - rect.height
+    const nextWidth = Math.max(bounds.width, Math.ceil(content.width + capWidth))
+    const nextHeight = Math.max(bounds.height, Math.ceil(content.height + capHeight))
+    if (nextWidth === width && nextHeight === height) break
+    width = nextWidth
+    height = nextHeight
   }
+  if (width === bounds.width && height === bounds.height) return null
+  return centerRect(bounds, width, height)
 }

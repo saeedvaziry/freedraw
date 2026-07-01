@@ -17,7 +17,7 @@ import {
 import type { EditListener, EditRequest } from '../text/edit.js'
 import { measureTextBox, type TextSize } from '../text/size.js'
 import { fitShapeToLabel } from '../text/label-size.js'
-import { defaultShapeSize } from '../model/factory.js'
+import { elementBounds } from '../geometry/hit-test.js'
 import type { Style } from '../model/types.js'
 import { createRenderLoop, type RenderLoopHandle } from '../render/loop.js'
 import { Renderer, type OverlayState, type SpawnPreview } from '../render/renderer.js'
@@ -38,10 +38,24 @@ function isArrow(element: Element): element is ArrowElement {
   return element.type === 'arrow' || element.type === 'line'
 }
 
-const NON_GROWING_TYPES = new Set(['text', 'arrow', 'line', 'freedraw', 'image'])
+const GROWABLE_TYPES = new Set<string>([
+  'rect',
+  'roundRect',
+  'ellipse',
+  'diamond',
+  'triangle',
+  'cylinder',
+  'hexagon',
+  'parallelogram',
+  'star',
+  'cloud',
+  'heart',
+  'lightning',
+  'sticky',
+])
 
 function canGrowForLabel(element: Element): boolean {
-  return !NON_GROWING_TYPES.has(element.type)
+  return GROWABLE_TYPES.has(element.type)
 }
 
 const ZOOM_SENSITIVITY = 0.0015
@@ -64,8 +78,7 @@ export class EditorController {
   private guides: SnapGuide[] = []
   private portTargetId: ElementId | null = null
   private editRequest: EditRequest | null = null
-  private editBaseline: { id: ElementId; x: number; y: number; width: number; height: number } | null =
-    null
+  private editFloor: { id: ElementId; rect: Rect } | null = null
   private readonly editListeners = new Set<EditListener>()
   private readonly spawnMenuListeners = new Set<SpawnMenuListener>()
   private isSpaceDown = false
@@ -364,27 +377,25 @@ export class EditorController {
     }
   }
 
-  private sizeForLabel(
-    element: Element,
-    text: string,
-  ): { x: number; y: number; width: number; height: number } {
-    const baseline =
-      this.editBaseline?.id === element.id
-        ? this.editBaseline
-        : { x: element.x, y: element.y, width: element.width, height: element.height }
-    return (
-      fitShapeToLabel(element.type, baseline, text, element.style) ?? {
-        x: baseline.x,
-        y: baseline.y,
-        width: baseline.width,
-        height: baseline.height,
-      }
-    )
+  private floorFor(element: Element): Rect {
+    if (this.editFloor?.id === element.id) return this.editFloor.rect
+    const { baseWidth, baseHeight } = element.label ?? {}
+    if (baseWidth === undefined || baseHeight === undefined) return elementBounds(element)
+    const cx = element.x + element.width / 2
+    const cy = element.y + element.height / 2
+    return { width: baseWidth, height: baseHeight, x: cx - baseWidth / 2, y: cy - baseHeight / 2 }
+  }
+
+  private sizeForLabel(element: Element, text: string): Rect {
+    const floor = this.floorFor(element)
+    return fitShapeToLabel(element.type, floor, text, element.style) ?? floor
   }
 
   private beginEdit(request: EditRequest): void {
     this.editRequest = request
-    this.editBaseline = labelBaseline(this.store.getSnapshot().elements[request.elementId])
+    const element = this.store.getSnapshot().elements[request.elementId]
+    this.editFloor =
+      element && canGrowForLabel(element) ? { id: element.id, rect: this.floorFor(element) } : null
     this.store.stopCapturing()
     this.loop.markDirty()
     this.editListeners.forEach((listener) => listener(request))
@@ -393,10 +404,10 @@ export class EditorController {
   commitText(elementId: ElementId, target: EditRequest['target'], text: string): void {
     const trimmed = text
     const request = this.editRequest
-    const baseline = this.editBaseline
     const element = this.store.getSnapshot().elements[elementId]
+    const floor = element ? this.floorFor(element) : null
     this.endEdit()
-    if (!element) return
+    if (!element || !floor) return
 
     if (target === 'text') {
       if (trimmed.length === 0) {
@@ -419,6 +430,7 @@ export class EditorController {
       return
     }
 
+    const growable = canGrowForLabel(element)
     const nextLabel: Label | undefined =
       trimmed.length === 0
         ? undefined
@@ -426,19 +438,9 @@ export class EditorController {
             text: trimmed,
             align: element.label?.align ?? request?.align ?? element.style.textAlign,
             verticalAlign: element.label?.verticalAlign ?? request?.verticalAlign ?? 'middle',
+            ...(growable ? { baseWidth: floor.width, baseHeight: floor.height } : {}),
           }
-    const floor =
-      baseline?.id === elementId
-        ? baseline
-        : { x: element.x, y: element.y, width: element.width, height: element.height }
-    const size = canGrowForLabel(element)
-      ? fitShapeToLabel(element.type, floor, trimmed, element.style) ?? {
-          x: floor.x,
-          y: floor.y,
-          width: floor.width,
-          height: floor.height,
-        }
-      : null
+    const size = growable ? (fitShapeToLabel(element.type, floor, trimmed, element.style) ?? floor) : null
     this.store.transact((api) =>
       api.updateElement(elementId, { label: nextLabel, ...(size ?? {}) }),
     )
@@ -456,7 +458,7 @@ export class EditorController {
   private endEdit(): void {
     if (!this.editRequest) return
     this.editRequest = null
-    this.editBaseline = null
+    this.editFloor = null
     this.loop.markDirty()
     this.editListeners.forEach((listener) => listener(null))
   }
@@ -673,29 +675,4 @@ function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   if (target.isContentEditable) return true
   return ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
-}
-
-function labelBaseline(
-  element: Element | undefined,
-): { id: ElementId; x: number; y: number; width: number; height: number } | null {
-  if (!element || !canGrowForLabel(element)) return null
-  let width = element.width
-  let height = element.height
-  const labelText = element.label?.text
-  if (labelText) {
-    const base = defaultShapeSize(element.type as ShapeType)
-    const fitted = fitShapeToLabel(
-      element.type,
-      { x: element.x, y: element.y, width: base.width, height: base.height },
-      labelText,
-      element.style,
-    )
-    if (fitted) {
-      width = Math.max(base.width, element.width - (fitted.width - base.width))
-      height = Math.max(base.height, element.height - (fitted.height - base.height))
-    }
-  }
-  const cx = element.x + element.width / 2
-  const cy = element.y + element.height / 2
-  return { id: element.id, x: cx - width / 2, y: cy - height / 2, width, height }
 }
