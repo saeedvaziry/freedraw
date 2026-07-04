@@ -19,7 +19,7 @@ export const RESIZE_HANDLE_IDS: ResizeHandleId[] = ['nw', 'n', 'ne', 'e', 'se', 
 export const HANDLE_SIZE = 8
 export const HANDLE_HIT_RADIUS = 8
 export const ROTATE_HANDLE_RADIUS = 6
-export const ROTATE_HANDLE_OFFSET = 24
+export const ROTATE_HANDLE_OFFSET = 48
 
 export interface SelectionFrame {
   bounds: Rect

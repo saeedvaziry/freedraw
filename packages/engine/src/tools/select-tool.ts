@@ -1,6 +1,6 @@
 import { createBinding } from '../connectors/binding.js'
 import { handleAtScreen, type HandleId, type ResizeHandleId } from '../geometry/handles.js'
-import { elementBounds, elementCenter, hitTest, marqueeHits, nearestShape } from '../geometry/hit-test.js'
+import { elementBounds, elementCenter, hitTest, marqueeHits } from '../geometry/hit-test.js'
 import type { Rect } from '../geometry/rect.js'
 import { snapPointToGrid } from '../geometry/grid.js'
 import { snapEndpoint, SNAP_DISTANCE } from '../geometry/snap.js'
@@ -14,16 +14,17 @@ import { createArrow, pointsBounds } from '../model/factory.js'
 import { polylineMidpoint } from '../text/arrow-label.js'
 import { arrowRoute, resolveArrowPoints } from '../connectors/resolve.js'
 import { arrowHandleAtScreen, type ArrowHandle } from '../render/overlay/arrow-handles.js'
-import { portAtScreen, portHandleWorld, portHoverAtScreen, shapePortsWorld, PORT_OFFSET } from '../render/overlay/ports.js'
+import { portAtScreen, portHandleWorld, portHoverAtScreen, shapePortsWorld } from '../render/overlay/ports.js'
 import type { ArrowElement, Binding, Element, ElementId, Point, SceneSnapshot } from '../model/types.js'
 import type { SceneStore } from '../store/scene-store.js'
 import type { PointerInfo, Tool, ToolContext, ToolResult } from './tool.js'
 
 const MARQUEE_THRESHOLD = 3
+const DRAG_THRESHOLD = 4
+const PORT_CLICK_RADIUS = 16
 const ZERO_RECT: Rect = { x: 0, y: 0, width: 0, height: 0 }
 const SPAWN_GHOST_OPACITY = 0.4
 const PORT_DIRECTIONS: SpawnDirection[] = ['up', 'right', 'down', 'left']
-const PORT_REVEAL_MARGIN = PORT_OFFSET + 12
 
 function isArrow(element: Element): element is ArrowElement {
   return element.type === 'arrow' || element.type === 'line'
@@ -50,12 +51,21 @@ type Mode =
   | { kind: 'resize'; handle: ResizeHandleId; elements: Element[]; frame: ReturnType<typeof selectionFrameFor>; others: Rect[] }
   | { kind: 'rotate'; elements: Element[]; center: Point; startAngle: number }
   | {
+      kind: 'portPending'
+      start: Point
+      startBinding: Binding
+      sourceId: ElementId
+      direction: SpawnDirection | null
+      originScreen: Point
+    }
+  | {
       kind: 'portDrag'
       arrowId: ElementId
       start: Point
       startBinding: Binding
       sourceId: ElementId
       direction: SpawnDirection | null
+      originScreen: Point
     }
   | { kind: 'reshapeEndpoint'; arrowId: ElementId; handle: 'start' | 'end' }
   | { kind: 'reshapeSegment'; arrowId: ElementId; segmentIndex: number; route: Point[] }
@@ -64,11 +74,13 @@ export class SelectTool implements Tool {
   readonly id = 'select'
   private mode: Mode = { kind: 'idle' }
   private moved = false
+  private dragStartScreen: Point | null = null
   private spawnPreviewActive = false
 
   onPointerDown(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (info.button !== 0) return {}
     this.moved = false
+    this.dragStartScreen = info.screen
     if (this.spawnPreviewActive) {
       this.spawnPreviewActive = false
       ctx.setSpawnPreview(null)
@@ -120,7 +132,15 @@ export class SelectTool implements Tool {
 
   onPointerMove(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (this.mode.kind === 'idle') return this.trackHover(info, ctx)
-    this.moved = true
+    if (this.mode.kind === 'portPending') {
+      if (screenDistance(info.screen, this.mode.originScreen) <= PORT_CLICK_RADIUS) return { overlay: true }
+      this.moved = true
+      return this.beginPortDrag(info, ctx, this.mode)
+    }
+    if (!this.moved) {
+      if (!hasDragged(this.dragStartScreen, info.screen)) return { overlay: true }
+      this.moved = true
+    }
     if (this.mode.kind === 'move') return this.dragMove(info, ctx)
     if (this.mode.kind === 'marquee') return this.dragMarquee(info, ctx)
     if (this.mode.kind === 'resize') return this.dragResize(info, ctx)
@@ -130,12 +150,19 @@ export class SelectTool implements Tool {
     return this.dragRotate(info, ctx)
   }
 
-  onPointerUp(_info: PointerInfo, ctx: ToolContext): ToolResult {
+  onPointerUp(info: PointerInfo, ctx: ToolContext): ToolResult {
     const mode = this.mode
-    if (mode.kind === 'portDrag' && !this.moved) {
+    if (mode.kind === 'portPending') {
       this.spawnFromPort(mode, ctx)
+    } else if (mode.kind === 'portDrag') {
+      if (!this.moved || screenDistance(info.screen, mode.originScreen) <= PORT_CLICK_RADIUS) {
+        this.spawnFromPort(mode, ctx)
+      } else if (this.portDragEndedOnSource(info, mode, ctx)) {
+        ctx.store.deleteElements([mode.arrowId])
+      }
     }
     this.mode = { kind: 'idle' }
+    this.dragStartScreen = null
     ctx.setMarquee(null)
     ctx.setGuides([])
     ctx.setPortTarget(null)
@@ -144,11 +171,20 @@ export class SelectTool implements Tool {
     return { scene: true, overlay: true }
   }
 
+  private portDragEndedOnSource(
+    info: PointerInfo,
+    mode: { arrowId: ElementId; sourceId: ElementId },
+    ctx: ToolContext,
+  ): boolean {
+    const hit = hitTest(info.world, ctx.store.getSnapshot())
+    return hit?.id === mode.sourceId
+  }
+
   private spawnFromPort(
-    mode: { arrowId: ElementId; sourceId: ElementId; direction: SpawnDirection | null },
+    mode: { arrowId?: ElementId; sourceId: ElementId; direction: SpawnDirection | null },
     ctx: ToolContext,
   ): void {
-    ctx.store.deleteElements([mode.arrowId])
+    if (mode.arrowId) ctx.store.deleteElements([mode.arrowId])
     const source = ctx.store.getSnapshot().elements[mode.sourceId]
     if (!source || !mode.direction) return
     const targetId = spawnConnectedShape(ctx.store, source, mode.direction)
@@ -238,6 +274,7 @@ export class SelectTool implements Tool {
 
   onDeactivate(ctx: ToolContext): void {
     this.mode = { kind: 'idle' }
+    this.dragStartScreen = null
     this.spawnPreviewActive = false
     ctx.setMarquee(null)
     ctx.setGuides([])
@@ -302,9 +339,25 @@ export class SelectTool implements Tool {
     if (!hit) return null
     const { shape, port } = hit
 
+    this.mode = {
+      kind: 'portPending',
+      start: port,
+      startBinding: createBinding(shape, port),
+      sourceId: shape.id,
+      direction: portDirection(shape, port),
+      originScreen: info.screen,
+    }
+    return { overlay: true }
+  }
+
+  private beginPortDrag(
+    info: PointerInfo,
+    ctx: ToolContext,
+    pending: Extract<Mode, { kind: 'portPending' }>,
+  ): ToolResult {
     const arrow = createArrow({
-      points: [port, port],
-      start: createBinding(shape, port),
+      points: [pending.start, pending.start],
+      start: pending.startBinding,
       style: ctx.store.getLastUsedStyle(),
     })
     ctx.store.transact((api) => api.addElement(arrow))
@@ -312,12 +365,13 @@ export class SelectTool implements Tool {
     this.mode = {
       kind: 'portDrag',
       arrowId: arrow.id,
-      start: port,
-      startBinding: arrow.start!,
-      sourceId: shape.id,
-      direction: portDirection(shape, port),
+      start: pending.start,
+      startBinding: pending.startBinding,
+      sourceId: pending.sourceId,
+      direction: pending.direction,
+      originScreen: pending.originScreen,
     }
-    return { overlay: true }
+    return this.dragPort(info, ctx)
   }
 
   private portShapeAt(info: PointerInfo, ctx: ToolContext): { shape: Element; port: Point } | null {
@@ -335,7 +389,7 @@ export class SelectTool implements Tool {
   ): { shape: Element; port: Point } | null {
     const ui = ctx.store.getUiState()
     const snapshot = ctx.store.getSnapshot()
-    const visible = [ui.hoveredId, ...ui.selectedIds].filter((id): id is ElementId => Boolean(id))
+    const visible = [...ui.selectedIds]
     for (const id of visible) {
       const shape = snapshot.elements[id]
       if (!shape || isArrow(shape)) continue
@@ -348,16 +402,18 @@ export class SelectTool implements Tool {
   private dragPort(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (this.mode.kind !== 'portDrag') return {}
     const arrowId = this.mode.arrowId
-    const source = ctx.store.getSnapshot().elements[this.mode.sourceId]
-    const snap = snapEndpoint(info.world, ctx.store.getSnapshot(), {
+    const snapshot = ctx.store.getSnapshot()
+    const source = snapshot.elements[this.mode.sourceId]
+    const snap = snapEndpoint(info.world, snapshot, {
       threshold: SNAP_DISTANCE / ctx.camera.zoom,
       origin: this.mode.start,
       ignoreId: arrowId,
     })
+    const target = snap.target?.id === this.mode.sourceId ? null : snap.target
     ctx.setGuides(snap.guides)
-    ctx.setPortTarget(snap.target?.id ?? null)
+    ctx.setPortTarget(target?.id ?? null)
     const startBinding = source ? createBinding(source, this.mode.start, 0, snap.point) : this.mode.startBinding
-    const endBinding = snap.target ? createBinding(snap.target, snap.point, 0, this.mode.start) : undefined
+    const endBinding = target ? createBinding(target, snap.point, 0, this.mode.start) : undefined
     this.writeArrow(ctx, arrowId, [this.mode.start, snap.point], { start: startBinding, end: endBinding })
     return { scene: true, overlay: true }
   }
@@ -414,8 +470,7 @@ export class SelectTool implements Tool {
     const spawned = this.trackSpawnPreview(info, ctx, portHit)
     const hit = hitTest(info.world, snapshot)
     const portHover = portHit ?? (hit ? null : this.portHoverShapeAt(info, ctx))
-    const near = hit ? null : nearestShape(info.world, snapshot, PORT_REVEAL_MARGIN / ctx.camera.zoom)
-    const nextId = portHover?.shape.id ?? hit?.id ?? near?.id ?? null
+    const nextId = portHover?.shape.id ?? hit?.id ?? null
     if (nextId === ctx.store.getUiState().hoveredId) return spawned ? { overlay: true } : {}
     ctx.store.setUiState({ hoveredId: nextId })
     return { overlay: true }
@@ -618,4 +673,12 @@ function arrowKeyDirection(key: string): 'left' | 'right' | 'up' | 'down' | null
   if (key === 'ArrowUp') return 'up'
   if (key === 'ArrowDown') return 'down'
   return null
+}
+
+function hasDragged(start: Point | null, current: Point): boolean {
+  return !start || screenDistance(start, current) > DRAG_THRESHOLD
+}
+
+function screenDistance(a: Point, b: Point): number {
+  return Math.hypot(a.x - b.x, a.y - b.y)
 }

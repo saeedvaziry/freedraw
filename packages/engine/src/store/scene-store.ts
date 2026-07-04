@@ -446,9 +446,11 @@ export class SceneStore {
     for (const element of Object.values(elements)) {
       if (!isArrow(element)) continue
       const nextRoute = resolveArrowPoints(element, elements)
-      if (pointsEqual(nextRoute, element.route)) continue
+      const nextPoints = canonicalArrowPoints(element, nextRoute)
+      if (pointsEqual(nextRoute, element.route) && pointsEqual(nextPoints, element.points)) continue
       const map = this.yElements.get(element.id)
       if (!map) continue
+      if (!pointsEqual(nextPoints, element.points)) map.set('points', nextPoints)
       map.set('route', nextRoute)
       const bounds = pointsBounds(nextRoute)
       map.set('x', bounds.x)
@@ -534,4 +536,11 @@ export class SceneStore {
     this.needsRender = true
     this.subscribers.forEach((cb) => cb())
   }
+}
+
+function canonicalArrowPoints(arrow: ArrowElement, route: Point[]): Point[] {
+  if (!arrow.start && !arrow.end) return arrow.points
+  const first = route[0]
+  const last = route[route.length - 1]
+  return first && last ? [{ ...first }, { ...last }] : arrow.points
 }

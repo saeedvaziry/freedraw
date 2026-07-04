@@ -31,6 +31,7 @@ export function arrowHandlesScreen(arrow: ArrowElement, camera: Camera): ArrowHa
     { id: 'start', position: camera.worldToScreen(route[0]!) },
     { id: 'end', position: camera.worldToScreen(route[route.length - 1]!) },
   ]
+  if (arrow.start || arrow.end) return handles
   for (const segment of editableRouteSegments(route)) {
     handles.push({
       id: 'midpoint',

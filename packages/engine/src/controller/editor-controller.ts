@@ -501,8 +501,7 @@ export class EditorController {
         ? snapshot.elements[ui.hoveredId] ?? null
         : null
     const hover = hovered && isArrow(hovered) ? hovered : null
-    const hoveredPorts = hovered && !isArrow(hovered) ? [hovered] : []
-    const ports = [...shapes, ...hoveredPorts]
+    const ports = shapes
     const targetHighlight = this.portTargetId ? snapshot.elements[this.portTargetId] ?? null : null
     return {
       preview: this.preview,
