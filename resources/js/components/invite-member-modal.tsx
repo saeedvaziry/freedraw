@@ -58,9 +58,12 @@ export default function InviteMemberModal({
                     {({ errors, processing }) => (
                         <>
                             <DialogHeader>
-                                <DialogTitle>Invite a organization member</DialogTitle>
+                                <DialogTitle>
+                                    Invite a organization member
+                                </DialogTitle>
                                 <DialogDescription>
-                                    Send an invitation to join this organization.
+                                    Send an invitation to join this
+                                    organization.
                                 </DialogDescription>
                             </DialogHeader>
 

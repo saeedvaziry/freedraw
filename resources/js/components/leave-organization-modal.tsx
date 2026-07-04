@@ -18,7 +18,11 @@ type Props = {
     onOpenChange: (open: boolean) => void;
 };
 
-export default function LeaveOrganizationModal({ organization, open, onOpenChange }: Props) {
+export default function LeaveOrganizationModal({
+    organization,
+    open,
+    onOpenChange,
+}: Props) {
     const [processing, setProcessing] = useState(false);
 
     const leaveOrganization = () => {
@@ -26,12 +30,15 @@ export default function LeaveOrganizationModal({ organization, open, onOpenChang
             return;
         }
 
-        router.visit(`/settings/organizations/${encodeURIComponent(organization.slug)}/leave`, {
-            method: 'delete',
-            onStart: () => setProcessing(true),
-            onFinish: () => setProcessing(false),
-            onSuccess: () => onOpenChange(false),
-        });
+        router.visit(
+            `/settings/organizations/${encodeURIComponent(organization.slug)}/leave`,
+            {
+                method: 'delete',
+                onStart: () => setProcessing(true),
+                onFinish: () => setProcessing(false),
+                onSuccess: () => onOpenChange(false),
+            },
+        );
     };
 
     return (

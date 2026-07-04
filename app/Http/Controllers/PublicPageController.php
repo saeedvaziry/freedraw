@@ -3,19 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Enums\PageVisibility;
-use App\Http\Controllers\Concerns\SerializesPages;
+use App\Http\Resources\Pages\PageResource;
 use App\Models\Page;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class PublicPageController extends Controller
 {
-    use SerializesPages;
-
     /**
      * Display a publicly shared page to any visitor as a read-only board.
      */
-    public function show(string $slug): Response
+    public function show(Request $request, string $slug): Response
     {
         $page = Page::query()
             ->where('share_slug', $slug)
@@ -23,7 +22,7 @@ class PublicPageController extends Controller
             ->firstOrFail();
 
         return Inertia::render('board', [
-            'boardPage' => $this->serializePublicPage($page),
+            'boardPage' => PageResource::make($page, includeDocument: true, public: true)->resolve($request),
             'boardPages' => [],
             'boardAccess' => [
                 'isPublic' => true,

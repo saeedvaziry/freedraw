@@ -97,9 +97,20 @@ export function invertColor(css: string): string {
 
 const INVERTED_PROPERTIES = new Set(['fillStyle', 'strokeStyle'])
 
+const RAW_CONTEXT = Symbol('rawContext')
+
+export function rawContext(ctx: CanvasRenderingContext2D): CanvasRenderingContext2D {
+  return (ctx as unknown as Record<symbol, CanvasRenderingContext2D>)[RAW_CONTEXT] ?? ctx
+}
+
+export function isInvertingContext(ctx: CanvasRenderingContext2D): boolean {
+  return (ctx as unknown as Record<symbol, CanvasRenderingContext2D>)[RAW_CONTEXT] !== undefined
+}
+
 export function invertingContext(ctx: CanvasRenderingContext2D): CanvasRenderingContext2D {
   return new Proxy(ctx, {
     get(target, property) {
+      if (property === RAW_CONTEXT) return target
       const value = target[property as keyof CanvasRenderingContext2D]
       return typeof value === 'function' ? value.bind(target) : value
     },

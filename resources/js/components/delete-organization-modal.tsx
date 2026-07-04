@@ -21,7 +21,11 @@ type Props = {
     onOpenChange: (open: boolean) => void;
 };
 
-export default function DeleteOrganizationModal({ organization, open, onOpenChange }: Props) {
+export default function DeleteOrganizationModal({
+    organization,
+    open,
+    onOpenChange,
+}: Props) {
     const [confirmationName, setConfirmationName] = useState('');
 
     const canDeleteOrganization = confirmationName === organization.name;
@@ -58,8 +62,9 @@ export default function DeleteOrganizationModal({ organization, open, onOpenChan
                             <div className="space-y-4 py-4">
                                 <div className="grid gap-2">
                                     <Label htmlFor="confirmation-name">
-                                        Type <strong>"{organization.name}"</strong> to
-                                        confirm
+                                        Type{' '}
+                                        <strong>"{organization.name}"</strong>{' '}
+                                        to confirm
                                     </Label>
                                     <Input
                                         id="confirmation-name"
@@ -87,7 +92,9 @@ export default function DeleteOrganizationModal({ organization, open, onOpenChan
                                     variant="destructive"
                                     type="submit"
                                     data-test="delete-organization-confirm"
-                                    disabled={!canDeleteOrganization || processing}
+                                    disabled={
+                                        !canDeleteOrganization || processing
+                                    }
                                 >
                                     Delete organization
                                 </Button>

@@ -52,8 +52,8 @@ export default function PendingInvitationsModal({
                 <DialogHeader>
                     <DialogTitle>Pending organization invitations</DialogTitle>
                     <DialogDescription>
-                        Accept or decline the organizations you have been invited to
-                        join.
+                        Accept or decline the organizations you have been
+                        invited to join.
                     </DialogDescription>
                 </DialogHeader>
 

@@ -4,8 +4,15 @@ namespace App\Models;
 
 use App\Enums\PagePermission;
 use App\Enums\PageVisibility;
+use App\Http\Resources\Pages\PageResource;
+use App\Policies\PagePolicy;
 use Database\Factories\PageFactory;
+use Illuminate\Database\Eloquent\Attributes\Boot;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Attributes\UsePolicy;
+use Illuminate\Database\Eloquent\Attributes\UseResource;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -29,6 +36,9 @@ use Illuminate\Support\Str;
  * @property-read User|null $creator
  */
 #[Fillable(['organization_id', 'created_by', 'title', 'visibility', 'permission', 'document'])]
+#[UseFactory(PageFactory::class)]
+#[UsePolicy(PagePolicy::class)]
+#[UseResource(PageResource::class)]
 class Page extends Model
 {
     /** @use HasFactory<PageFactory> */
@@ -49,13 +59,9 @@ class Page extends Model
         'permission' => PagePermission::View->value,
     ];
 
-    /**
-     * Bootstrap the model and its traits.
-     */
-    protected static function boot(): void
+    #[Boot]
+    protected static function assignPublicId(): void
     {
-        parent::boot();
-
         static::creating(function (Page $page) {
             if (empty($page->public_id)) {
                 $page->public_id = (string) Str::uuid();
@@ -90,7 +96,8 @@ class Page extends Model
      *
      * @param  Builder<Page>  $query
      */
-    public function scopeVisibleTo(Builder $query, User $user): void
+    #[Scope]
+    protected function visibleTo(Builder $query, User $user): void
     {
         $memberOrgIds = $user->organizations()->pluck('organizations.id');
         $adminOrgIds = $user->administeredOrganizationIds();

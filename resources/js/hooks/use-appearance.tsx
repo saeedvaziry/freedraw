@@ -68,7 +68,10 @@ const mediaQuery = (): MediaQueryList | null => {
     return window.matchMedia('(prefers-color-scheme: dark)');
 };
 
-const handleSystemThemeChange = (): void => applyTheme(currentAppearance);
+const handleSystemThemeChange = (): void => {
+    applyTheme(currentAppearance);
+    notify();
+};
 
 export function initializeTheme(): void {
     if (typeof window === 'undefined') {
@@ -87,16 +90,21 @@ export function initializeTheme(): void {
     mediaQuery()?.addEventListener('change', handleSystemThemeChange);
 }
 
+const getSnapshot = (): string =>
+    `${currentAppearance}:${isDarkMode(currentAppearance) ? 'dark' : 'light'}`;
+
 export function useAppearance(): UseAppearanceReturn {
-    const appearance: Appearance = useSyncExternalStore(
+    const snapshot = useSyncExternalStore(
         subscribe,
-        () => currentAppearance,
-        () => 'system',
+        getSnapshot,
+        () => 'system:light',
     );
 
-    const resolvedAppearance: ResolvedAppearance = isDarkMode(appearance)
-        ? 'dark'
-        : 'light';
+    const [appearance, resolved] = snapshot.split(':') as [
+        Appearance,
+        ResolvedAppearance,
+    ];
+    const resolvedAppearance: ResolvedAppearance = resolved;
 
     const updateAppearance = (mode: Appearance): void => {
         currentAppearance = mode;

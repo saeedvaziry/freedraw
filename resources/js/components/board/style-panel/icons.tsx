@@ -1,59 +1,66 @@
+import { cn } from '@/lib/utils'
+
 interface IconProps {
   className?: string
 }
 
+const line = 'absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-current'
+
 export function DashedLineIcon({ className }: IconProps) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <line x1="3" y1="12" x2="7" y2="12" />
-      <line x1="11" y1="12" x2="15" y2="12" />
-      <line x1="19" y1="12" x2="21" y2="12" />
-    </svg>
+    <span className={cn('relative block size-6', className)} aria-hidden="true">
+      <span className={cn(line, 'left-0 w-1.5')} />
+      <span className={cn(line, 'left-2.5 w-1.5')} />
+      <span className={cn(line, 'right-0 w-1.5')} />
+    </span>
   )
 }
 
 export function DottedLineIcon({ className }: IconProps) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-      <line x1="4" y1="12" x2="4.5" y2="12" />
-      <line x1="9" y1="12" x2="9.5" y2="12" />
-      <line x1="14" y1="12" x2="14.5" y2="12" />
-      <line x1="19" y1="12" x2="19.5" y2="12" />
-    </svg>
+    <span className={cn('relative block size-6', className)} aria-hidden="true">
+      {[0, 1, 2, 3].map((index) => (
+        <span
+          key={index}
+          className="absolute top-1/2 size-1 -translate-y-1/2 rounded-full bg-current"
+          style={{ left: `${index * 6 + 1}px` }}
+        />
+      ))}
+    </span>
   )
 }
 
 export function ArrowheadNoneIcon({ className }: IconProps) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <line x1="4" y1="12" x2="20" y2="12" />
-    </svg>
+    <span className={cn('relative block size-6', className)} aria-hidden="true">
+      <span className={cn(line, 'left-1 right-1')} />
+    </span>
   )
 }
 
 export function ArrowheadTriangleIcon({ className }: IconProps) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="3" y1="12" x2="18" y2="12" />
-      <path d="M14 8l5 4-5 4" fill="currentColor" />
-    </svg>
+    <span className={cn('relative block size-6', className)} aria-hidden="true">
+      <span className={cn(line, 'left-1 right-2')} />
+      <span className="absolute right-1 top-1/2 size-0 -translate-y-1/2 border-y-[5px] border-l-[7px] border-y-transparent border-l-current" />
+    </span>
   )
 }
 
 export function ArrowheadDotIcon({ className }: IconProps) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <line x1="3" y1="12" x2="16" y2="12" />
-      <circle cx="18" cy="12" r="3" fill="currentColor" stroke="none" />
-    </svg>
+    <span className={cn('relative block size-6', className)} aria-hidden="true">
+      <span className={cn(line, 'left-1 right-2.5')} />
+      <span className="absolute right-1 top-1/2 size-2 -translate-y-1/2 rounded-full bg-current" />
+    </span>
   )
 }
 
 export function ArrowheadBarIcon({ className }: IconProps) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <line x1="3" y1="12" x2="19" y2="12" />
-      <line x1="19" y1="7" x2="19" y2="17" />
-    </svg>
+    <span className={cn('relative block size-6', className)} aria-hidden="true">
+      <span className={cn(line, 'left-1 right-1')} />
+      <span className="absolute right-1 top-1/2 h-3.5 w-0.5 -translate-y-1/2 rounded-full bg-current" />
+    </span>
   )
 }

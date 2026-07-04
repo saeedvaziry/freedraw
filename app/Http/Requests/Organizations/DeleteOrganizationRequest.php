@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Organizations;
 
+use App\DTOs\Organizations\DeleteOrganizationData;
 use App\Models\Organization;
+use App\Models\User;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -47,6 +49,14 @@ class DeleteOrganizationRequest extends FormRequest
         ];
     }
 
+    public function toDto(): DeleteOrganizationData
+    {
+        return new DeleteOrganizationData(
+            user: $this->authenticatedUser(),
+            organization: $this->organization(),
+        );
+    }
+
     /**
      * Get the organization associated with the request.
      */
@@ -57,5 +67,14 @@ class DeleteOrganizationRequest extends FormRequest
         abort_if(! $organization instanceof Organization, 404);
 
         return $organization;
+    }
+
+    private function authenticatedUser(): User
+    {
+        $user = $this->user();
+
+        abort_unless($user instanceof User, 403);
+
+        return $user;
     }
 }

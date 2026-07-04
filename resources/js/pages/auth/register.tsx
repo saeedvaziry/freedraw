@@ -15,7 +15,10 @@ type Props = {
     organizationInvitation?: OrganizationInvitationContext | null;
 };
 
-export default function Register({ passwordRules, organizationInvitation }: Props) {
+export default function Register({
+    passwordRules,
+    organizationInvitation,
+}: Props) {
     const loginUrl = organizationInvitation
         ? `/login?invitation=${encodeURIComponent(organizationInvitation.code)}`
         : '/login';

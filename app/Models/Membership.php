@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\OrganizationRole;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Support\Carbon;
@@ -19,15 +20,9 @@ use Illuminate\Support\Carbon;
  * @property-read User $user
  */
 #[Fillable(['organization_id', 'user_id', 'role'])]
+#[Table('organization_members')]
 class Membership extends Pivot
 {
-    /**
-     * The table associated with the model.
-     *
-     * @var string
-     */
-    protected $table = 'organization_members';
-
     /**
      * Indicates if the IDs are auto-incrementing.
      *

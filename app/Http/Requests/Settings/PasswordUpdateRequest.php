@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Settings;
 
 use App\Concerns\PasswordValidationRules;
+use App\DTOs\Settings\UpdatePasswordData;
+use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -21,5 +23,22 @@ class PasswordUpdateRequest extends FormRequest
             'current_password' => $this->currentPasswordRules(),
             'password' => $this->passwordRules(),
         ];
+    }
+
+    public function toDto(): UpdatePasswordData
+    {
+        return new UpdatePasswordData(
+            user: $this->authenticatedUser(),
+            password: $this->validated('password'),
+        );
+    }
+
+    private function authenticatedUser(): User
+    {
+        $user = $this->user();
+
+        abort_unless($user instanceof User, 403);
+
+        return $user;
     }
 }

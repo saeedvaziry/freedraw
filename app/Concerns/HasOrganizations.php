@@ -2,8 +2,8 @@
 
 namespace App\Concerns;
 
-use App\Data\OrganizationPermissions;
-use App\Data\UserOrganization;
+use App\DTOs\Organizations\OrganizationPermissions;
+use App\DTOs\Organizations\UserOrganization;
 use App\Enums\OrganizationPermission;
 use App\Enums\OrganizationRole;
 use App\Models\Membership;
