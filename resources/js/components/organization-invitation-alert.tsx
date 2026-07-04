@@ -7,7 +7,10 @@ type Props = {
     action: 'Log in' | 'Register';
 };
 
-export default function OrganizationInvitationAlert({ invitation, action }: Props) {
+export default function OrganizationInvitationAlert({
+    invitation,
+    action,
+}: Props) {
     return (
         <Alert
             data-test="organization-invitation-alert"
@@ -15,7 +18,8 @@ export default function OrganizationInvitationAlert({ invitation, action }: Prop
         >
             <InfoIcon />
             <AlertDescription className="text-blue-900 dark:text-blue-100">
-                {action} to join the "{invitation.organizationName}" organization.
+                {action} to join the "{invitation.organizationName}"
+                organization.
             </AlertDescription>
         </Alert>
     );

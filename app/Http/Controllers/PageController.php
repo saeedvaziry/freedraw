@@ -2,92 +2,49 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Concerns\SerializesPages;
+use App\Actions\Pages\CreatePage;
+use App\Actions\Pages\DeletePage;
+use App\Actions\Pages\UpdatePage;
+use App\Http\Requests\Pages\DeletePageRequest;
+use App\Http\Requests\Pages\StorePageRequest;
+use App\Http\Requests\Pages\UpdatePageRequest;
+use App\Http\Resources\Pages\PageResource;
 use App\Models\Page;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use Illuminate\Routing\Attributes\Controllers\Middleware;
 
+#[Middleware('auth')]
 class PageController extends Controller
 {
-    use SerializesPages;
-
     /**
      * Store a new page in the user's current organization.
      */
-    public function store(Request $request): JsonResponse
+    public function store(StorePageRequest $request, CreatePage $createPage): JsonResponse
     {
-        $user = $request->user();
-        $organization = $user?->currentOrganization;
+        $page = $createPage->handle($request->toDto());
 
-        abort_unless($user && $organization && $user->belongsToOrganization($organization), 403);
-
-        $validated = $request->validate([
-            'title' => ['nullable', 'string', 'max:120'],
-            'document' => ['nullable', 'string'],
-        ]);
-
-        $page = $organization->pages()->create([
-            'created_by' => $user->id,
-            'title' => $this->normalizeTitle($validated['title'] ?? null),
-            'document' => $validated['document'] ?? null,
-        ]);
-
-        return response()->json($this->serializePage($page, $user), 201);
+        return response()->json(PageResource::make($page, $request->user())->resolve($request), 201);
     }
 
     /**
      * Update the page document and metadata.
      */
-    public function update(Request $request, Page $page): JsonResponse
+    public function update(UpdatePageRequest $request, Page $page, UpdatePage $updatePage): JsonResponse
     {
-        $user = $request->user();
+        $page = $updatePage->handle($request->toDto());
 
-        abort_unless($user !== null, 403);
-        $this->authorize('update', $page);
-
-        $validated = $request->validate([
-            'title' => ['sometimes', 'nullable', 'string', 'max:120'],
-            'document' => ['sometimes', 'nullable', 'string'],
-        ]);
-
-        if (array_key_exists('title', $validated)) {
-            $validated['title'] = $this->normalizeTitle($validated['title']);
-        }
-
-        $page->fill($validated);
-        $page->save();
-
-        return response()->json($this->serializePage($page->refresh(), $user));
+        return response()->json(PageResource::make($page, $request->user())->resolve($request));
     }
 
     /**
      * Delete the page.
      */
-    public function destroy(Request $request, Page $page): JsonResponse
+    public function destroy(DeletePageRequest $request, Page $page, DeletePage $deletePage): JsonResponse
     {
-        $user = $request->user();
-
-        abort_unless($user !== null, 403);
-        $this->authorize('delete', $page);
-
-        $organization = $page->organization;
-
-        $page->delete();
-
-        $nextPage = $organization->pages()
-            ->visibleTo($user)
-            ->latest('updated_at')
-            ->first();
+        $redirectUrl = $deletePage->handle($request->toDto());
 
         return response()->json([
-            'redirectUrl' => $nextPage ? route('pages.show', $nextPage) : route('home'),
+            'redirectUrl' => $redirectUrl,
         ]);
-    }
-
-    private function normalizeTitle(?string $title): string
-    {
-        $title = trim($title ?? '');
-
-        return $title === '' ? 'Untitled page' : $title;
     }
 }

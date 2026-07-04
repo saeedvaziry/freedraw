@@ -3,8 +3,12 @@
 namespace App\Models;
 
 use App\Enums\OrganizationRole;
+use App\Http\Resources\Organizations\OrganizationInvitationResource;
 use Database\Factories\OrganizationInvitationFactory;
+use Illuminate\Database\Eloquent\Attributes\Boot;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Attributes\UseResource;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,18 +30,16 @@ use Illuminate\Support\Str;
  * @property-read User $inviter
  */
 #[Fillable(['organization_id', 'email', 'role', 'invited_by', 'expires_at', 'accepted_at'])]
+#[UseFactory(OrganizationInvitationFactory::class)]
+#[UseResource(OrganizationInvitationResource::class)]
 class OrganizationInvitation extends Model
 {
     /** @use HasFactory<OrganizationInvitationFactory> */
     use HasFactory;
 
-    /**
-     * Bootstrap the model and its traits.
-     */
-    protected static function boot(): void
+    #[Boot]
+    protected static function assignCode(): void
     {
-        parent::boot();
-
         static::creating(function (OrganizationInvitation $invitation) {
             if (empty($invitation->code)) {
                 $invitation->code = Str::random(64);

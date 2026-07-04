@@ -2,13 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Actions\Auth\FindOrCreateSocialUser;
+use App\Actions\Authentication\FindOrCreateSocialUser;
+use App\Services\Authentication\SocialiteService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Routing\Attributes\Controllers\Middleware;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Fortify\Fortify;
-use Laravel\Socialite\Facades\Socialite;
 use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirectResponse;
 
+#[Middleware('guest')]
 class SocialLoginController extends Controller
 {
     /**
@@ -21,23 +23,21 @@ class SocialLoginController extends Controller
     /**
      * Redirect the user to the provider for authentication.
      */
-    public function redirect(string $provider): SymfonyRedirectResponse
+    public function redirect(string $provider, SocialiteService $socialite): SymfonyRedirectResponse
     {
         $this->ensureProviderIsSupported($provider);
 
-        return Socialite::driver($provider)->redirect();
+        return $socialite->redirect($provider);
     }
 
     /**
      * Handle the callback from the provider after authentication.
      */
-    public function callback(string $provider, FindOrCreateSocialUser $findOrCreateSocialUser): RedirectResponse
+    public function callback(string $provider, FindOrCreateSocialUser $findOrCreateSocialUser, SocialiteService $socialite): RedirectResponse
     {
         $this->ensureProviderIsSupported($provider);
 
-        $socialUser = Socialite::driver($provider)->user();
-
-        $user = $findOrCreateSocialUser->execute($socialUser);
+        $user = $findOrCreateSocialUser->handle($socialite->user($provider));
 
         Auth::login($user, remember: true);
 

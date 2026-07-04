@@ -28,7 +28,7 @@ test('expired invitations are deleted by the scheduled cleanup', function () {
         'invited_by' => $owner->id,
     ]);
 
-    $this->artisan('schedule:run')->assertSuccessful();
+    $this->artisan('organizations:prune-expired-invitations')->assertSuccessful();
 
     $this->assertDatabaseMissing('organization_invitations', [
         'id' => $expiredInvitation->id,

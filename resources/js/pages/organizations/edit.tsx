@@ -59,9 +59,8 @@ export default function OrganizationEdit({
     const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [removeMemberDialogOpen, setRemoveMemberDialogOpen] = useState(false);
-    const [memberToRemove, setMemberToRemove] = useState<OrganizationMember | null>(
-        null,
-    );
+    const [memberToRemove, setMemberToRemove] =
+        useState<OrganizationMember | null>(null);
     const [cancelInvitationDialogOpen, setCancelInvitationDialogOpen] =
         useState(false);
     const [invitationToCancel, setInvitationToCancel] =
@@ -145,7 +144,10 @@ export default function OrganizationEdit({
                         </>
                     ) : (
                         <>
-                            <Heading variant="small" title={organization.name} />
+                            <Heading
+                                variant="small"
+                                title={organization.name}
+                            />
                         </>
                     )}
                 </div>
@@ -326,7 +328,8 @@ export default function OrganizationEdit({
                     </div>
                 ) : null}
 
-                {permissions.canDeleteOrganization && !organization.isPersonal ? (
+                {permissions.canDeleteOrganization &&
+                !organization.isPersonal ? (
                     <div className="space-y-6">
                         <Heading
                             variant="small"
@@ -387,7 +390,9 @@ export default function OrganizationEdit({
     );
 }
 
-OrganizationEdit.layout = (props: { organization: { name: string; slug: string } }) => ({
+OrganizationEdit.layout = (props: {
+    organization: { name: string; slug: string };
+}) => ({
     breadcrumbs: [
         {
             title: 'Organizations',

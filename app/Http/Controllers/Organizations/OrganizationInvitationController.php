@@ -2,37 +2,31 @@
 
 namespace App\Http\Controllers\Organizations;
 
-use App\Enums\OrganizationRole;
+use App\Actions\Organizations\AcceptOrganizationInvitation;
+use App\Actions\Organizations\CancelOrganizationInvitation;
+use App\Actions\Organizations\DeclineOrganizationInvitation;
+use App\Actions\Organizations\InviteOrganizationMember;
+use App\DTOs\Organizations\CancelOrganizationInvitationData;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organizations\CreateOrganizationInvitationRequest;
 use App\Http\Requests\Organizations\RespondToOrganizationInvitationRequest;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
-use App\Notifications\Organizations\OrganizationInvitation as OrganizationInvitationNotification;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Notification;
+use Illuminate\Routing\Attributes\Controllers\Authorize;
+use Illuminate\Routing\Attributes\Controllers\Middleware;
 use Inertia\Inertia;
 
+#[Middleware('auth')]
 class OrganizationInvitationController extends Controller
 {
     /**
      * Store a newly created invitation.
      */
-    public function store(CreateOrganizationInvitationRequest $request, Organization $organization): RedirectResponse
+    #[Authorize('inviteMember', 'organization')]
+    public function store(CreateOrganizationInvitationRequest $request, Organization $organization, InviteOrganizationMember $inviteOrganizationMember): RedirectResponse
     {
-        Gate::authorize('inviteMember', $organization);
-
-        $invitation = $organization->invitations()->create([
-            'email' => $request->validated('email'),
-            'role' => OrganizationRole::from($request->validated('role')),
-            'invited_by' => $request->user()->id,
-            'expires_at' => now()->addDays(3),
-        ]);
-
-        Notification::route('mail', $invitation->email)
-            ->notify(new OrganizationInvitationNotification($invitation));
+        $inviteOrganizationMember->handle($request->toDto());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Invitation sent.')]);
 
@@ -42,13 +36,10 @@ class OrganizationInvitationController extends Controller
     /**
      * Cancel the specified invitation.
      */
-    public function destroy(Organization $organization, OrganizationInvitation $invitation): RedirectResponse
+    #[Authorize('cancelInvitation', 'organization')]
+    public function destroy(Organization $organization, OrganizationInvitation $invitation, CancelOrganizationInvitation $cancelOrganizationInvitation): RedirectResponse
     {
-        abort_unless($invitation->organization_id === $organization->id, 404);
-
-        Gate::authorize('cancelInvitation', $organization);
-
-        $invitation->delete();
+        $cancelOrganizationInvitation->handle(new CancelOrganizationInvitationData($organization, $invitation));
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Invitation cancelled.')]);
 
@@ -58,22 +49,9 @@ class OrganizationInvitationController extends Controller
     /**
      * Accept the invitation.
      */
-    public function accept(RespondToOrganizationInvitationRequest $request, OrganizationInvitation $invitation): RedirectResponse
+    public function accept(RespondToOrganizationInvitationRequest $request, OrganizationInvitation $invitation, AcceptOrganizationInvitation $acceptOrganizationInvitation): RedirectResponse
     {
-        $user = $request->user();
-
-        DB::transaction(function () use ($user, $invitation) {
-            $organization = $invitation->organization;
-
-            $organization->memberships()->firstOrCreate(
-                ['user_id' => $user->id],
-                ['role' => $invitation->role],
-            );
-
-            $invitation->update(['accepted_at' => now()]);
-
-            $user->switchOrganization($organization);
-        });
+        $acceptOrganizationInvitation->handle($request->toDto());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Invitation accepted.')]);
 
@@ -83,9 +61,9 @@ class OrganizationInvitationController extends Controller
     /**
      * Decline the invitation.
      */
-    public function decline(RespondToOrganizationInvitationRequest $request, OrganizationInvitation $invitation): RedirectResponse
+    public function decline(RespondToOrganizationInvitationRequest $request, OrganizationInvitation $invitation, DeclineOrganizationInvitation $declineOrganizationInvitation): RedirectResponse
     {
-        $invitation->delete();
+        $declineOrganizationInvitation->handle($request->toDto());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Invitation declined.')]);
 

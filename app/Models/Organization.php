@@ -4,8 +4,14 @@ namespace App\Models;
 
 use App\Concerns\GeneratesUniqueOrganizationSlugs;
 use App\Enums\OrganizationRole;
+use App\Http\Resources\Organizations\OrganizationResource;
+use App\Policies\OrganizationPolicy;
 use Database\Factories\OrganizationFactory;
+use Illuminate\Database\Eloquent\Attributes\Boot;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Attributes\UsePolicy;
+use Illuminate\Database\Eloquent\Attributes\UseResource;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -28,18 +34,17 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, Page> $pages
  */
 #[Fillable(['name', 'slug', 'is_personal'])]
+#[UseFactory(OrganizationFactory::class)]
+#[UsePolicy(OrganizationPolicy::class)]
+#[UseResource(OrganizationResource::class)]
 class Organization extends Model
 {
     /** @use HasFactory<OrganizationFactory> */
     use GeneratesUniqueOrganizationSlugs, HasFactory, SoftDeletes;
 
-    /**
-     * Bootstrap the model and its traits.
-     */
-    protected static function boot(): void
+    #[Boot]
+    protected static function assignUniqueSlug(): void
     {
-        parent::boot();
-
         static::creating(function (Organization $organization) {
             if (empty($organization->slug)) {
                 $organization->slug = static::generateUniqueOrganizationSlug($organization->name);
