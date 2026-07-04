@@ -1,22 +1,19 @@
 import { elementBounds, elementCenter } from '../geometry/hit-test.js'
+import { isArrowElement } from '../model/guards.js'
 import { intersects, type Rect } from '../geometry/rect.js'
 import { createArrow, createShape } from '../model/factory.js'
 import type { ArrowElement, Element, ElementId, Point, SceneSnapshot, ShapeElement, ShapeType, Style } from '../model/types.js'
 import type { SceneStore } from '../store/scene-store.js'
-import { anchorFromPoint } from './binding.js'
+import { createBinding } from './binding.js'
 
 type Store = Pick<SceneStore, 'transact' | 'stopCapturing' | 'setUiState' | 'getLastUsedStyle' | 'getSnapshot'>
-
-function isArrow(element: Element): boolean {
-  return element.type === 'arrow' || element.type === 'line'
-}
 
 export function obstacleBounds(snapshot: SceneSnapshot, exclude: ElementId): Rect[] {
   const bounds: Rect[] = []
   for (const id of snapshot.order) {
     if (id === exclude) continue
     const element = snapshot.elements[id]
-    if (!element || isArrow(element)) continue
+    if (!element || isArrowElement(element)) continue
     bounds.push(elementBounds(element))
   }
   return bounds
@@ -108,8 +105,8 @@ export function planConnectedShape(
 
   const arrow = createArrow({
     points: [sourceEdge, targetEdge],
-    start: { elementId: source.id, anchor: anchorFromPoint(source, sourceEdge), gap: 6 },
-    end: { elementId: target.id, anchor: anchorFromPoint(target, targetEdge), gap: 6 },
+    start: createBinding(source, sourceEdge, 6, targetEdge),
+    end: createBinding(target, targetEdge, 6, sourceEdge),
     routing: 'orthogonal',
     style: arrowStyle,
   })

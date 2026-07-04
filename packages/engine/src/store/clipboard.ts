@@ -1,5 +1,6 @@
 import { createId, pointsBounds } from '../model/factory.js'
 import { selectionBounds } from '../geometry/hit-test.js'
+import { isArrowElement } from '../model/guards.js'
 import type {
   ArrowElement,
   Arrowhead,
@@ -43,7 +44,7 @@ const STROKE_STYLES = new Set<StrokeStyle>(['solid', 'dashed', 'dotted'])
 const TEXT_ALIGNS = new Set(['left', 'center', 'right'])
 const VERTICAL_ALIGNS = new Set(['top', 'middle', 'bottom'])
 const ARROWHEADS = new Set<Arrowhead>(['none', 'triangle', 'dot', 'bar'])
-const ROUTINGS = new Set<ArrowElement['routing']>(['straight', 'orthogonal', 'curved'])
+const ROUTINGS = new Set<ArrowElement['routing']>(['straight', 'orthogonal'])
 
 export function createSceneClipboard(
   snapshot: SceneSnapshot,
@@ -116,7 +117,7 @@ function clipboardSourceIds(snapshot: SceneSnapshot, selected: Set<ElementId>): 
   const expanded = new Set(selected)
   for (const id of snapshot.order) {
     const element = snapshot.elements[id]
-    if (!element || !isArrow(element) || expanded.has(id)) continue
+    if (!element || !isArrowElement(element) || expanded.has(id)) continue
     if (hasSelectedEndpoints(element, selected)) expanded.add(id)
   }
   return snapshot.order.filter((id) => expanded.has(id))
@@ -133,7 +134,7 @@ function cloneElement(
   idMap: Map<ElementId, ElementId>,
   offset: Point,
 ): Element {
-  if (isArrow(element)) return cloneArrow(element, idMap, offset)
+  if (isArrowElement(element)) return cloneArrow(element, idMap, offset)
   return {
     ...structuredClone(element),
     id: idMap.get(element.id)!,
@@ -148,13 +149,12 @@ function cloneArrow(
   offset: Point,
 ): ArrowElement {
   const points = offsetPoints(element.points, offset)
-  const route = offsetPoints(element.route, offset)
   return {
     ...structuredClone(element),
     id: idMap.get(element.id)!,
-    ...pointsBounds(route.length > 0 ? route : points),
+    ...pointsBounds(points),
     points,
-    route,
+    route: points,
     start: cloneBinding(element.start, idMap),
     end: cloneBinding(element.end, idMap),
   }
@@ -174,10 +174,6 @@ function cloneBinding(
   return { ...structuredClone(binding), elementId }
 }
 
-function isArrow(element: Element): element is ArrowElement {
-  return element.type === 'arrow' || element.type === 'line'
-}
-
 function isElement(value: unknown): value is Element {
   if (!isBaseElement(value)) return false
   const type = value.type
@@ -189,7 +185,7 @@ function isElement(value: unknown): value is Element {
   if (type !== 'arrow' && type !== 'line') return false
   return (
     isPointArray(value.points) &&
-    isPointArray(value.route) &&
+    (value.route === undefined || isPointArray(value.route)) &&
     isOptionalBinding(value.start) &&
     isOptionalBinding(value.end) &&
     isArrowhead(value.startArrowhead) &&
@@ -244,7 +240,12 @@ function isOptionalBinding(value: unknown): value is Binding | undefined {
   if (!isObject(value)) return false
   if (typeof value.elementId !== 'string') return false
   if (!isObject(value.anchor)) return false
-  return isFiniteNumber(value.anchor.nx) && isFiniteNumber(value.anchor.ny) && isFiniteNumber(value.gap)
+  return (
+    isFiniteNumber(value.anchor.nx) &&
+    isFiniteNumber(value.anchor.ny) &&
+    isFiniteNumber(value.gap) &&
+    isBindingSide(value.side)
+  )
 }
 
 function isPointArray(value: unknown): value is Point[] {
@@ -277,6 +278,10 @@ function isArrowhead(value: unknown): value is Arrowhead {
 
 function isRouting(value: unknown): value is ArrowElement['routing'] {
   return typeof value === 'string' && ROUTINGS.has(value as ArrowElement['routing'])
+}
+
+function isBindingSide(value: unknown): value is Binding['side'] {
+  return value === 'left' || value === 'right' || value === 'top' || value === 'bottom'
 }
 
 function isFiniteNumber(value: unknown): value is number {

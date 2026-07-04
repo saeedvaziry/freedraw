@@ -1,6 +1,6 @@
 import * as Y from 'yjs'
-import { resolveArrowPoints } from '../connectors/resolve.js'
-import { DEFAULT_STICKY_COLOR, pointsBounds, type StickyColor } from '../model/factory.js'
+import { DEFAULT_STICKY_COLOR, type StickyColor } from '../model/factory.js'
+import { isArrowElement } from '../model/guards.js'
 import { defaultAppState } from '../model/schema.js'
 import type {
   AppState,
@@ -20,23 +20,15 @@ import {
   createSceneClipboard,
   type SceneClipboardPayload,
 } from './clipboard.js'
+import { RouteCache } from './route-cache.js'
 import { deriveSelectionStyle, type SelectionStyle } from './selection-style.js'
 import { measureTextBox } from '../text/size.js'
 
 const DUPLICATE_OFFSET = 16
 const DUPLICATE_OFFSET_POINT = { x: DUPLICATE_OFFSET, y: DUPLICATE_OFFSET }
 
-function isArrow(element: Element): element is ArrowElement {
-  return element.type === 'arrow' || element.type === 'line'
-}
-
 function affectsTextSize(patch: Partial<Style>): boolean {
   return patch.fontSize !== undefined || patch.fontFamily !== undefined
-}
-
-function pointsEqual(a: Point[], b: Point[]): boolean {
-  if (a.length !== b.length) return false
-  return a.every((point, index) => point.x === b[index]?.x && point.y === b[index]?.y)
 }
 
 function shallowEqualStyle(a: SelectionStyle, b: SelectionStyle): boolean {
@@ -87,7 +79,10 @@ type Subscriber = () => void
 
 function toYElement(element: Element): Y.Map<unknown> {
   const map = new Y.Map<unknown>()
-  for (const [key, value] of Object.entries(element)) map.set(key, value)
+  for (const [key, value] of Object.entries(element)) {
+    if (isArrowElement(element) && key === 'route') continue
+    map.set(key, value)
+  }
   return map
 }
 
@@ -115,6 +110,7 @@ export class SceneStore {
   }
 
   private readonly arrowsByShape = new Map<ElementId, Set<ElementId>>()
+  private readonly routeCache = new RouteCache()
   private selectionStyle: SelectionStyle | null = null
   private clipboard: SceneClipboardPayload | null = null
   private clipboardPasteCount = 0
@@ -130,8 +126,6 @@ export class SceneStore {
     this.yOrder = doc.getArray('elementOrder')
     this.yAppState = doc.getMap('appState')
 
-    this.migrateArrows()
-    this.resolveArrows()
     this.snapshot = this.buildSnapshot()
     this.rebuildBindingIndex()
 
@@ -177,7 +171,6 @@ export class SceneStore {
   transact(fn: (api: TransactionApi) => void): void {
     this.doc.transact(() => {
       fn(this.txnApi)
-      this.resolveArrows()
     }, TRANSACTION_ORIGIN)
   }
 
@@ -298,7 +291,7 @@ export class SceneStore {
   updateArrowheads(ids: Iterable<ElementId>, patch: Partial<Pick<ArrowElement, 'startArrowhead' | 'endArrowhead'>>): void {
     const targets = [...ids].filter((id) => {
       const element = this.snapshot.elements[id]
-      return element ? isArrow(element) : false
+      return element ? isArrowElement(element) : false
     })
     if (targets.length === 0) return
     this.transact((api) => {
@@ -400,7 +393,10 @@ export class SceneStore {
     updateElement: (id, patch) => {
       const map = this.yElements.get(id)
       if (!map) return
-      for (const [key, value] of Object.entries(patch)) map.set(key, value)
+      for (const [key, value] of Object.entries(patch)) {
+        if (key === 'route') continue
+        map.set(key, value)
+      }
     },
     removeElement: (id) => {
       this.yElements.delete(id)
@@ -417,59 +413,16 @@ export class SceneStore {
     this.historySubscribers.forEach((cb) => cb())
   }
 
-  private readLiveElements(): Record<ElementId, Element> {
-    const elements: Record<ElementId, Element> = {}
-    this.yElements.forEach((map, id) => {
-      elements[id] = fromYElement(map)
-    })
-    return elements
-  }
-
-  private migrateArrows(): void {
-    this.doc.transact(() => {
-      this.yElements.forEach((map) => {
-        const element = fromYElement(map)
-        if (!isArrow(element)) return
-        if (Array.isArray(element.route)) return
-        const collapsed = element.start || element.end
-        const source = collapsed
-          ? [element.points[0]!, element.points[element.points.length - 1]!]
-          : element.points
-        map.set('points', source)
-        map.set('route', [])
-      })
-    }, TRANSACTION_ORIGIN)
-  }
-
-  private resolveArrows(): void {
-    const elements = this.readLiveElements()
-    for (const element of Object.values(elements)) {
-      if (!isArrow(element)) continue
-      const nextRoute = resolveArrowPoints(element, elements)
-      const nextPoints = canonicalArrowPoints(element, nextRoute)
-      if (pointsEqual(nextRoute, element.route) && pointsEqual(nextPoints, element.points)) continue
-      const map = this.yElements.get(element.id)
-      if (!map) continue
-      if (!pointsEqual(nextPoints, element.points)) map.set('points', nextPoints)
-      map.set('route', nextRoute)
-      const bounds = pointsBounds(nextRoute)
-      map.set('x', bounds.x)
-      map.set('y', bounds.y)
-      map.set('width', bounds.width)
-      map.set('height', bounds.height)
-    }
-  }
-
   private buildSnapshot(): SceneSnapshot {
     const elements: Record<ElementId, Element> = {}
     this.yElements.forEach((map, id) => {
       elements[id] = fromYElement(map)
     })
-    return {
+    return this.routeCache.overlay({
       elements,
       order: this.yOrder.toArray(),
       appState: this.readAppState(),
-    }
+    })
   }
 
   private readAppState(): AppState {
@@ -487,10 +440,13 @@ export class SceneStore {
   }
 
   private readonly onElementsChanged = (events: Y.YEvent<Y.Map<unknown>>[]): void => {
+    const previous = this.snapshot
     const elements = { ...this.snapshot.elements }
+    const changedIds = new Set<ElementId>()
     for (const event of events) {
       if (event.target === this.yElements) {
         event.changes.keys.forEach((change, id) => {
+          changedIds.add(id)
           if (change.action === 'delete') {
             delete elements[id]
             return
@@ -502,9 +458,14 @@ export class SceneStore {
       }
       const map = event.target as Y.Map<unknown>
       const id = map.get('id') as ElementId | undefined
-      if (id && this.yElements.has(id)) elements[id] = fromYElement(map)
+      if (id && this.yElements.has(id)) {
+        changedIds.add(id)
+        elements[id] = fromYElement(map)
+      }
     }
-    this.snapshot = { ...this.snapshot, elements }
+    const next = { ...this.snapshot, elements }
+    this.routeCache.invalidateForChanges(previous, next, changedIds)
+    this.snapshot = this.routeCache.overlay(next)
     this.rebuildBindingIndex()
     this.invalidate()
   }
@@ -522,7 +483,7 @@ export class SceneStore {
   private rebuildBindingIndex(): void {
     this.arrowsByShape.clear()
     for (const element of Object.values(this.snapshot.elements)) {
-      if (element.type !== 'arrow' && element.type !== 'line') continue
+      if (!isArrowElement(element)) continue
       for (const binding of [element.start, element.end]) {
         if (!binding) continue
         const set = this.arrowsByShape.get(binding.elementId) ?? new Set()
@@ -536,11 +497,4 @@ export class SceneStore {
     this.needsRender = true
     this.subscribers.forEach((cb) => cb())
   }
-}
-
-function canonicalArrowPoints(arrow: ArrowElement, route: Point[]): Point[] {
-  if (!arrow.start && !arrow.end) return arrow.points
-  const first = route[0]
-  const last = route[route.length - 1]
-  return first && last ? [{ ...first }, { ...last }] : arrow.points
 }

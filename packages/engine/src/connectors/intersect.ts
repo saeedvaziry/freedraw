@@ -1,18 +1,7 @@
 import { elementBounds, elementCenter } from '../geometry/hit-test.js'
+import { rotatePoint } from '../geometry/rotate.js'
 import { getOutline } from '../geometry/shape-outline.js'
 import type { Element, Point } from '../model/types.js'
-
-function rotate(point: Point, center: Point, angle: number): Point {
-  if (!angle) return point
-  const cos = Math.cos(angle)
-  const sin = Math.sin(angle)
-  const dx = point.x - center.x
-  const dy = point.y - center.y
-  return {
-    x: center.x + dx * cos - dy * sin,
-    y: center.y + dx * sin + dy * cos,
-  }
-}
 
 function rectPolygon(element: Element): Point[] {
   const { x, y, width, height } = elementBounds(element)
@@ -72,15 +61,15 @@ function ellipseIntersection(outside: Point, element: Element): Point | null {
 
 export function intersectRay(element: Element, anchor: Point, toward: Point): Point {
   const center = elementCenter(element)
-  const localAnchor = rotate(anchor, center, -element.rotation)
-  const localToward = rotate(toward, center, -element.rotation)
+  const localAnchor = rotatePoint(anchor, center, -element.rotation)
+  const localToward = rotatePoint(toward, center, -element.rotation)
 
   if (element.type === 'ellipse') {
     const local = ellipseIntersection(localToward, element) ?? localAnchor
-    return rotate(local, center, element.rotation)
+    return rotatePoint(local, center, element.rotation)
   }
 
   const hit = polygonIntersection(localToward, localAnchor, localPolygon(element))
-  if (!hit) return rotate(localAnchor, center, element.rotation)
-  return rotate(hit, center, element.rotation)
+  if (!hit) return rotatePoint(localAnchor, center, element.rotation)
+  return rotatePoint(hit, center, element.rotation)
 }

@@ -1,6 +1,8 @@
 import type { ArrowElement, Element, Point, SceneSnapshot } from '../model/types.js'
 import { arrowRoute } from '../connectors/resolve.js'
+import { isArrowElement } from '../model/guards.js'
 import { expand, intersects, type Rect } from './rect.js'
+import { rotatePoint, rotatedBounds } from './rotate.js'
 import { getOutline, pointInPolygon } from './shape-outline.js'
 
 const HIT_TOLERANCE = 6
@@ -14,45 +16,7 @@ export function elementCenter(element: Element): Point {
 }
 
 export function toLocalPoint(point: Point, element: Element): Point {
-  if (!element.rotation) return point
-  const center = elementCenter(element)
-  const cos = Math.cos(-element.rotation)
-  const sin = Math.sin(-element.rotation)
-  const dx = point.x - center.x
-  const dy = point.y - center.y
-  return {
-    x: center.x + dx * cos - dy * sin,
-    y: center.y + dx * sin + dy * cos,
-  }
-}
-
-function rotatedAabb(element: Element): Rect {
-  const bounds = elementBounds(element)
-  if (!element.rotation) return bounds
-  const center = elementCenter(element)
-  const cos = Math.cos(element.rotation)
-  const sin = Math.sin(element.rotation)
-  const corners: Point[] = [
-    { x: bounds.x, y: bounds.y },
-    { x: bounds.x + bounds.width, y: bounds.y },
-    { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
-    { x: bounds.x, y: bounds.y + bounds.height },
-  ]
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-  for (const corner of corners) {
-    const dx = corner.x - center.x
-    const dy = corner.y - center.y
-    const x = center.x + dx * cos - dy * sin
-    const y = center.y + dx * sin + dy * cos
-    minX = Math.min(minX, x)
-    minY = Math.min(minY, y)
-    maxX = Math.max(maxX, x)
-    maxY = Math.max(maxY, y)
-  }
-  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+  return rotatePoint(point, elementCenter(element), -element.rotation)
 }
 
 function pointInRect(point: Point, rect: Rect, tolerance: number): boolean {
@@ -112,7 +76,7 @@ function hitShape(local: Point, element: Element): boolean {
 }
 
 export function hitTestElement(point: Point, element: Element): boolean {
-  if (element.type === 'arrow' || element.type === 'line') {
+  if (isArrowElement(element)) {
     return hitPolyline(point, arrowRoute(element as ArrowElement), element)
   }
   const local = toLocalPoint(point, element)
@@ -129,7 +93,7 @@ export function hitTest(point: Point, snapshot: SceneSnapshot): Element | null {
     if (!id) continue
     const element = snapshot.elements[id]
     if (!element) continue
-    const broad = expand(rotatedAabb(element), element.style.strokeWidth / 2 + HIT_TOLERANCE)
+    const broad = expand(rotatedBounds(element), element.style.strokeWidth / 2 + HIT_TOLERANCE)
     if (!pointInRect(point, broad, 0)) continue
     if (hitTestElement(point, element)) return element
   }
@@ -141,8 +105,8 @@ export function nearestShape(point: Point, snapshot: SceneSnapshot, margin: numb
     const id = snapshot.order[i]
     if (!id) continue
     const element = snapshot.elements[id]
-    if (!element || element.type === 'arrow' || element.type === 'line') continue
-    const broad = expand(rotatedAabb(element), margin)
+    if (!element || isArrowElement(element)) continue
+    const broad = expand(rotatedBounds(element), margin)
     if (pointInRect(point, broad, 0)) return element
   }
   return null
@@ -155,7 +119,7 @@ export function selectionBounds(elements: Element[]): Rect | null {
   let maxX = -Infinity
   let maxY = -Infinity
   for (const element of elements) {
-    const aabb = rotatedAabb(element)
+    const aabb = rotatedBounds(element)
     minX = Math.min(minX, aabb.x)
     minY = Math.min(minY, aabb.y)
     maxX = Math.max(maxX, aabb.x + aabb.width)
@@ -169,7 +133,7 @@ export function marqueeHits(marquee: Rect, snapshot: SceneSnapshot): Element[] {
   for (const id of snapshot.order) {
     const element = snapshot.elements[id]
     if (!element) continue
-    if (intersects(rotatedAabb(element), marquee)) hits.push(element)
+    if (intersects(rotatedBounds(element), marquee)) hits.push(element)
   }
   return hits
 }

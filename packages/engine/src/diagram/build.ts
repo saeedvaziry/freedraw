@@ -1,4 +1,4 @@
-import { anchorFromPoint } from '../connectors/binding.js'
+import { createBinding } from '../connectors/binding.js'
 import { elementCenter } from '../geometry/hit-test.js'
 import { createArrow, createShape } from '../model/factory.js'
 import type { Element, ElementId, Point, ShapeElement, Style } from '../model/types.js'
@@ -54,8 +54,8 @@ function buildEdge(
   const arrow = createArrow({
     type: edge.style.type,
     points: [sourcePort, targetPort],
-    start: { elementId: source.id, anchor: anchorFromPoint(source, sourcePort), gap: BINDING_GAP },
-    end: { elementId: target.id, anchor: anchorFromPoint(target, targetPort), gap: BINDING_GAP },
+    start: createBinding(source, sourcePort, BINDING_GAP, targetPort),
+    end: createBinding(target, targetPort, BINDING_GAP, sourcePort),
     startArrowhead: edge.style.startArrowhead,
     endArrowhead: edge.style.endArrowhead,
     routing: 'orthogonal',

@@ -79,6 +79,21 @@ function crossesRect(route: Point[], rect: TestRect): boolean {
 }
 
 describe('resolveArrowPoints', () => {
+  it('leaves free straight arrows untouched', () => {
+    const arrow = createArrow({
+      id: 'arrow',
+      points: [
+        { x: 0, y: 0 },
+        { x: 120, y: 80 },
+      ],
+      routing: 'straight',
+    })
+
+    const route = resolveArrowPoints(arrow, record([arrow]))
+
+    expect(route).toEqual(arrow.points)
+  })
+
   it('keeps connected arrows straight when no third shape is in the way', () => {
     const source = createShape({ id: 'source', x: 0, y: 0, width: 100, height: 60 })
     const target = createShape({ id: 'target', x: 300, y: 0, width: 100, height: 60 })
@@ -168,6 +183,8 @@ describe('resolveArrowPoints', () => {
 
     expect(rerouted.route.length).toBeGreaterThan(2)
     expect(crossesRect(rerouted.route, blocker)).toBe(false)
+    const persisted = store.doc.getMap('elements').get('arrow') as { get(key: string): unknown }
+    expect(persisted.get('route')).toBeUndefined()
   })
 
   it('canonicalizes existing connected arrow points back to endpoints', () => {
@@ -200,7 +217,7 @@ describe('resolveArrowPoints', () => {
     expect(crossesRect(resolved.route, source)).toBe(false)
   })
 
-  it('does not expose midpoint handles for connected arrows', () => {
+  it('exposes midpoint handles for connected arrows', () => {
     const source = createShape({ id: 'source', x: 0, y: 0, width: 100, height: 60 })
     const target = createShape({ id: 'target', x: 300, y: 0, width: 100, height: 60 })
     const arrow = connectedArrowToTopSide(source, target)
@@ -208,6 +225,6 @@ describe('resolveArrowPoints', () => {
 
     const handles = arrowHandlesScreen({ ...arrow, route }, new Camera({ x: 0, y: 0, zoom: 1 }))
 
-    expect(handles.map((handle) => handle.id)).toEqual(['start', 'end'])
+    expect(handles.map((handle) => handle.id)).toContain('midpoint')
   })
 })

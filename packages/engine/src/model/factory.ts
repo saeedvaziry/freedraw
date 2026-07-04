@@ -240,18 +240,25 @@ export interface ArrowInit {
 
 export function createArrow(init: ArrowInit): ArrowElement {
   const type = init.type ?? 'arrow'
+  const points = init.start || init.end ? endpointPoints(init.points) : init.points
   return {
     id: init.id ?? createId(),
     type,
-    ...pointsBounds(init.points),
+    ...pointsBounds(points),
     rotation: 0,
     style: { ...defaultStyle, ...init.style },
-    points: init.points,
-    route: init.points,
+    points,
+    route: points,
     start: init.start,
     end: init.end,
     startArrowhead: init.startArrowhead ?? 'none',
     endArrowhead: init.endArrowhead ?? (type === 'arrow' ? 'triangle' : 'none'),
-    routing: init.routing ?? 'straight',
+    routing: init.routing ?? (init.start || init.end ? 'orthogonal' : 'straight'),
   }
+}
+
+function endpointPoints(points: Point[]): Point[] {
+  const first = points[0]
+  const last = points[points.length - 1]
+  return first && last ? [first, last] : points
 }

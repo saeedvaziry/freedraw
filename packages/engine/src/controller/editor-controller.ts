@@ -8,7 +8,8 @@ import type { Rect } from '../geometry/rect.js'
 import type { SnapGuide } from '../geometry/snap.js'
 import { InputManager } from '../input/input-manager.js'
 import type { PinchDelta } from '../input/pinch.js'
-import type { ArrowElement, Element, ElementId, Label, Point, ShapeType } from '../model/types.js'
+import type { Element, ElementId, Label, Point, ShapeType } from '../model/types.js'
+import { isArrowElement } from '../model/guards.js'
 import {
   spawnConnectedShape,
   type SpawnDirection,
@@ -33,10 +34,6 @@ import { HANDWRITTEN_FONT_FAMILY } from '../text/measure.js'
 import type { SceneStore } from '../store/scene-store.js'
 import { ToolManager } from '../tools/tool-manager.js'
 import type { ToolContext, ToolResult } from '../tools/tool.js'
-
-function isArrow(element: Element): element is ArrowElement {
-  return element.type === 'arrow' || element.type === 'line'
-}
 
 const GROWABLE_TYPES = new Set<string>([
   'rect',
@@ -493,14 +490,14 @@ export class EditorController {
     const snapshot = this.store.getSnapshot()
     const ui = this.store.getUiState()
     const selected = elementsFor(ui.selectedIds, snapshot.elements)
-    const shapes = selected.filter((element) => !isArrow(element))
-    const selectedArrows = selected.filter(isArrow)
+    const shapes = selected.filter((element) => !isArrowElement(element))
+    const selectedArrows = selected.filter(isArrowElement)
     const selection = selectionFrameFor(shapes)
     const hovered =
       ui.hoveredId && !ui.selectedIds.has(ui.hoveredId)
         ? snapshot.elements[ui.hoveredId] ?? null
         : null
-    const hover = hovered && isArrow(hovered) ? hovered : null
+    const hover = hovered && isArrowElement(hovered) ? hovered : null
     const ports = shapes
     const targetHighlight = this.portTargetId ? snapshot.elements[this.portTargetId] ?? null : null
     return {
