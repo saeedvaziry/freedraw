@@ -84,7 +84,7 @@ export interface Binding {
   elementId: ElementId
   anchor: { nx: number; ny: number }
   gap: number
-  side?: 'left' | 'right' | 'top' | 'bottom'
+  side: 'left' | 'right' | 'top' | 'bottom'
 }
 
 export interface ArrowElement extends BaseElement {
@@ -95,7 +95,7 @@ export interface ArrowElement extends BaseElement {
   end?: Binding
   startArrowhead: Arrowhead
   endArrowhead: Arrowhead
-  routing: 'straight' | 'orthogonal' | 'curved'
+  routing: 'straight' | 'orthogonal'
 }
 
 export type Element =

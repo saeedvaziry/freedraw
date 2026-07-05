@@ -1,4 +1,5 @@
 import type { ArrowElement, Element, ElementId, SceneSnapshot, ShapeType } from '../model/types.js'
+import { isArrowElement } from '../model/guards.js'
 import { deriveIds, nodeLabel } from './identity.js'
 import { DEFAULT_DIRECTION, canonicalEdgeToken, canonicalShapeToken } from './tokens.js'
 import type { Direction, EdgeStyle } from './ast.js'
@@ -22,7 +23,7 @@ export function serializeDiagram(snapshot: SceneSnapshot): SerializeReport {
   const boundArrows: ArrowElement[] = []
 
   for (const element of ordered) {
-    if (!isArrow(element)) {
+    if (!isArrowElement(element)) {
       if (!ids.has(element.id)) skipped.push({ id: element.id, type: element.type })
       continue
     }
@@ -98,8 +99,4 @@ function edgeStyleOf(arrow: ArrowElement): EdgeStyle {
     strokeStyle: arrow.style.strokeStyle === 'dotted' || arrow.style.strokeStyle === 'dashed' ? 'dotted' : 'solid',
     thick: arrow.style.strokeWidth >= 4,
   }
-}
-
-function isArrow(element: Element): element is ArrowElement {
-  return element.type === 'arrow' || element.type === 'line'
 }

@@ -1,6 +1,8 @@
 import type { Element, Point, SceneSnapshot } from '../model/types.js'
 import { snapPointToGrid, snapValueToGrid } from './grid.js'
 import { elementBounds, elementCenter, hitTestElement, toLocalPoint } from './hit-test.js'
+import { isArrowElement } from '../model/guards.js'
+import { rotatePoint } from './rotate.js'
 import { getOutline, type Outline } from './shape-outline.js'
 
 export const SNAP_DISTANCE = 8
@@ -19,30 +21,19 @@ export interface SnapResult {
   target: Element | null
 }
 
-export function shapeAnchors(element: Element): Point[] {
+function localShapeAnchors(element: Element): Point[] {
   const { x, y, width, height } = elementBounds(element)
-  const center = elementCenter(element)
-  return rotateAll(
-    [
-      { x: x + width / 2, y },
-      { x: x + width, y: y + height / 2 },
-      { x: x + width / 2, y: y + height },
-      { x, y: y + height / 2 },
-    ],
-    center,
-    element.rotation,
-  )
+  return [
+    { x: x + width / 2, y },
+    { x: x + width, y: y + height / 2 },
+    { x: x + width / 2, y: y + height },
+    { x, y: y + height / 2 },
+  ]
 }
 
-function rotateAll(points: Point[], center: Point, angle: number): Point[] {
-  if (!angle) return points
-  const cos = Math.cos(angle)
-  const sin = Math.sin(angle)
-  return points.map((point) => {
-    const dx = point.x - center.x
-    const dy = point.y - center.y
-    return { x: center.x + dx * cos - dy * sin, y: center.y + dx * sin + dy * cos }
-  })
+export function shapeAnchors(element: Element): Point[] {
+  const center = elementCenter(element)
+  return localShapeAnchors(element).map((point) => rotatePoint(point, center, element.rotation))
 }
 
 export function snapToShapes(
@@ -57,7 +48,7 @@ export function snapToShapes(
   for (const id of snapshot.order) {
     if (id === ignoreId) continue
     const element = snapshot.elements[id]
-    if (!element || element.type === 'arrow' || element.type === 'line') continue
+    if (!element || isArrowElement(element)) continue
     for (const anchor of shapeAnchors(element)) {
       const dist = Math.hypot(anchor.x - world.x, anchor.y - world.y)
       if (dist < bestDist) {
@@ -82,7 +73,7 @@ function snapToShapeSurface(
   for (const id of snapshot.order) {
     if (id === ignoreId) continue
     const element = snapshot.elements[id]
-    if (!element || element.type === 'arrow' || element.type === 'line') continue
+    if (!element || isArrowElement(element)) continue
     const surface = nearestSurfacePoint(element, world)
     const dist = squaredDistance(world, surface)
     if (dist >= bestDist) continue
@@ -99,7 +90,7 @@ function nearestSurfacePoint(element: Element, world: Point): Point {
   const local = toLocalPoint(world, element)
   const center = elementCenter(element)
   const surface = outline ? closestPointOnOutline(local, outline, bounds) : closestPointOnRect(local, bounds)
-  return rotate(surface, center, element.rotation)
+  return rotatePoint(surface, center, element.rotation)
 }
 
 function closestPointOnOutline(point: Point, outline: Outline, bounds: ReturnType<typeof elementBounds>): Point {
@@ -156,15 +147,6 @@ function closestPointOnRect(point: Point, rect: ReturnType<typeof elementBounds>
   return { x, y: rect.y + rect.height }
 }
 
-function rotate(point: Point, center: Point, angle: number): Point {
-  if (!angle) return point
-  const cos = Math.cos(angle)
-  const sin = Math.sin(angle)
-  const dx = point.x - center.x
-  const dy = point.y - center.y
-  return { x: center.x + dx * cos - dy * sin, y: center.y + dx * sin + dy * cos }
-}
-
 function squaredDistance(a: Point, b: Point): number {
   return (a.x - b.x) ** 2 + (a.y - b.y) ** 2
 }
@@ -174,7 +156,7 @@ function shapeUnder(world: Point, snapshot: SceneSnapshot, ignoreId?: string): E
     const id = snapshot.order[i]
     if (!id || id === ignoreId) continue
     const element = snapshot.elements[id]
-    if (!element || element.type === 'arrow' || element.type === 'line') continue
+    if (!element || isArrowElement(element)) continue
     if (hitTestElement(world, element)) return element
   }
   return null

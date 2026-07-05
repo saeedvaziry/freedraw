@@ -1,6 +1,7 @@
 import type { Camera } from './camera.js'
 import type { Point } from '../model/types.js'
 import type { Rect } from './rect.js'
+import { rotatePoint } from './rotate.js'
 
 export type ResizeHandleId =
   | 'nw'
@@ -19,7 +20,7 @@ export const RESIZE_HANDLE_IDS: ResizeHandleId[] = ['nw', 'n', 'ne', 'e', 'se', 
 export const HANDLE_SIZE = 8
 export const HANDLE_HIT_RADIUS = 8
 export const ROTATE_HANDLE_RADIUS = 6
-export const ROTATE_HANDLE_OFFSET = 24
+export const ROTATE_HANDLE_OFFSET = 48
 
 export interface SelectionFrame {
   bounds: Rect
@@ -45,18 +46,6 @@ function localHandlePoints(bounds: Rect): Record<ResizeHandleId, Point> {
     s: { x: cx, y: y + height },
     sw: { x, y: y + height },
     w: { x, y: cy },
-  }
-}
-
-function rotatePoint(point: Point, center: Point, rotation: number): Point {
-  if (!rotation) return point
-  const cos = Math.cos(rotation)
-  const sin = Math.sin(rotation)
-  const dx = point.x - center.x
-  const dy = point.y - center.y
-  return {
-    x: center.x + dx * cos - dy * sin,
-    y: center.y + dx * sin + dy * cos,
   }
 }
 

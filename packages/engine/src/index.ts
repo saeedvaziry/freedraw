@@ -157,8 +157,8 @@ export {
   anchorFromPoint,
   createBinding,
   DEFAULT_GAP,
+  routeArrow,
   resolveArrowPoints,
-  arrowNeedsResolve,
   arrowRoute,
   spawnConnectedShape,
 } from './connectors/index.js'
@@ -168,6 +168,7 @@ export { migrateDoc, seedAppState, readSchemaVersion, migrations } from './model
 export type { Migration } from './model/migrations.js'
 export { isValidScene, serializeScene, applyScene } from './model/serialize.js'
 export type { SerializedScene } from './model/serialize.js'
+export { isArrowElement } from './model/guards.js'
 export { contentBounds, fitCamera, FIT_PADDING } from './geometry/fit.js'
 export type {
   Element,

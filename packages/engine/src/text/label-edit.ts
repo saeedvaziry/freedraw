@@ -1,12 +1,9 @@
 import { arrowRoute } from '../connectors/resolve.js'
 import { labelRect } from '../geometry/shape-outline.js'
-import type { ArrowElement, Element } from '../model/types.js'
+import { isArrowElement } from '../model/guards.js'
+import type { Element } from '../model/types.js'
 import { polylineMidpoint } from './arrow-label.js'
 import type { EditRequest } from './edit.js'
-
-function isArrow(element: Element): element is ArrowElement {
-  return element.type === 'arrow'
-}
 
 interface LabelEditOptions {
   selectAll: boolean
@@ -30,7 +27,7 @@ export function labelEditRequest(
     }
   }
 
-  if (isArrow(element)) {
+  if (isArrowElement(element)) {
     const mid = polylineMidpoint(arrowRoute(element))
     return {
       elementId: element.id,

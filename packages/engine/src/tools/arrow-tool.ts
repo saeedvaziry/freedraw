@@ -1,8 +1,8 @@
-import { createBinding } from '../connectors/binding.js'
-import { resolveArrowPoints } from '../connectors/resolve.js'
+import { createEndpointBinding } from '../connectors/lifecycle.js'
+import { previewArrow } from '../connectors/preview.js'
 import { GRID_SIZE } from '../geometry/grid.js'
 import { snapEndpoint, SNAP_DISTANCE } from '../geometry/snap.js'
-import { createArrow, pointsBounds } from '../model/factory.js'
+import { createArrow } from '../model/factory.js'
 import type { ArrowElement, Binding, Element, Point } from '../model/types.js'
 import type { PointerInfo, Tool, ToolContext, ToolResult } from './tool.js'
 
@@ -33,7 +33,8 @@ export class ArrowTool implements Tool {
     })
     ctx.setGuides(snap.guides)
     ctx.setPortTarget(snap.target?.id ?? null)
-    ctx.setPreview(this.build(ctx, this.start, snap.point, this.bindingForStart(snap.point), this.bindingForEnd(snap)))
+    const arrow = this.build(ctx, this.start, snap.point, this.bindingForStart(snap.point), this.bindingForEnd(snap))
+    ctx.setPreview(previewArrow(arrow, ctx.store.getSnapshot()))
     return { overlay: true }
   }
 
@@ -69,12 +70,12 @@ export class ArrowTool implements Tool {
 
   private bindingForStart(end: Point): Binding | undefined {
     if (!this.start || !this.startTarget) return undefined
-    return createBinding(this.startTarget, this.start, 0, end)
+    return createEndpointBinding(this.startTarget, this.start, end)
   }
 
   private bindingForEnd(snap: { point: Point; target: Element | null }): Binding | undefined {
     if (!this.start || !snap.target) return undefined
-    return createBinding(snap.target, snap.point, 0, this.start)
+    return createEndpointBinding(snap.target, snap.point, this.start)
   }
 
   private build(
@@ -84,22 +85,17 @@ export class ArrowTool implements Tool {
     startBinding?: Binding,
     endBinding?: Binding,
   ): ArrowElement {
-    const arrow = createArrow({
+    return createArrow({
       type: this.id,
       points: [start, end],
       start: startBinding,
       end: endBinding,
+      routing: startBinding || endBinding ? 'orthogonal' : 'straight',
       style: ctx.store.getLastUsedStyle(),
     })
-    const route = resolveArrowPoints(arrow, { ...ctx.store.getSnapshot().elements, [arrow.id]: arrow })
-    return { ...arrow, ...pointsBounds(route), route }
   }
 }
 
 function worldThreshold(ctx: ToolContext): number {
   return SNAP_DISTANCE / ctx.camera.zoom
-}
-
-export function isArrowElement(element: Element): element is ArrowElement {
-  return element.type === 'arrow' || element.type === 'line'
 }
