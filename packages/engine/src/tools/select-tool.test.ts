@@ -191,4 +191,43 @@ describe('SelectTool ports', () => {
     expect(adjusted.points.length).toBeGreaterThan(2)
     expect(adjusted.points.some((point) => point.y === -20)).toBe(true)
   })
+
+  it('slides a bound endpoint when an adjacent segment is straightened', () => {
+    const { store, ctx } = setup()
+    const tool = new SelectTool()
+    const source = store.getSnapshot().elements['shape-1']!
+    const target = createShape({
+      id: 'shape-2',
+      x: 0,
+      y: 300,
+      width: 120,
+      height: 80,
+    })
+    const start = { x: 60, y: source.y + source.height }
+    const end = { x: 80, y: target.y }
+    const arrow = {
+      ...createArrow({
+        id: 'arrow-1',
+        points: [start, end],
+        start: createBinding(source, start, 0, end),
+        end: createBinding(target, end, 0, start),
+        routing: 'orthogonal',
+      }),
+      points: [start, { x: 60, y: 180 }, { x: 80, y: 180 }, end],
+    }
+    store.transact((api) => {
+      api.addElement(target)
+      api.addElement(arrow)
+    })
+
+    store.setUiState({ selectedIds: new Set(['arrow-1']) })
+    tool.onPointerDown(pointerAt({ x: 80, y: 240 }), ctx)
+    tool.onPointerMove(pointerAt({ x: 60, y: 240 }), ctx)
+
+    const adjusted = store.getSnapshot().elements['arrow-1'] as ArrowElement
+    const route = arrowRoute(adjusted)
+    expect(adjusted.end?.anchor.nx).toBeCloseTo(0.5)
+    expect(route).toHaveLength(2)
+    expect(route.every((point) => point.x === 60)).toBe(true)
+  })
 })

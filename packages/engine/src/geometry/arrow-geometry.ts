@@ -1,6 +1,8 @@
 import type { Point } from '../model/types.js'
+import { snapPointToGrid } from './grid.js'
 
 export const ROUTE_AXIS_TOLERANCE = 0.5
+const ROUTE_AXIS_SNAP_DISTANCE = 8
 
 export type RouteSegmentAxis = 'horizontal' | 'vertical'
 
@@ -44,6 +46,27 @@ export function moveRouteSegment(points: Point[], segmentIndex: number, target: 
   return moveVerticalSegment(points, segmentIndex, target.x)
 }
 
+export function snapRouteSegmentTarget(points: Point[], segmentIndex: number, target: Point, threshold = ROUTE_AXIS_SNAP_DISTANCE): Point {
+  const start = points[segmentIndex]
+  const end = points[segmentIndex + 1]
+  if (!start || !end) return snapPointToGrid(target)
+  const axis = routeSegmentAxis(start, end)
+  const grid = snapPointToGrid(target)
+  if (axis === 'horizontal') {
+    return {
+      x: grid.x,
+      y: snapCoordinateToRouteAxis(points, segmentIndex, 'y', target.y, threshold) ?? grid.y,
+    }
+  }
+  if (axis === 'vertical') {
+    return {
+      x: snapCoordinateToRouteAxis(points, segmentIndex, 'x', target.x, threshold) ?? grid.x,
+      y: grid.y,
+    }
+  }
+  return grid
+}
+
 export function simplifyRoute(points: Point[]): Point[] {
   const deduped: Point[] = []
   for (const point of points) {
@@ -62,6 +85,21 @@ export function simplifyRoute(points: Point[]): Point[] {
     result.push(curr)
   }
   return result.length >= 2 ? result : deduped
+}
+
+function snapCoordinateToRouteAxis(points: Point[], segmentIndex: number, coordinate: 'x' | 'y', target: number, threshold: number): number | null {
+  let best: number | null = null
+  let bestDistance = threshold
+  for (let index = 0; index < points.length; index += 1) {
+    if (index === segmentIndex || index === segmentIndex + 1) continue
+    const value = points[index]![coordinate]
+    const distance = Math.abs(value - target)
+    if (distance <= bestDistance) {
+      best = value
+      bestDistance = distance
+    }
+  }
+  return best
 }
 
 function moveHorizontalSegment(points: Point[], segmentIndex: number, y: number): Point[] {

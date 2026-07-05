@@ -9,7 +9,7 @@ import { alignGuides, snapMove, snapResizeBounds, ALIGN_SNAP_DISTANCE, type Resi
 import { resizeElements, resizedBounds, rotationFor } from '../geometry/transform.js'
 import { selectionFrameFor } from '../geometry/selection-frame.js'
 import { labelRect } from '../geometry/shape-outline.js'
-import { moveRouteSegment } from '../geometry/arrow-geometry.js'
+import { moveRouteSegment, routeSegmentAxis, simplifyRoute, snapRouteSegmentTarget } from '../geometry/arrow-geometry.js'
 import { planConnectedShape, spawnConnectedShape, type SpawnDirection } from '../connectors/spawn.js'
 import { createArrow, pointsBounds } from '../model/factory.js'
 import { isArrowElement } from '../model/guards.js'
@@ -445,9 +445,43 @@ export class SelectTool implements Tool {
     if (this.mode.kind !== 'reshapeSegment') return {}
     const arrow = ctx.store.getSnapshot().elements[this.mode.arrowId]
     if (!arrow || !isArrowElement(arrow)) return {}
-    const points = moveRouteSegment(this.mode.route, this.mode.segmentIndex, snapPointToGrid(info.world))
-    this.writeArrow(ctx, arrow.id, points, {})
+    const target = snapRouteSegmentTarget(this.mode.route, this.mode.segmentIndex, info.world)
+    let points = moveRouteSegment(this.mode.route, this.mode.segmentIndex, target)
+    const bindings = this.slideEndpointBindings(arrow, this.mode.route, points, this.mode.segmentIndex, ctx.store.getSnapshot())
+    if ('start' in bindings || 'end' in bindings) points = simplifyRoute(points)
+    this.writeArrow(ctx, arrow.id, points, bindings)
     return { scene: true, overlay: true }
+  }
+
+  private slideEndpointBindings(arrow: ArrowElement, originalRoute: Point[], points: Point[], segmentIndex: number, snapshot: SceneSnapshot): { start?: Binding | null; end?: Binding | null } {
+    if (originalRoute.length <= 2) return {}
+    const start = originalRoute[segmentIndex]
+    const end = originalRoute[segmentIndex + 1]
+    if (!start || !end) return {}
+    const axis = routeSegmentAxis(start, end)
+    if (!axis) return {}
+
+    const bindings: { start?: Binding | null; end?: Binding | null } = {}
+    if (segmentIndex === 0 && arrow.start) {
+      const target = snapshot.elements[arrow.start.elementId]
+      const next = points[1]
+      if (target && !isArrowElement(target) && next) {
+        const point = endpointOnMovedSegment(points[0]!, next, axis)
+        points[0] = point
+        bindings.start = createEndpointBinding(target, point, next)
+      }
+    }
+    if (segmentIndex === originalRoute.length - 2 && arrow.end) {
+      const target = snapshot.elements[arrow.end.elementId]
+      const previous = points[points.length - 2]
+      if (target && !isArrowElement(target) && previous) {
+        const index = points.length - 1
+        const point = endpointOnMovedSegment(points[index]!, previous, axis)
+        points[index] = point
+        bindings.end = createEndpointBinding(target, point, previous)
+      }
+    }
+    return bindings
   }
 
   private writeArrow(
@@ -647,6 +681,11 @@ export class SelectTool implements Tool {
 function selectedElements(store: SceneStore, ids: Set<ElementId>): Element[] {
   const snapshot = store.getSnapshot()
   return [...ids].map((id) => snapshot.elements[id]).filter(Boolean) as Element[]
+}
+
+function endpointOnMovedSegment(endpoint: Point, segmentPoint: Point, axis: 'horizontal' | 'vertical'): Point {
+  if (axis === 'horizontal') return { x: endpoint.x, y: segmentPoint.y }
+  return { x: segmentPoint.x, y: endpoint.y }
 }
 
 function otherBounds(snapshot: SceneSnapshot, exclude: Set<ElementId>): Rect[] {
