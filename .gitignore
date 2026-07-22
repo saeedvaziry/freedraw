@@ -28,3 +28,7 @@ yarn-error.log
 /.vscode
 /.zed
 /.plans
+
+# Beads issue tracker — kept local for now (not committed).
+# The bd DB, config, hooks and JSONL export all live under .beads/.
+/.beads/
