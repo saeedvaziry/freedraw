@@ -1,10 +1,11 @@
 import { useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
-import { ClipboardCopy, Download, ImageDown, Moon, Sun } from 'lucide-react'
+import { ClipboardCopy, Download, FileJson, ImageDown, Moon, Sun, Upload } from 'lucide-react'
 import { EXPORT_DEFAULT_SCALE, shallowEqual } from '@freedraw/engine'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover.js'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { useBoardContext } from '../board-context.js'
+import { SCENE_IMPORT_EVENT } from '../board-actions.js'
 
 export type ExportFormat = 'png' | 'jpg'
 
@@ -13,18 +14,13 @@ export interface ExportMenuOptions {
   selectionOnly?: boolean
 }
 
-export interface ExportMenuProps {
-  disabled?: boolean
-  theme?: 'light' | 'dark'
-}
-
 const SCALES = [1, 2, 3]
 
-export function ExportMenu({ disabled, theme }: ExportMenuProps) {
-  const { store, boardExport, theme: boardTheme } = useBoardContext()
+export function ExportMenu() {
+  const { store, boardExport, theme: boardTheme, readOnly } = useBoardContext()
   const [open, setOpen] = useState(false)
   const [transparent, setTransparent] = useState(false)
-  const [dark, setDark] = useState((theme ?? boardTheme) === 'dark')
+  const [dark, setDark] = useState(boardTheme === 'dark')
   const [scale, setScale] = useState(EXPORT_DEFAULT_SCALE)
   const [selectionOnly, setSelectionOnly] = useState(false)
 
@@ -56,6 +52,16 @@ export function ExportMenu({ disabled, theme }: ExportMenuProps) {
     void boardExport.copyImage(options)
   }
 
+  const runExportScene = (): void => {
+    setOpen(false)
+    boardExport.exportScene(options)
+  }
+
+  const pickSceneFile = (): void => {
+    window.dispatchEvent(new Event(SCENE_IMPORT_EVENT))
+    setOpen(false)
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <Tooltip>
@@ -64,7 +70,7 @@ export function ExportMenu({ disabled, theme }: ExportMenuProps) {
             <button
               type="button"
               aria-label="Export"
-              disabled={disabled ?? !state.canExport}
+              disabled={!state.canExport && readOnly}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40 coarse:h-11 coarse:w-11 [&_svg]:size-4"
             >
               <ImageDown />
@@ -75,9 +81,38 @@ export function ExportMenu({ disabled, theme }: ExportMenuProps) {
       </Tooltip>
       <PopoverContent side="top" align="end" sideOffset={12} className="w-60 rounded-2xl p-2">
         <div className="flex flex-col gap-1">
-          <MenuItem Icon={Download} label="Export PNG" hint="⌘S" onClick={() => runExport('png', transparent)} />
-          <MenuItem Icon={Download} label="Export JPG" onClick={() => runExport('jpg', false)} />
-          <MenuItem Icon={ClipboardCopy} label="Copy to clipboard" hint="⇧⌘C" onClick={runCopy} />
+          <MenuItem
+            Icon={Download}
+            label="Export PNG"
+            hint="⌘S"
+            disabled={!state.canExport}
+            onClick={() => runExport('png', transparent)}
+          />
+          <MenuItem
+            Icon={Download}
+            label="Export JPG"
+            disabled={!state.canExport}
+            onClick={() => runExport('jpg', false)}
+          />
+          <MenuItem
+            Icon={FileJson}
+            label="Export JSON"
+            disabled={!state.canExport}
+            onClick={runExportScene}
+          />
+          <MenuItem
+            Icon={ClipboardCopy}
+            label="Copy to clipboard"
+            hint="⇧⌘C"
+            disabled={!state.canExport}
+            onClick={runCopy}
+          />
+          {!readOnly ? (
+            <>
+              <div className="my-1 h-px bg-border" />
+              <MenuItem Icon={Upload} label="Import JSON" onClick={pickSceneFile} />
+            </>
+          ) : null}
           <div className="my-1 h-px bg-border" />
           <div className="flex items-center justify-between px-3 py-2 text-sm text-foreground/80">
             <span>Theme</span>
@@ -165,16 +200,18 @@ interface MenuItemProps {
   Icon: typeof Download
   label: string
   hint?: string
+  disabled?: boolean
   onClick(): void
 }
 
-function MenuItem({ Icon, label, hint, onClick }: MenuItemProps) {
+function MenuItem({ Icon, label, hint, disabled, onClick }: MenuItemProps) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onClick}
       className={cn(
-        'flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground/80 transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4',
+        'flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground/80 transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4',
       )}
     >
       <Icon />

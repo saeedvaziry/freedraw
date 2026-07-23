@@ -9,18 +9,11 @@ const BAR_ACTION_IDS = ['undo', 'redo', 'delete', 'duplicate', 'copy', 'cut', 'p
 export interface ActionsBarProps {
   ctx: BoardActionContext
   snapGuidesEnabled: boolean
-  canExport: boolean
   compact?: boolean
   userMenu?: React.ReactNode
 }
 
-export function ActionsBar({
-  ctx,
-  snapGuidesEnabled,
-  canExport,
-  compact = false,
-  userMenu,
-}: ActionsBarProps) {
+export function ActionsBar({ ctx, snapGuidesEnabled, compact = false, userMenu }: ActionsBarProps) {
   const snap = BOARD_ACTIONS_BY_ID['toggle-snap-guides']
   const SnapIcon = snap.icon
 
@@ -62,7 +55,7 @@ export function ActionsBar({
         >
           <SnapIcon />
         </ActionButton>
-        <ExportMenu disabled={!canExport} theme={ctx.theme} />
+        <ExportMenu />
       </div>
     </TooltipProvider>
   )

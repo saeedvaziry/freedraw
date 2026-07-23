@@ -25,8 +25,20 @@ export {
   stringifySceneClipboard,
   parseSceneClipboard,
   isSceneClipboardPayload,
+  isSceneElement,
 } from './store/clipboard.js'
 export type { SceneClipboardPayload, SceneClipboardClone } from './store/clipboard.js'
+export {
+  SCENE_FILE_TYPE,
+  SCENE_FILE_VERSION,
+  SCENE_FILE_EXTENSION,
+  SCENE_FILE_MIME,
+  createSceneFile,
+  stringifySceneFile,
+  parseSceneFile,
+  isSceneFile,
+} from './store/scene-file.js'
+export type { SceneFile } from './store/scene-file.js'
 export { buildStencil, STENCIL_VERSION } from './store/stencil.js'
 export type { Stencil, Template, StencilKind, BuildStencilOptions } from './store/stencil.js'
 export { deriveSelectionStyle, MIXED } from './store/selection-style.js'

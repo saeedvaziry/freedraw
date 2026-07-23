@@ -17,6 +17,7 @@ import {
   CopyPlus,
   Crosshair,
   Download,
+  FileJson,
   Group,
   ImageDown,
   Keyboard,
@@ -31,12 +32,15 @@ import {
   Trash2,
   Undo2,
   Ungroup,
+  Upload,
   ZoomIn,
   type LucideIcon,
 } from 'lucide-react'
 import type { EditorController, SceneStore } from '@freedraw/engine'
 import type { BoardExport } from '@/hooks/board/use-export.js'
 import { boardToast } from '@/lib/board-toast'
+
+export const SCENE_IMPORT_EVENT = 'freedraw:import-scene'
 
 export type BoardActionScope = 'canvas' | 'menu-open' | 'text-editing'
 
@@ -392,6 +396,22 @@ export const BOARD_ACTIONS: BoardAction[] = [
     group: 'export',
     when: ({ store }) => store.getSnapshot().order.length > 0,
     run: ({ boardExport, theme }) => void boardExport.exportImage('jpg', false, theme === 'dark'),
+  },
+  {
+    id: 'export-json',
+    label: 'Export JSON',
+    icon: FileJson,
+    group: 'export',
+    when: ({ store }) => store.getSnapshot().order.length > 0,
+    run: ({ boardExport }) => boardExport.exportScene(),
+  },
+  {
+    id: 'import-json',
+    label: 'Import JSON',
+    icon: Upload,
+    group: 'export',
+    when: () => true,
+    run: () => window.dispatchEvent(new Event(SCENE_IMPORT_EVENT)),
   },
   {
     id: 'copy-image',

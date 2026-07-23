@@ -2,6 +2,8 @@ import * as Y from 'yjs'
 import { createId, DEFAULT_STICKY_COLOR, pointsBounds, type StickyColor } from '../model/factory.js'
 import { isArrowElement } from '../model/guards.js'
 import { defaultAppState } from '../model/schema.js'
+import { migrateDoc } from '../model/migrations.js'
+import { applyScene, type SerializedScene } from '../model/serialize.js'
 import { rotatedBounds } from '../geometry/rotate.js'
 import type { Rect } from '../geometry/rect.js'
 import {
@@ -662,6 +664,23 @@ export class SceneStore {
     this.stopCapturing()
     this.setUiState({ selectedIds: new Set(cloneIds), activeTool: 'select' })
     return cloneIds
+  }
+
+  importScene(scene: SerializedScene): void {
+    this.stopCapturing()
+    this.doc.transact(() => {
+      applyScene(this.doc, {
+        ...scene,
+        appState: {
+          ...this.snapshot.appState,
+          schemaVersion: scene.appState.schemaVersion,
+          slides: scene.appState.slides,
+        },
+      })
+      migrateDoc(this.doc)
+    }, TRANSACTION_ORIGIN)
+    this.stopCapturing()
+    this.setUiState({ selectedIds: new Set(), activeTool: 'select' })
   }
 
   updateStyle(ids: Iterable<ElementId>, patch: Partial<Style>): void {

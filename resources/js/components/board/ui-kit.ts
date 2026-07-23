@@ -29,7 +29,7 @@ export type { StickyPopoverProps } from './toolbar/sticky-popover.js'
 export { ActionsBar } from './actions-bar/actions-bar.js'
 export type { ActionsBarProps } from './actions-bar/actions-bar.js'
 export { ExportMenu } from './export-menu/export-menu.js'
-export type { ExportMenuProps, ExportFormat } from './export-menu/export-menu.js'
+export type { ExportFormat } from './export-menu/export-menu.js'
 
 export { StylePanel } from './style-panel/style-panel.js'
 export type { StylePanelProps, StylePanelSelection } from './style-panel/style-panel.js'

@@ -102,7 +102,7 @@ export function isSceneClipboardPayload(value: unknown): value is SceneClipboard
   if (!Array.isArray(value.elements) || value.elements.length === 0) return false
   const ids = new Set<ElementId>()
   for (const element of value.elements) {
-    if (!isElement(element)) return false
+    if (!isSceneElement(element)) return false
     if (ids.has(element.id)) return false
     ids.add(element.id)
   }
@@ -182,7 +182,7 @@ function cloneBinding(
   return { ...structuredClone(binding), elementId }
 }
 
-function isElement(value: unknown): value is Element {
+export function isSceneElement(value: unknown): value is Element {
   if (!isBaseElement(value)) return false
   const type = value.type
   if (isShapeType(type)) return true

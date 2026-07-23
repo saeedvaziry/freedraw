@@ -32,7 +32,6 @@ export function ActionsBarHost({
             canRedo: s.canRedo,
             hasSelection: ui.selectedIds.size > 0,
             hasClipboard: ui.clipboardElementCount > 0,
-            canExport: snapshot.order.length > 0,
             snapGuidesEnabled: snapshot.appState.snapGuidesEnabled,
           }
         },
@@ -56,7 +55,6 @@ export function ActionsBarHost({
     <ActionsBar
       ctx={ctx}
       snapGuidesEnabled={state.snapGuidesEnabled}
-      canExport={state.canExport}
       compact={compact}
       userMenu={compact || isAuthenticated ? undefined : <BoardUserMenu />}
     />

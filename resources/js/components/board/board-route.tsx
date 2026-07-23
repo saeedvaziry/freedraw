@@ -20,6 +20,7 @@ import { DiagramPanelHost } from './diagram-panel-host.js'
 import { EmptyState } from './empty-state.js'
 import { LinksBar } from './links-bar.js'
 import { MobileBar } from './mobile-bar.js'
+import { SceneImportHost } from './scene-import-host.js'
 import { SelectionToolbarHost } from './selection-toolbar/selection-toolbar-host.js'
 import { ShortcutsSheetHost } from './shortcuts-sheet.js'
 import { StylePanelHost } from './style-panel-host.js'
@@ -156,7 +157,7 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
   // The board consumes the app-wide appearance (light / dark / system) hook; the
   // canvas and export only care about the *resolved* light/dark value.
   const { resolvedAppearance: theme } = useAppearance()
-  const boardExport = useExport(controller)
+  const boardExport = useExport(controller, store)
   const imageInsert = useImageInsert(controller, store, assetSource)
   useBoardActions({
     store,
@@ -220,6 +221,7 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
         <CommandPaletteHost />
         <ShortcutsSheetHost />
         <SelectionToolbarHost />
+        <SceneImportHost />
 
         <div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-3 sm:hidden">
           <BoardMobileMenu />

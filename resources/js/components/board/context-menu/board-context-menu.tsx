@@ -24,7 +24,7 @@ const GROUPS: string[][] = [
   ['distribute-horizontal', 'distribute-vertical'],
   ['select-all', 'deselect'],
   ['zoom-to-fit', 'zoom-actual-size', 'toggle-snap-guides', 'tool-lock.toggle', 'command.open', 'help.open'],
-  ['export-png', 'export-jpg', 'copy-image'],
+  ['export-png', 'export-jpg', 'export-json', 'copy-image'],
 ]
 
 const CONNECTED_GROUP_INDEX = 1

@@ -1,5 +1,15 @@
 import { useCallback, useMemo } from 'react'
-import type { EditorController, ExportImageOptions } from '@freedraw/engine'
+import {
+  createSceneFile,
+  parseSceneFile,
+  stringifySceneFile,
+  SCENE_FILE_EXTENSION,
+  SCENE_FILE_MIME,
+  SCENE_FILE_VERSION,
+  type EditorController,
+  type ExportImageOptions,
+  type SceneStore,
+} from '@freedraw/engine'
 import { boardToast } from '@/lib/board-toast'
 
 type ExportFormat = ExportImageOptions['format']
@@ -19,9 +29,11 @@ export interface BoardExport {
     options?: BoardExportOptions,
   ): Promise<void>
   copyImage(options?: BoardExportOptions): Promise<void>
+  exportScene(options?: BoardExportOptions): void
+  importScene(file: File): Promise<void>
 }
 
-export function useExport(controller: EditorController | null): BoardExport {
+export function useExport(controller: EditorController | null, store: SceneStore): BoardExport {
   const exportImage = useCallback(
     async (
       format: ExportFormat,
@@ -73,7 +85,48 @@ export function useExport(controller: EditorController | null): BoardExport {
     [controller],
   )
 
-  return useMemo(() => ({ exportImage, copyImage }), [exportImage, copyImage])
+  const exportScene = useCallback(
+    (options?: BoardExportOptions): void => {
+      const ids = options?.selectionOnly ? store.getUiState().selectedIds : null
+      const file = createSceneFile(store.getSnapshot(), ids)
+      if (!file) {
+        boardToast('Nothing to export', 'error')
+        return
+      }
+      const blob = new Blob([stringifySceneFile(file)], { type: SCENE_FILE_MIME })
+      downloadBlob(blob, `freedraw.${SCENE_FILE_EXTENSION}`)
+      boardToast('Exported as JSON')
+    },
+    [store],
+  )
+
+  const importScene = useCallback(
+    async (file: File): Promise<void> => {
+      try {
+        const scene = parseSceneFile(await file.text())
+        if (!scene) {
+          boardToast('Not a FreeDraw file', 'error')
+          return
+        }
+        if (scene.version > SCENE_FILE_VERSION) {
+          boardToast('This file was made with a newer version of FreeDraw', 'error')
+          return
+        }
+        store.importScene(scene)
+        controller?.zoomToFit()
+        boardToast(`Imported ${scene.order.length} element${scene.order.length === 1 ? '' : 's'}`)
+      } catch (error) {
+        console.error('Import failed', error)
+        boardToast('Import failed', 'error')
+      }
+    },
+    [controller, store],
+  )
+
+  return useMemo(
+    () => ({ exportImage, copyImage, exportScene, importScene }),
+    [exportImage, copyImage, exportScene, importScene],
+  )
 }
 
 function downloadBlob(blob: Blob, filename: string): void {

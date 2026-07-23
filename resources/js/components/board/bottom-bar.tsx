@@ -41,7 +41,7 @@ export function BottomBar({ diagramOpen, onToggleDiagram }: BottomBarProps) {
               <Wrench />
             </ToolButton>
           </ActionsMenu>
-          <ExportMenu theme={theme} />
+          <ExportMenu />
           {!isAuthenticated ? <BoardUserMenu /> : null}
         </>
       }
