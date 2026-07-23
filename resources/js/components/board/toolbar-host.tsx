@@ -20,6 +20,7 @@ export function ToolbarHost({ store, layout, diagramOpen, trailing, onToggleDiag
             activeTool: state.activeTool,
             activeShapeType: state.activeShapeType,
             activeStickyColor: state.activeStickyColor,
+            toolLock: state.toolLock,
           }
         },
         { equals: shallowEqual, channels: ['chrome'] },
@@ -48,9 +49,11 @@ export function ToolbarHost({ store, layout, diagramOpen, trailing, onToggleDiag
       activeTool={ui.activeTool}
       activeShapeType={ui.activeShapeType}
       activeStickyColor={ui.activeStickyColor}
+      toolLock={ui.toolLock}
       onSelectTool={selectTool}
       onSelectShape={selectShape}
       onSelectStickyColor={selectStickyColor}
+      onToggleToolLock={() => store.setUiState({ toolLock: !store.getUiState().toolLock })}
       onToggleDiagram={onToggleDiagram}
     />
   )

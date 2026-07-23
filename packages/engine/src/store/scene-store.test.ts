@@ -327,3 +327,37 @@ describe('store channels', () => {
     expect(store.getHoveredId()).toBe('shape-1')
   })
 })
+
+describe('tool lock', () => {
+  it('defaults toolLock to false', () => {
+    const store = new SceneStore()
+    expect(store.getUiState().toolLock).toBe(false)
+  })
+
+  it('updates toolLock and notifies chrome subscribers', () => {
+    const store = new SceneStore()
+    let chrome = 0
+    let selection = 0
+    store.subscribeChrome(() => {
+      chrome += 1
+    })
+    store.subscribeSelection(() => {
+      selection += 1
+    })
+
+    store.setUiState({ toolLock: true })
+
+    expect(store.getUiState().toolLock).toBe(true)
+    expect(chrome).toBe(1)
+    expect(selection).toBe(0)
+  })
+
+  it('surfaces toolLock changes through the chrome channel selector', () => {
+    const store = new SceneStore()
+    const handle = store.select((s) => s.getUiState().toolLock, { channels: ['chrome'] })
+    expect(handle.getSnapshot()).toBe(false)
+
+    store.setUiState({ toolLock: true })
+    expect(handle.getSnapshot()).toBe(true)
+  })
+})

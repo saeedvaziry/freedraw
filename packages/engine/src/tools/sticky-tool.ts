@@ -50,7 +50,8 @@ export class StickyTool implements Tool {
     ctx.setPreview(null)
     ctx.store.stopCapturing()
     ctx.store.transact((api) => api.addElement(element))
-    ctx.store.setUiState({ selectedIds: new Set([element.id]), activeTool: 'select' })
+    const { toolLock } = ctx.store.getUiState()
+    ctx.store.setUiState({ selectedIds: new Set([element.id]), ...(toolLock ? {} : { activeTool: 'select' }) })
     ctx.beginEdit({
       elementId: element.id,
       target: 'label',

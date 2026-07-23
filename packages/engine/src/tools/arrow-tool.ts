@@ -52,7 +52,8 @@ export class ArrowTool implements Tool {
     const arrow = this.build(ctx, start, snap.point, startBinding, endBinding)
     ctx.store.transact((api) => api.addElement(arrow))
     ctx.store.stopCapturing()
-    ctx.store.setUiState({ selectedIds: new Set([arrow.id]), activeTool: 'select' })
+    const { toolLock } = ctx.store.getUiState()
+    ctx.store.setUiState({ selectedIds: new Set([arrow.id]), ...(toolLock ? {} : { activeTool: 'select' }) })
     return { scene: true, overlay: true }
   }
 

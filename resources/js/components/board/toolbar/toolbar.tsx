@@ -2,6 +2,8 @@ import { useState, type ReactNode } from 'react'
 import {
   Code2,
   Hand,
+  Lock,
+  LockOpen,
   MousePointer2,
   MoveUpRight,
   Pencil,
@@ -52,6 +54,7 @@ export interface ToolbarProps {
   activeTool: ToolId
   activeShapeType: ShapeType
   activeStickyColor: StickyColor
+  toolLock?: boolean
   layout?: ToolbarLayout
   diagramOpen?: boolean
   /** Extra controls rendered inside the toolbar pill, after the diagram button. */
@@ -59,6 +62,7 @@ export interface ToolbarProps {
   onSelectTool(tool: ToolId): void
   onSelectShape(type: ShapeType): void
   onSelectStickyColor(color: StickyColor): void
+  onToggleToolLock?(): void
   onToggleDiagram?(): void
 }
 
@@ -66,12 +70,14 @@ export function Toolbar({
   activeTool,
   activeShapeType,
   activeStickyColor,
+  toolLock = false,
   layout = 'vertical',
   diagramOpen = false,
   trailing,
   onSelectTool,
   onSelectShape,
   onSelectStickyColor,
+  onToggleToolLock,
   onToggleDiagram,
 }: ToolbarProps) {
   const [stickyOpen, setStickyOpen] = useState(false)
@@ -110,6 +116,15 @@ export function Toolbar({
             setStickyOpen(false)
           }}
         />
+        {onToggleToolLock ? (
+          <ToolButton
+            label={toolLock ? 'Unlock tool' : 'Keep tool active'}
+            active={toolLock}
+            onClick={onToggleToolLock}
+          >
+            {toolLock ? <Lock /> : <LockOpen />}
+          </ToolButton>
+        ) : null}
         <Divider horizontal={horizontal} />
         {horizontal ? (
           <>

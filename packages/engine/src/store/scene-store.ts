@@ -73,6 +73,7 @@ export interface UiState {
   activeShapeType: ShapeType
   activeStickyColor: StickyColor
   clipboardElementCount: number
+  toolLock: boolean
 }
 
 export type StoreChannel = 'doc' | 'selection' | 'chrome' | 'hover' | 'local' | 'history'
@@ -154,6 +155,7 @@ export class SceneStore {
     activeShapeType: 'rect',
     activeStickyColor: DEFAULT_STICKY_COLOR,
     clipboardElementCount: 0,
+    toolLock: false,
   }
 
   private readonly localSubscribers = new Set<Subscriber>()
@@ -241,7 +243,8 @@ export class SceneStore {
       Object.hasOwn(uiPatch, 'activeTool') ||
       Object.hasOwn(uiPatch, 'activeShapeType') ||
       Object.hasOwn(uiPatch, 'activeStickyColor') ||
-      Object.hasOwn(uiPatch, 'clipboardElementCount')
+      Object.hasOwn(uiPatch, 'clipboardElementCount') ||
+      Object.hasOwn(uiPatch, 'toolLock')
     if (!touchesSelection && !touchesChrome) return
     this.uiState = { ...this.uiState, ...uiPatch }
     this.uiSubscribers.forEach((cb) => cb())

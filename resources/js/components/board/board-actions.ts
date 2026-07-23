@@ -6,6 +6,7 @@ import {
   Crosshair,
   Download,
   ImageDown,
+  Lock,
   Maximize,
   Redo2,
   Scissors,
@@ -168,6 +169,14 @@ export const BOARD_ACTIONS: BoardAction[] = [
     group: 'view',
     when: () => true,
     run: ({ store }) => store.setSnapGuidesEnabled(!store.getSnapshot().appState.snapGuidesEnabled),
+  },
+  {
+    id: 'tool-lock.toggle',
+    label: 'Keep tool active',
+    icon: Lock,
+    group: 'view',
+    when: () => true,
+    run: ({ store }) => store.setUiState({ toolLock: !store.getUiState().toolLock }),
   },
   {
     id: 'export-png',
