@@ -444,12 +444,14 @@ export class EditorController {
 
   async exportImage(options: ExportImageOptions): Promise<Blob | null> {
     const snapshot = this.store.getSnapshot()
+    const elementIds = options.selectionOnly ? [...this.store.getUiState().selectedIds] : undefined
     await this.imageCache.ensureBitmaps(exportImageAssetIds(snapshot))
     const canvas = renderSceneToCanvas(snapshot, {
       format: options.format,
       scale: options.scale,
       background: exportBackground(options),
       dark: options.dark,
+      elementIds,
     })
     if (!canvas) return null
     return canvasToBlob(canvas, { format: options.format })
@@ -821,6 +823,7 @@ export interface ExportImageOptions {
   transparent: boolean
   dark?: boolean
   scale?: number
+  selectionOnly?: boolean
 }
 
 const EXPORT_BASE_BACKGROUND = '#ffffff'

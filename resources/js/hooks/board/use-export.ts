@@ -6,17 +6,38 @@ type ExportFormat = ExportImageOptions['format']
 
 const EXTENSION: Record<ExportFormat, string> = { png: 'png', jpg: 'jpg' }
 
+export interface BoardExportOptions {
+  scale?: number
+  selectionOnly?: boolean
+}
+
 export interface BoardExport {
-  exportImage(format: ExportFormat, transparent: boolean, dark: boolean): Promise<void>
-  copyImage(): Promise<void>
+  exportImage(
+    format: ExportFormat,
+    transparent: boolean,
+    dark: boolean,
+    options?: BoardExportOptions,
+  ): Promise<void>
+  copyImage(options?: BoardExportOptions): Promise<void>
 }
 
 export function useExport(controller: EditorController | null): BoardExport {
   const exportImage = useCallback(
-    async (format: ExportFormat, transparent: boolean, dark: boolean): Promise<void> => {
+    async (
+      format: ExportFormat,
+      transparent: boolean,
+      dark: boolean,
+      options?: BoardExportOptions,
+    ): Promise<void> => {
       if (!controller) return
       try {
-        const blob = await controller.exportImage({ format, transparent, dark })
+        const blob = await controller.exportImage({
+          format,
+          transparent,
+          dark,
+          scale: options?.scale,
+          selectionOnly: options?.selectionOnly,
+        })
         if (!blob) {
           boardToast('Nothing to export', 'error')
           return
@@ -31,20 +52,26 @@ export function useExport(controller: EditorController | null): BoardExport {
     [controller],
   )
 
-  const copyImage = useCallback(async (): Promise<void> => {
-    if (!controller) return
-    try {
-      const copied = await controller.copyImageToClipboard()
-      if (!copied) {
-        boardToast('Clipboard not supported', 'error')
-        return
+  const copyImage = useCallback(
+    async (options?: BoardExportOptions): Promise<void> => {
+      if (!controller) return
+      try {
+        const copied = await controller.copyImageToClipboard({
+          scale: options?.scale,
+          selectionOnly: options?.selectionOnly,
+        })
+        if (!copied) {
+          boardToast('Clipboard not supported', 'error')
+          return
+        }
+        boardToast('Copied to clipboard')
+      } catch (error) {
+        console.error('Clipboard copy failed', error)
+        boardToast('Copy failed', 'error')
       }
-      boardToast('Copied to clipboard')
-    } catch (error) {
-      console.error('Clipboard copy failed', error)
-      boardToast('Copy failed', 'error')
-    }
-  }, [controller])
+    },
+    [controller],
+  )
 
   return useMemo(() => ({ exportImage, copyImage }), [exportImage, copyImage])
 }

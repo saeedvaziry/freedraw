@@ -1,6 +1,6 @@
 import { contentBounds } from '../geometry/fit.js'
 import type { Rect } from '../geometry/rect.js'
-import type { Element, SceneSnapshot } from '../model/types.js'
+import type { Element, ElementId, SceneSnapshot } from '../model/types.js'
 import { invertColor } from './invert.js'
 import { paintElement } from './painters/index.js'
 
@@ -13,6 +13,7 @@ export interface ExportOptions {
   background?: string | null
   dark?: boolean
   quality?: number
+  elementIds?: readonly ElementId[]
 }
 
 export const EXPORT_DEFAULT_PADDING = 16
@@ -45,8 +46,22 @@ export function exportCanvasSize(bounds: Rect, padding: number, scale: number): 
   }
 }
 
+export function exportSubset(snapshot: SceneSnapshot, ids?: readonly ElementId[]): SceneSnapshot {
+  if (!ids || ids.length === 0) return snapshot
+  const keep = new Set(ids)
+  const order = snapshot.order.filter((id) => keep.has(id))
+  if (order.length === 0) return snapshot
+  const elements: Record<ElementId, Element> = {}
+  for (const id of order) {
+    const element = snapshot.elements[id]
+    if (element) elements[id] = element
+  }
+  return { ...snapshot, order, elements }
+}
+
 export function renderSceneToCanvas(snapshot: SceneSnapshot, options: ExportOptions): HTMLCanvasElement | null {
-  const bounds = contentBounds(snapshot)
+  const scene = exportSubset(snapshot, options.elementIds)
+  const bounds = contentBounds(scene)
   if (!bounds || bounds.width <= 0 || bounds.height <= 0) return null
 
   const padding = options.padding ?? EXPORT_DEFAULT_PADDING
@@ -66,8 +81,8 @@ export function renderSceneToCanvas(snapshot: SceneSnapshot, options: ExportOpti
 
   const dark = options.dark ?? false
   ctx.setTransform(scale, 0, 0, scale, (-bounds.x + padding) * scale, (-bounds.y + padding) * scale)
-  for (const id of snapshot.order) {
-    const element: Element | undefined = snapshot.elements[id]
+  for (const id of scene.order) {
+    const element: Element | undefined = scene.elements[id]
     if (element) paintElement(ctx, element, dark)
   }
   return canvas
