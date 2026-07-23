@@ -306,6 +306,7 @@ export class EditorController {
     direction: SpawnDirection,
     type?: ShapeType,
   ): ElementId | null {
+    if (this.readOnly) return null
     const source = this.store.getSnapshot().elements[sourceId]
     if (!source || isArrowElement(source)) return null
     const targetId = spawnConnectedShape(this.store, source, direction, type)
@@ -377,6 +378,7 @@ export class EditorController {
   }
 
   beginLabelEditFromText(elementId: ElementId, text: string): void {
+    if (this.readOnly) return
     const element = this.store.getSnapshot().elements[elementId]
     if (!element) return
     this.beginEdit(labelEditRequest(element, text, { selectAll: false }))
@@ -491,17 +493,19 @@ export class EditorController {
     return { ok: true, blob }
   }
 
-  async copyImageToClipboard(options?: Partial<ExportImageOptions>): Promise<boolean> {
+  async copyImageToClipboard(options?: Partial<ExportImageOptions>): Promise<ExportImageResult> {
     const result = await this.exportImage({
       format: 'png',
       transparent: false,
       dark: this.darkMode,
       ...options,
     })
-    if (!result.ok) return false
-    if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) return false
+    if (!result.ok) return result
+    if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) {
+      return { ok: false, reason: 'unsupported' }
+    }
     await navigator.clipboard.write([new ClipboardItem({ [result.blob.type]: result.blob })])
-    return true
+    return result
   }
 
   measureTextSize(text: string, style: Style): TextSize {

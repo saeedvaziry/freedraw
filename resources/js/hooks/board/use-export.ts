@@ -69,12 +69,12 @@ export function useExport(controller: EditorController | null, store: SceneStore
     async (options?: BoardExportOptions): Promise<void> => {
       if (!controller) return
       try {
-        const copied = await controller.copyImageToClipboard({
+        const result = await controller.copyImageToClipboard({
           scale: options?.scale,
           selectionOnly: options?.selectionOnly,
         })
-        if (!copied) {
-          boardToast('Clipboard not supported', 'error')
+        if (!result.ok) {
+          boardToast(copyFailureMessage(result), 'error')
           return
         }
         boardToast('Copied to clipboard')
@@ -136,6 +136,11 @@ function exportFailureMessage(failure: ExportFailure): string {
   const suggested = Math.floor(failure.size.maxScale)
   if (suggested < 1) return 'Board too large to export — try exporting a selection'
   return `Board too large at ${failure.size.scale}x — try ${suggested}x or lower`
+}
+
+function copyFailureMessage(failure: ExportFailure): string {
+  if (failure.reason === 'unsupported') return 'Clipboard not supported'
+  return exportFailureMessage(failure)
 }
 
 function downloadBlob(blob: Blob, filename: string): void {
