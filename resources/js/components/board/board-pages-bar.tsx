@@ -9,9 +9,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { cn } from '@/components/board/ui-kit'
 import { usePages } from '@/hooks/board/use-pages'
 import { PageRow } from './page-row.js'
 import { SharePageModal } from './share-page-modal.js'
+
+const pillSurface =
+  'rounded-[var(--panel-radius)] border border-[color:var(--panel-border)] bg-[var(--panel-bg)] shadow-[var(--panel-shadow)] backdrop-blur-[var(--panel-blur)]'
 
 /**
  * Floating page switcher anchored top-left, beside the sidebar. A single
@@ -62,7 +66,10 @@ export function BoardPagesBar() {
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="flex h-9 min-w-0 max-w-[min(22rem,calc(100vw-10rem))] items-center gap-2 rounded-lg border bg-background/90 px-2.5 text-left text-sm shadow-sm backdrop-blur transition-colors hover:bg-accent data-[state=open]:bg-accent"
+            className={cn(
+              pillSurface,
+              'flex h-9 min-w-0 max-w-[min(22rem,calc(100vw-10rem))] items-center gap-2 px-2.5 text-left text-sm transition-colors hover:bg-accent data-[state=open]:bg-accent',
+            )}
           >
             <FileText className="size-4 shrink-0 text-foreground/70" />
             <span className="min-w-0 flex-1 truncate font-medium">
@@ -134,7 +141,10 @@ export function BoardPagesBar() {
           aria-label="Share page"
           title="Share page"
           onClick={() => setShareOpen(true)}
-          className="flex h-9 shrink-0 items-center gap-2 rounded-lg border bg-background/90 px-2.5 text-sm shadow-sm backdrop-blur transition-colors hover:bg-accent"
+          className={cn(
+            pillSurface,
+            'flex h-9 shrink-0 items-center gap-2 px-2.5 text-sm transition-colors hover:bg-accent',
+          )}
         >
           <Share2 className="size-4 shrink-0 text-foreground/70" />
           <span className="font-medium">Share</span>

@@ -24,7 +24,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { cn, Tooltip, TooltipContent, TooltipTrigger } from '@/components/board/ui-kit'
+import {
+  cn,
+  FloatingPanel,
+  IconButton,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/board/ui-kit'
 import { AppearanceSegmented } from './appearance-segmented.js'
 import { UserInfo } from '@/components/user-info'
 import { useInitials } from '@/hooks/use-initials'
@@ -174,7 +181,7 @@ export function BoardSidebar() {
 
   if (collapsed) {
     return (
-      <div className="pointer-events-auto flex h-full w-12 flex-col items-center gap-1 rounded-lg border bg-background/90 p-1.5 shadow-sm backdrop-blur">
+      <FloatingPanel orientation="vertical" className="pointer-events-auto h-full w-12 items-center">
         <Link href="/" prefetch aria-label="Home" className="mb-1 flex size-9 items-center justify-center">
           <AppLogoIcon className="size-7 rounded-md" />
         </Link>
@@ -189,15 +196,14 @@ export function BoardSidebar() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
-              type="button"
+            <IconButton
               aria-label={currentOrganization?.name ?? 'Select organization'}
               title={currentOrganization?.name ?? 'Select organization'}
               data-test="board-organization-switcher-trigger"
               className={railButtonClass}
             >
               <Users />
-            </button>
+            </IconButton>
           </DropdownMenuTrigger>
           {organizationMenu}
         </DropdownMenu>
@@ -209,25 +215,24 @@ export function BoardSidebar() {
         <div className="mt-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button
-                type="button"
+              <IconButton
                 aria-label="Account menu"
                 title={user.name}
                 data-test="board-sidebar-user-menu"
-                className="flex size-9 items-center justify-center rounded-md transition-colors hover:bg-accent data-[state=open]:bg-accent"
+                className={railButtonClass}
               >
                 <UserAvatar user={user} />
-              </button>
+              </IconButton>
             </DropdownMenuTrigger>
             {userMenu}
           </DropdownMenu>
         </div>
-      </div>
+      </FloatingPanel>
     )
   }
 
   return (
-    <div className="pointer-events-auto flex h-full w-60 flex-col gap-2 rounded-lg border bg-background/90 p-2 shadow-sm backdrop-blur">
+    <FloatingPanel orientation="vertical" className="pointer-events-auto h-full w-60">
       {/* Header: brand (links home) + collapse toggle */}
       <div className="flex items-center justify-between gap-2 px-1">
         <Link
@@ -239,15 +244,14 @@ export function BoardSidebar() {
           <AppLogoIcon className="size-5 shrink-0 rounded" />
           <span className="truncate">FreeDraw</span>
         </Link>
-        <button
-          type="button"
+        <IconButton
           onClick={toggle}
           aria-label="Collapse sidebar"
           title="Collapse sidebar"
-          className="flex size-7 shrink-0 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4"
+          className="size-7 coarse:size-7 rounded-md text-foreground/70 hover:text-foreground"
         >
           <PanelLeftClose />
-        </button>
+        </IconButton>
       </div>
 
       {/* Home (top) */}
@@ -308,12 +312,12 @@ export function BoardSidebar() {
           {userMenu}
         </DropdownMenu>
       </div>
-    </div>
+    </FloatingPanel>
   )
 }
 
 const railButtonClass =
-  'flex size-9 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground [&_svg]:size-4'
+  'flex size-9 coarse:size-9 items-center justify-center rounded-[var(--icon-button-radius)] text-foreground/70 transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground [&_svg]:size-4'
 
 function RailButton({
   label,
@@ -326,15 +330,14 @@ function RailButton({
   className?: string
 } & React.ComponentProps<'button'>) {
   return (
-    <button
-      type="button"
+    <IconButton
       aria-label={label}
       title={label}
       className={cn(railButtonClass, className)}
       {...props}
     >
       {children}
-    </button>
+    </IconButton>
   )
 }
 
