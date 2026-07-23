@@ -99,6 +99,22 @@ class Page extends Model
     }
 
     /**
+     * @return HasMany<PageUpdate, $this>
+     */
+    public function updates(): HasMany
+    {
+        return $this->hasMany(PageUpdate::class);
+    }
+
+    /**
+     * @return HasMany<PageSnapshot, $this>
+     */
+    public function snapshots(): HasMany
+    {
+        return $this->hasMany(PageSnapshot::class);
+    }
+
+    /**
      * Scope the query to pages the given user is allowed to see: their own,
      * organization- or publicly-shared pages in organizations they belong to,
      * and every page in organizations they administer.
