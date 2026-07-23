@@ -1,11 +1,8 @@
 import { useSyncExternalStore } from 'react'
-import type { SceneStore } from '@freedraw/engine'
+import { useBoardContext } from './board-context.js'
 
-interface ZoomIndicatorProps {
-  store: SceneStore
-}
-
-export function ZoomIndicator({ store }: ZoomIndicatorProps) {
+export function ZoomIndicator() {
+  const { store } = useBoardContext()
   const zoom = useSyncExternalStore(
     (cb) => store.subscribe(cb),
     () => store.getSnapshot().appState.camera.zoom,

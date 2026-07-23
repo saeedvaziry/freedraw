@@ -1,6 +1,8 @@
 import { router, usePage } from '@inertiajs/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type { EditorController, SceneStore } from '@freedraw/engine'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { EditorController, type SceneStore } from '@freedraw/engine'
+import { BoardProvider, type BoardContextValue } from './board-context.js'
+import { useImageInsert } from '@/hooks/board/use-image-insert.js'
 import { BoardMobileMenu } from './board-mobile-menu.js'
 import { BoardPagesBar } from './board-pages-bar.js'
 import { BoardSidebar } from './board-sidebar.js'
@@ -110,21 +112,31 @@ interface BoardProps {
 }
 
 function Board({ store, readOnly = false }: BoardProps) {
+  const sceneRef = useRef<HTMLCanvasElement>(null)
+  const overlayRef = useRef<HTMLCanvasElement>(null)
   const [controller, setController] = useState<EditorController | null>(null)
   const [diagramOpen, setDiagramOpen] = useState(false)
-  const pickerRef = useRef<(() => void) | null>(null)
-  const registerPicker = useCallback((openPicker: () => void) => {
-    pickerRef.current = openPicker
-  }, [])
-  const openImagePicker = useCallback(() => {
-    pickerRef.current?.()
-  }, [])
   // The board consumes the app-wide appearance (light / dark / system) hook; the
   // canvas and export only care about the *resolved* light/dark value.
   const { resolvedAppearance: theme } = useAppearance()
   const boardExport = useExport(controller)
-  useKeyboard(store, controller, openImagePicker, boardExport)
+  const imageInsert = useImageInsert(controller, store)
+  useKeyboard(store, controller, imageInsert.openPicker, boardExport)
   useBoardClipboard(store, controller)
+
+  useEffect(() => {
+    const scene = sceneRef.current
+    const overlay = overlayRef.current
+    if (!scene || !overlay) return
+
+    const instance = new EditorController(store, scene, overlay)
+    const cleanup = instance.mount()
+    setController(instance)
+    return () => {
+      cleanup()
+      setController(null)
+    }
+  }, [store])
 
   useEffect(() => {
     controller?.setDark(theme === 'dark')
@@ -136,65 +148,78 @@ function Board({ store, readOnly = false }: BoardProps) {
     controller?.setReadOnly(readOnly)
   }, [controller, readOnly])
 
+  const context = useMemo<BoardContextValue>(
+    () => ({
+      store,
+      controller,
+      boardExport,
+      theme,
+      readOnly,
+      scope: readOnly ? 'view' : 'edit',
+      openImagePicker: imageInsert.openPicker,
+    }),
+    [store, controller, boardExport, theme, readOnly, imageInsert.openPicker],
+  )
+
   return (
-    <div className="relative h-full w-full">
-      <CanvasHost store={store} onImagePicker={registerPicker} onController={setController} />
-      <EmptyState store={store} />
-
-      <div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-3 sm:hidden">
-        <BoardMobileMenu />
-      </div>
-
-      <div className="pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] flex justify-center px-3 sm:hidden">
-        <MobileBar
-          store={store}
-          controller={controller}
-          boardExport={boardExport}
-          theme={theme}
-        />
-      </div>
-
-      <div className="pointer-events-none absolute top-3 right-3 hidden justify-end sm:flex">
-        <StylePanelHost store={store} collapsible />
-      </div>
-      <div className="pointer-events-none absolute top-3 bottom-3 left-3 hidden sm:block">
-        <BoardSidebar />
-      </div>
+    <BoardProvider value={context}>
       <div
-        className="pointer-events-none absolute top-3 hidden transition-[left] duration-200 ease-linear sm:flex"
-        style={{ left: 'calc(1.25rem + var(--board-sidebar-width, 0px))' }}
+        className="relative h-full w-full"
+        onDragOver={imageInsert.onDragOver}
+        onDrop={imageInsert.onDrop}
       >
-        <BoardPagesBar />
-      </div>
-      {diagramOpen ? (
+        <CanvasHost sceneRef={sceneRef} overlayRef={overlayRef} controller={controller} />
+        <EmptyState />
+
+        <div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-3 sm:hidden">
+          <BoardMobileMenu />
+        </div>
+
+        <div className="pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] flex justify-center px-3 sm:hidden">
+          <MobileBar />
+        </div>
+
+        <div className="pointer-events-none absolute top-3 right-3 hidden justify-end sm:flex">
+          <StylePanelHost collapsible />
+        </div>
+        <div className="pointer-events-none absolute top-3 bottom-3 left-3 hidden sm:block">
+          <BoardSidebar />
+        </div>
         <div
-          className="pointer-events-none absolute top-16 hidden justify-start transition-[left] duration-200 ease-linear sm:flex"
-          style={{ left: 'calc(0.75rem + var(--board-sidebar-width, 0px))' }}
+          className="pointer-events-none absolute top-3 hidden transition-[left] duration-200 ease-linear sm:flex"
+          style={{ left: 'calc(1.25rem + var(--board-sidebar-width, 0px))' }}
         >
-          <DiagramPanelHost
-            store={store}
-            controller={controller}
-            onClose={() => setDiagramOpen(false)}
+          <BoardPagesBar />
+        </div>
+        {diagramOpen ? (
+          <div
+            className="pointer-events-none absolute top-16 hidden justify-start transition-[left] duration-200 ease-linear sm:flex"
+            style={{ left: 'calc(0.75rem + var(--board-sidebar-width, 0px))' }}
+          >
+            <DiagramPanelHost onClose={() => setDiagramOpen(false)} />
+          </div>
+        ) : null}
+        <div
+          className="pointer-events-none absolute bottom-3 hidden justify-center px-3 transition-[left] duration-200 ease-linear sm:flex"
+          style={{ left: 'calc(0.75rem + var(--board-sidebar-width, 0px))', right: '0.75rem' }}
+        >
+          <BottomBar
+            diagramOpen={diagramOpen}
+            onToggleDiagram={() => setDiagramOpen((open) => !open)}
           />
         </div>
-      ) : null}
-      <div
-        className="pointer-events-none absolute bottom-3 hidden justify-center px-3 transition-[left] duration-200 ease-linear sm:flex"
-        style={{ left: 'calc(0.75rem + var(--board-sidebar-width, 0px))', right: '0.75rem' }}
-      >
-        <BottomBar
-          store={store}
-          controller={controller}
-          boardExport={boardExport}
-          theme={theme}
-          diagramOpen={diagramOpen}
-          onToggleDiagram={() => setDiagramOpen((open) => !open)}
+        <div className="pointer-events-none absolute right-3 bottom-3 hidden items-center gap-2 sm:flex">
+          <LinksBar />
+          <ZoomIndicator />
+        </div>
+        <input
+          ref={imageInsert.fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={imageInsert.onFileInputChange}
         />
       </div>
-      <div className="pointer-events-none absolute right-3 bottom-3 hidden items-center gap-2 sm:flex">
-        <LinksBar />
-        <ZoomIndicator store={store} />
-      </div>
-    </div>
+    </BoardProvider>
   )
 }

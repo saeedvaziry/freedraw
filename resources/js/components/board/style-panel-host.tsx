@@ -1,6 +1,7 @@
 import { PanelRightClose, SlidersHorizontal } from 'lucide-react'
 import { useCallback, useLayoutEffect, useState, useSyncExternalStore } from 'react'
 import type { ArrowElement, Element, SceneStore, SelectionStyle } from '@freedraw/engine'
+import { useBoardContext } from './board-context.js'
 import {
   StylePanel,
   Tooltip,
@@ -15,7 +16,6 @@ import {
 } from '@/components/board/ui-kit'
 
 interface StylePanelHostProps {
-  store: SceneStore
   /**
    * When true (desktop), the panel can collapse to a single icon button in the
    * corner. On mobile the panel already lives inside a toggled popover, so it is
@@ -46,7 +46,8 @@ const DEFAULT_SELECTION: StylePanelSelection = {
   hasArrow: false,
 }
 
-export function StylePanelHost({ store, collapsible = false }: StylePanelHostProps) {
+export function StylePanelHost({ collapsible = false }: StylePanelHostProps) {
+  const { store } = useBoardContext()
   const snapshot = useSyncExternalStore(
     (cb) => store.subscribeStyle(cb),
     () => readSnapshot(store),

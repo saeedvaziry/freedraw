@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { Palette, PencilRuler, Shapes, type LucideIcon } from 'lucide-react'
-import type { EditorController, SceneStore } from '@freedraw/engine'
+import type { SceneStore } from '@freedraw/engine'
 import {
   Popover,
   PopoverContent,
@@ -11,26 +11,15 @@ import {
   TooltipTrigger,
   cn,
 } from '@/components/board/ui-kit'
+import { useBoardContext } from './board-context.js'
 import { ActionsBarHost } from './actions-bar-host.js'
 import { StylePanelHost } from './style-panel-host.js'
 import { ToolbarHost } from './toolbar-host.js'
-import type { BoardExport } from '@/hooks/board/use-export.js'
 
 type Section = 'tools' | 'style' | 'edit'
 
-interface MobileBarProps {
-  store: SceneStore
-  controller: EditorController | null
-  boardExport: BoardExport
-  theme: 'light' | 'dark'
-}
-
-export function MobileBar({
-  store,
-  controller,
-  boardExport,
-  theme,
-}: MobileBarProps) {
+export function MobileBar() {
+  const { store, controller, boardExport, theme } = useBoardContext()
   const [section, setSection] = useState<Section | null>(null)
   const hasSelection = useHasSelection(store)
 
@@ -59,7 +48,7 @@ export function MobileBar({
           disabled={!hasSelection}
           onChange={setSection}
         >
-          <StylePanelHost store={store} />
+          <StylePanelHost />
         </SectionItem>
 
         <SectionItem

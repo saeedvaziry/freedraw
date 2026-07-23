@@ -1,16 +1,16 @@
 import { useMemo, useState, useSyncExternalStore } from 'react'
-import { importDiagram, serializeDiagram, type EditorController, type SceneStore } from '@freedraw/engine'
+import { importDiagram, serializeDiagram } from '@freedraw/engine'
 import { DiagramPanel, useToast } from '@/components/board/ui-kit'
+import { useBoardContext } from './board-context.js'
 
 const DOCS_HREF = '/docs/diagram.html'
 
 interface DiagramPanelHostProps {
-  store: SceneStore
-  controller: EditorController | null
   onClose(): void
 }
 
-export function DiagramPanelHost({ store, controller, onClose }: DiagramPanelHostProps) {
+export function DiagramPanelHost({ onClose }: DiagramPanelHostProps) {
+  const { store, controller } = useBoardContext()
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()

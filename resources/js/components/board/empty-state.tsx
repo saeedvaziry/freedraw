@@ -1,11 +1,8 @@
 import { useSyncExternalStore } from 'react'
-import type { SceneStore } from '@freedraw/engine'
+import { useBoardContext } from './board-context.js'
 
-interface EmptyStateProps {
-  store: SceneStore
-}
-
-export function EmptyState({ store }: EmptyStateProps) {
+export function EmptyState() {
+  const { store } = useBoardContext()
   const isEmpty = useSyncExternalStore(
     (cb) => store.subscribe(cb),
     () => store.getSnapshot().order.length === 0,
