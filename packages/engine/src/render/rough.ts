@@ -38,15 +38,16 @@ function sketchOptions(sloppiness: number, seed: number): Options {
   }
 }
 
-export function strokeRoughPolygon(
-  ctx: CanvasRenderingContext2D,
-  points: Point[],
-  sloppiness: number,
-  seed: number,
-): void {
-  if (points.length < 2) return
-  const drawable = roughGenerator().polygon(points.map(toPair), sketchOptions(sloppiness, seed))
-  paintDrawable(ctx, drawable)
+export function roughPathDrawable(d: string, sloppiness: number, seed: number): Drawable {
+  return roughGenerator().path(d, sketchOptions(sloppiness, seed))
+}
+
+export function roughPolygonDrawable(points: Point[], sloppiness: number, seed: number): Drawable {
+  return roughGenerator().polygon(points.map(toPair), sketchOptions(sloppiness, seed))
+}
+
+export function roughPolylineDrawable(points: Point[], sloppiness: number, seed: number): Drawable {
+  return roughGenerator().linearPath(points.map(toPair), sketchOptions(sloppiness, seed))
 }
 
 export function roughOutlineDrawable(outline: Outline, sloppiness: number, seed: number): Drawable {
@@ -64,27 +65,6 @@ export function strokeRoughOutline(
   seed: number,
 ): void {
   paintDrawable(ctx, roughOutlineDrawable(outline, sloppiness, seed))
-}
-
-export function strokeRoughPolyline(
-  ctx: CanvasRenderingContext2D,
-  points: Point[],
-  sloppiness: number,
-  seed: number,
-): void {
-  if (points.length < 2) return
-  const drawable = roughGenerator().linearPath(points.map(toPair), sketchOptions(sloppiness, seed))
-  paintDrawable(ctx, drawable)
-}
-
-export function strokeRoughPath(
-  ctx: CanvasRenderingContext2D,
-  d: string,
-  sloppiness: number,
-  seed: number,
-): void {
-  const drawable = roughGenerator().path(d, sketchOptions(sloppiness, seed))
-  paintDrawable(ctx, drawable)
 }
 
 export function paintDrawable(ctx: CanvasRenderingContext2D, drawable: Drawable): void {

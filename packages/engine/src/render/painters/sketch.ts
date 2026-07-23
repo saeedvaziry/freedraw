@@ -1,9 +1,14 @@
-import rough from 'roughjs'
-import type { Drawable, Options } from 'roughjs/bin/core.js'
-import type { RoughGenerator } from 'roughjs/bin/generator.js'
+import type { Drawable } from 'roughjs/bin/core.js'
 import type { Element, Point } from '../../model/types.js'
 import { getOutline, type Outline, traceOutline } from '../../geometry/shape-outline.js'
-import { hashSeed, paintDrawable, roughnessFor, roughOutlineDrawable } from '../rough.js'
+import {
+  hashSeed,
+  paintDrawable,
+  roughOutlineDrawable,
+  roughPathDrawable,
+  roughPolygonDrawable,
+  roughPolylineDrawable,
+} from '../rough.js'
 import { drawableCache } from '../draw-cache.js'
 
 export function isSloppy(element: Element): boolean {
@@ -42,35 +47,13 @@ function round(value: number): number {
   return Math.round(value * 100) / 100
 }
 
-let sketchGenerator: RoughGenerator | null = null
-
-function generator(): RoughGenerator {
-  if (!sketchGenerator) sketchGenerator = rough.generator()
-  return sketchGenerator
-}
-
-function sketchOptions(sloppiness: number, seed: number): Options {
-  return {
-    roughness: roughnessFor(sloppiness),
-    seed,
-    preserveVertices: true,
-    disableMultiStroke: false,
-    stroke: 'transparent',
-    fill: undefined,
-  }
-}
-
-function toPair(point: Point): [number, number] {
-  return [point.x, point.y]
-}
-
 export function sloppyPolylineDrawable(points: Point[], element: Element): Drawable | null {
   if (points.length < 2) return null
-  return generator().linearPath(points.map(toPair), sketchOptions(element.style.sloppiness, hashSeed(element.id)))
+  return roughPolylineDrawable(points, element.style.sloppiness, hashSeed(element.id))
 }
 
 export function sloppyPathDataDrawable(d: string, element: Element): Drawable {
-  return generator().path(d, sketchOptions(element.style.sloppiness, hashSeed(element.id)))
+  return roughPathDrawable(d, element.style.sloppiness, hashSeed(element.id))
 }
 
 export function sloppyPolygonDrawable(
@@ -79,8 +62,5 @@ export function sloppyPolygonDrawable(
   seedOffset: number,
 ): Drawable | null {
   if (points.length < 2) return null
-  return generator().polygon(
-    points.map(toPair),
-    sketchOptions(element.style.sloppiness, hashSeed(element.id) + seedOffset),
-  )
+  return roughPolygonDrawable(points, element.style.sloppiness, hashSeed(element.id) + seedOffset)
 }
