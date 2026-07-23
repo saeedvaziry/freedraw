@@ -14,7 +14,7 @@ function roughGenerator(): RoughGenerator {
   return generator
 }
 
-export function roughnessFor(sloppiness: number): number {
+function roughnessFor(sloppiness: number): number {
   return Math.max(0, sloppiness) * MAX_ROUGHNESS
 }
 
