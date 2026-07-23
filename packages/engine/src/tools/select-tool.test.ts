@@ -79,7 +79,6 @@ function setup(): { store: SceneStore; ctx: ToolContext; flowCalls: FlowCall[] }
       setGuides: () => {},
       setPortTarget: () => {},
       beginEdit: () => {},
-      requestSpawnMenu: () => {},
       spawnChildAndEdit: (sourceId, direction, type) => {
         flowCalls.push({ sourceId, direction, type })
         const source = store.getSnapshot().elements[sourceId]

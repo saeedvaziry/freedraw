@@ -17,7 +17,6 @@ import {
   spawnConnectedShape,
   spawnSiblingShape,
   type SpawnDirection,
-  type SpawnMenuRequest,
 } from '../connectors/spawn.js'
 import type { EditListener, EditRequest } from '../text/edit.js'
 import { measureTextBox, type TextSize } from '../text/size.js'
@@ -65,7 +64,6 @@ const ZOOM_SENSITIVITY = 0.0015
 const WHEEL_COMMIT_DELAY = 150
 
 type Cleanup = () => void
-type SpawnMenuListener = (request: SpawnMenuRequest | null) => void
 type ContextMenuListener = (request: ContextMenuRequest | null) => void
 export type CursorListener = (point: Point | null) => void
 export type CameraListener = (camera: CameraState) => void
@@ -93,7 +91,6 @@ export class EditorController {
   private editFloor: { id: ElementId; rect: Rect } | null = null
   private currentFlow: FlowContext | null = null
   private readonly editListeners = new Set<EditListener>()
-  private readonly spawnMenuListeners = new Set<SpawnMenuListener>()
   private readonly contextMenuListeners = new Set<ContextMenuListener>()
   private readonly cursorListeners = new Set<CursorListener>()
   private readonly cameraInputListeners = new Set<CameraListener>()
@@ -142,7 +139,6 @@ export class EditorController {
         this.portTargetId = id
       },
       beginEdit: (request) => this.beginEdit(request),
-      requestSpawnMenu: (request) => this.openSpawnMenu(request),
       requestContextMenu: (request) => this.openContextMenu(request),
       spawnChildAndEdit: (sourceId, direction, type) => {
         this.spawnChildAndEdit(sourceId, direction, type)
@@ -167,7 +163,7 @@ export class EditorController {
 
   /**
    * Toggle read-only mode. Navigation (pan/zoom) stays enabled while every
-   * mutation path — tools, text editing, spawn menu — is suppressed. Used for
+   * mutation path — tools, text editing, context menu — is suppressed. Used for
    * public share links that should be viewable but not editable.
    */
   setReadOnly(readOnly: boolean): void {
@@ -175,7 +171,6 @@ export class EditorController {
     this.readOnly = readOnly
     if (readOnly) {
       this.cancelEdit()
-      this.closeSpawnMenu()
       this.closeContextMenu()
       this.store.setUiState({ selectedIds: new Set() })
     }
@@ -272,19 +267,6 @@ export class EditorController {
     return this.editRequest
   }
 
-  subscribeSpawnMenu(listener: SpawnMenuListener): () => void {
-    this.spawnMenuListeners.add(listener)
-    return () => this.spawnMenuListeners.delete(listener)
-  }
-
-  private openSpawnMenu(request: SpawnMenuRequest): void {
-    this.spawnMenuListeners.forEach((listener) => listener(request))
-  }
-
-  closeSpawnMenu(): void {
-    this.spawnMenuListeners.forEach((listener) => listener(null))
-  }
-
   subscribeContextMenu(listener: ContextMenuListener): () => void {
     this.contextMenuListeners.add(listener)
     return () => this.contextMenuListeners.delete(listener)
@@ -296,11 +278,6 @@ export class EditorController {
 
   closeContextMenu(): void {
     this.contextMenuListeners.forEach((listener) => listener(null))
-  }
-
-  spawnShapeFromMenu(sourceId: ElementId, direction: SpawnDirection, type: ShapeType): void {
-    this.closeSpawnMenu()
-    this.spawnChildAndEdit(sourceId, direction, type)
   }
 
   get flowContext(): FlowContext | null {

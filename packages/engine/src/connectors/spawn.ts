@@ -39,12 +39,6 @@ function plainShapeType(element: Element): ShapeType | undefined {
 
 export type SpawnDirection = 'left' | 'right' | 'up' | 'down'
 
-export interface SpawnMenuRequest {
-  screen: Point
-  sourceId: ElementId
-  direction: SpawnDirection
-}
-
 const SPAWN_GAP = 120
 const MAX_SPAWN_STEPS = 100
 

@@ -3,7 +3,7 @@ import type { Rect } from '../geometry/rect.js'
 import type { SnapGuide } from '../geometry/snap.js'
 import type { SceneStore } from '../store/scene-store.js'
 import type { Element, ElementId, Point, ShapeType } from '../model/types.js'
-import type { SpawnDirection, SpawnMenuRequest } from '../connectors/spawn.js'
+import type { SpawnDirection } from '../connectors/spawn.js'
 import type { SpawnPreview } from '../render/renderer.js'
 import type { EditRequest } from '../text/edit.js'
 
@@ -31,7 +31,6 @@ export interface ToolContext {
   setGuides(guides: SnapGuide[]): void
   setPortTarget(id: ElementId | null): void
   beginEdit(request: EditRequest): void
-  requestSpawnMenu(request: SpawnMenuRequest): void
   requestContextMenu?(request: ContextMenuRequest): void
   spawnChildAndEdit(sourceId: ElementId, direction: SpawnDirection, type?: ShapeType): void
 }

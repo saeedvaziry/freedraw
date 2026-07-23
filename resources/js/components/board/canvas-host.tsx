@@ -1,6 +1,5 @@
 import type { RefObject } from 'react'
 import type { EditorController } from '@freedraw/engine'
-import { SpawnMenu } from './spawn-menu.js'
 import { TextEditorOverlay } from './text-editor-overlay.js'
 
 interface CanvasHostProps {
@@ -15,7 +14,6 @@ export function CanvasHost({ sceneRef, overlayRef, controller }: CanvasHostProps
       <canvas ref={sceneRef} className="absolute inset-0 block h-full w-full" />
       <canvas ref={overlayRef} className="absolute inset-0 block h-full w-full touch-none" />
       {controller && <TextEditorOverlay controller={controller} />}
-      {controller && <SpawnMenu controller={controller} />}
     </>
   )
 }

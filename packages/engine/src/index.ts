@@ -179,7 +179,7 @@ export {
   arrowRoute,
   spawnConnectedShape,
 } from './connectors/index.js'
-export type { SpawnDirection, SpawnMenuRequest } from './connectors/index.js'
+export type { SpawnDirection } from './connectors/index.js'
 export { SCHEMA_VERSION, defaultStyle, defaultAppState } from './model/schema.js'
 export { migrateDoc, seedAppState, readSchemaVersion, migrations } from './model/migrations.js'
 export type { Migration } from './model/migrations.js'
