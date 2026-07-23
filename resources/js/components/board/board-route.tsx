@@ -2,7 +2,7 @@ import { router, usePage } from '@inertiajs/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { EditorController, type SceneStore } from '@freedraw/engine'
 import { BoardProvider, type BoardContextValue } from './board-context.js'
-import { gcOrphanedPageStores, type PageSync } from '@/lib/persistence'
+import { gcOrphanedPageStores, type AssetSource, type PageSync } from '@/lib/persistence'
 import { useImageInsert } from '@/hooks/board/use-image-insert.js'
 import { BoardMobileMenu } from './board-mobile-menu.js'
 import { BoardPagesBar } from './board-pages-bar.js'
@@ -36,6 +36,7 @@ export function BoardRoute() {
     store: SceneStore
     page: BoardPage | null
     sync: PageSync | null
+    assetSource: AssetSource
   } | null>(null)
   // The board currently mounted on screen. We hold onto it across navigation so
   // the old canvas keeps painting while the next board hydrates in the
@@ -54,7 +55,12 @@ export function BoardRoute() {
       // down the one it replaced.
       const previous = displayed.current
       displayed.current = next
-      setBoard({ store: next.store, page: next.page, sync: next.sync ?? null })
+      setBoard({
+        store: next.store,
+        page: next.page,
+        sync: next.sync ?? null,
+        assetSource: next.assetSource,
+      })
       if (previous) destroyBoard(previous)
     }
 
@@ -111,7 +117,14 @@ export function BoardRoute() {
   }, [publicView, auth?.user, boardPages])
 
   if (!board) return <BoardLoading />
-  return <Board store={board.store} readOnly={publicView} sync={board.sync} />
+  return (
+    <Board
+      store={board.store}
+      readOnly={publicView}
+      sync={board.sync}
+      assetSource={board.assetSource}
+    />
+  )
 }
 
 function BoardLoading() {
@@ -123,9 +136,10 @@ interface BoardProps {
   /** Read-only public share: pan/zoom/copy/export stay, document edits are blocked. */
   readOnly?: boolean
   sync: PageSync | null
+  assetSource: AssetSource
 }
 
-function Board({ store, readOnly = false, sync }: BoardProps) {
+function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
   const sceneRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
   const [controller, setController] = useState<EditorController | null>(null)
@@ -134,7 +148,7 @@ function Board({ store, readOnly = false, sync }: BoardProps) {
   // canvas and export only care about the *resolved* light/dark value.
   const { resolvedAppearance: theme } = useAppearance()
   const boardExport = useExport(controller)
-  const imageInsert = useImageInsert(controller, store)
+  const imageInsert = useImageInsert(controller, store, assetSource)
   useKeyboard(store, controller, imageInsert.openPicker, boardExport)
   useBoardClipboard(store, controller)
 

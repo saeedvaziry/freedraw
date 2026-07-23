@@ -100,6 +100,61 @@ export async function updateRemoteShare(
   })
 }
 
+function assetFilename(mime: string): string {
+  const extension = mime.split('/')[1] ?? 'bin'
+  return `asset.${extension}`
+}
+
+/** Write-through upload of a freshly inserted asset to its persisted page. */
+export async function uploadPageAsset(
+  publicId: string,
+  assetId: string,
+  blob: Blob,
+): Promise<void> {
+  const form = new FormData()
+  form.append('asset_id', assetId)
+  form.append('file', blob, assetFilename(blob.type))
+
+  const response = await fetch(`/pages/${encodeURIComponent(publicId)}/assets`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      Accept: 'application/json',
+      'X-XSRF-TOKEN': csrfToken(),
+    },
+    body: form,
+  })
+
+  if (!response.ok) {
+    throw new PageRequestError(response.status)
+  }
+}
+
+async function fetchAssetBlob(url: string): Promise<Blob | undefined> {
+  try {
+    const response = await fetch(url, {
+      credentials: 'same-origin',
+      headers: { Accept: 'image/*' },
+    })
+    if (!response.ok) return undefined
+    return await response.blob()
+  } catch {
+    return undefined
+  }
+}
+
+/** Fetch an asset for an authenticated page the current user can view. */
+export function fetchPageAsset(publicId: string, assetId: string): Promise<Blob | undefined> {
+  return fetchAssetBlob(
+    `/pages/${encodeURIComponent(publicId)}/assets/${encodeURIComponent(assetId)}`,
+  )
+}
+
+/** Fetch an asset for a public share link. */
+export function fetchShareAsset(slug: string, assetId: string): Promise<Blob | undefined> {
+  return fetchAssetBlob(`/s/${encodeURIComponent(slug)}/assets/${encodeURIComponent(assetId)}`)
+}
+
 export function encodeDocAsBase64(doc: Y.Doc): string {
   const update = Y.encodeStateAsUpdate(doc)
   let binary = ''

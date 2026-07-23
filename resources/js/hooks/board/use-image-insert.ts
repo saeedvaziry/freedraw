@@ -6,7 +6,7 @@ import {
   type EditorController,
   type SceneStore,
 } from '@freedraw/engine'
-import { assetRepo } from '@/lib/persistence'
+import { assetRepo, createAssetLoader, uploadPageAsset, type AssetSource } from '@/lib/persistence'
 import { BOARD_CLIPBOARD_MIME } from './use-board-clipboard.js'
 
 interface ImageInsertApi {
@@ -25,6 +25,7 @@ function generateAssetId(): string {
 export function useImageInsert(
   controller: EditorController | null,
   store: SceneStore,
+  assetSource: AssetSource,
 ): ImageInsertApi {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -40,6 +41,11 @@ export function useImageInsert(
       const bitmap = await createImageBitmap(blob)
       const assetId = generateAssetId()
       await assetRepo.putAsset(assetId, blob)
+      if (assetSource.kind === 'page') {
+        void uploadPageAsset(assetSource.publicId, assetId, blob).catch((error) => {
+          console.warn('Asset upload failed', error)
+        })
+      }
 
       const viewport = controller.viewportSize
       const center = world ?? controller.screenToWorld({
@@ -68,13 +74,13 @@ export function useImageInsert(
       store.transact((api) => api.addElement(centered))
       store.setUiState({ selectedIds: new Set([centered.id]), activeTool: 'select' })
     },
-    [controller, store],
+    [controller, store, assetSource],
   )
 
   useEffect(() => {
     if (!controller) return
-    controller.setImageBlobLoader((assetId) => assetRepo.getAsset(assetId))
-  }, [controller])
+    controller.setImageBlobLoader(createAssetLoader(assetSource))
+  }, [controller, assetSource])
 
   useEffect(() => {
     if (!controller) return

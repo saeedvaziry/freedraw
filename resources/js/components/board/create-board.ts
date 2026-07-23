@@ -8,6 +8,7 @@ import {
   DOCUMENT_DB_NAME,
   documentHasContent,
   encodeDocAsBase64,
+  type AssetSource,
   type DocumentPersistence,
   type PageSync,
 } from '@/lib/persistence'
@@ -18,6 +19,20 @@ export interface Board {
   persistence: DocumentPersistence
   sync?: PageSync
   page: BoardPage | null
+  assetSource: AssetSource
+}
+
+function shareSlugFor(page: BoardPage): string | null {
+  if (page.shareUrl) {
+    try {
+      const segments = new URL(page.shareUrl).pathname.split('/').filter(Boolean)
+      return segments[segments.length - 1] ?? null
+    } catch {
+      // Fall through to the current location below.
+    }
+  }
+  const match = typeof window !== 'undefined' ? window.location.pathname.match(/\/s\/([^/]+)/) : null
+  return match ? match[1]! : null
 }
 
 export interface BoardContext {
@@ -109,7 +124,15 @@ async function createPublicBoard(page: BoardPage): Promise<Board> {
 
   seedAppState(doc)
 
-  return { store: new SceneStore(doc), persistence: createEphemeralPersistence(doc), page }
+  const slug = shareSlugFor(page)
+  const assetSource: AssetSource = slug ? { kind: 'share', slug } : { kind: 'local' }
+
+  return {
+    store: new SceneStore(doc),
+    persistence: createEphemeralPersistence(doc),
+    page,
+    assetSource,
+  }
 }
 
 async function createAnonymousBoard(): Promise<Board> {
@@ -122,11 +145,11 @@ async function createAnonymousBoard(): Promise<Board> {
     const fresh = createDocumentPersistence()
     await fresh.whenSynced
     seedAppState(fresh.doc)
-    return { store: new SceneStore(fresh.doc), persistence: fresh, page: null }
+    return { store: new SceneStore(fresh.doc), persistence: fresh, page: null, assetSource: { kind: 'local' } }
   }
 
   seedAppState(persistence.doc)
-  return { store: new SceneStore(persistence.doc), persistence, page: null }
+  return { store: new SceneStore(persistence.doc), persistence, page: null, assetSource: { kind: 'local' } }
 }
 
 function readPromotedMarker(): BoardPage | null {
@@ -256,14 +279,26 @@ async function createPageBoard(page: BoardPage): Promise<Board> {
     await fresh.whenSynced
     const sync = createPageSync(fresh.doc, page.publicId, page.document)
 
-    return { store: new SceneStore(fresh.doc), persistence: fresh, sync, page }
+    return {
+      store: new SceneStore(fresh.doc),
+      persistence: fresh,
+      sync,
+      page,
+      assetSource: { kind: 'page', publicId: page.publicId },
+    }
   }
 
   seedAppState(persistence.doc)
 
   const sync = createPageSync(persistence.doc, page.publicId, page.document)
 
-  return { store: new SceneStore(persistence.doc), persistence, sync, page }
+  return {
+    store: new SceneStore(persistence.doc),
+    persistence,
+    sync,
+    page,
+    assetSource: { kind: 'page', publicId: page.publicId },
+  }
 }
 
 async function createAuthenticatedBoard(context: BoardContext): Promise<CreateBoardResult> {
