@@ -3,9 +3,18 @@ import {
   invertColor,
   type EditorController,
   type EditRequest,
+  type ElementId,
+  type SpawnDirection,
 } from '@freedraw/engine'
 
 const ARROW_LABEL_BACKGROUND = '#fafafa'
+
+const FLOW_DIRECTIONS: Record<string, SpawnDirection> = {
+  ArrowUp: 'up',
+  ArrowDown: 'down',
+  ArrowLeft: 'left',
+  ArrowRight: 'right',
+}
 
 function themed(color: string, dark: boolean): string {
   return dark ? invertColor(color) : color
@@ -73,23 +82,55 @@ export function TextEditorOverlay({ controller }: TextEditorOverlayProps) {
     controller.cancelEdit()
   }
 
+  const isFlowEdit = (): boolean =>
+    controller.flowContext?.editingId === edit.request.elementId
+
+  const abandonedPlaceholderId = (): ElementId | null => {
+    if (committedRef.current || !isFlowEdit()) return null
+    return edit.value.trim().length === 0 ? edit.request.elementId : null
+  }
+
   const onBlur = (): void => {
     if (!readyRef.current) {
       requestAnimationFrame(() => textareaRef.current?.focus())
       return
     }
+    const placeholderId = abandonedPlaceholderId()
     commit()
+    if (placeholderId) controller.deleteFlowPlaceholder(placeholderId)
   }
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>): void => {
     event.stopPropagation()
     if (event.key === 'Escape') {
       event.preventDefault()
+      const placeholderId = abandonedPlaceholderId()
       cancel()
+      if (placeholderId) controller.deleteFlowPlaceholder(placeholderId)
+      return
+    }
+    const flowDirection = event.altKey ? FLOW_DIRECTIONS[event.key] : undefined
+    if (flowDirection) {
+      event.preventDefault()
+      controller.setFlowDirection(flowDirection)
+      return
+    }
+    if (event.key === 'Tab' && !event.metaKey && !event.ctrlKey) {
+      event.preventDefault()
+      const sourceId = edit.request.elementId
+      const direction = controller.flowContext?.direction ?? 'right'
+      commit()
+      controller.spawnChildAndEdit(sourceId, direction)
       return
     }
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
+      if (isFlowEdit()) {
+        const childId = edit.request.elementId
+        commit()
+        controller.spawnSiblingAndEdit(childId)
+        return
+      }
       commit()
     }
   }

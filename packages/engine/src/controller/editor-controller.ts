@@ -284,6 +284,11 @@ export class EditorController {
     return this.currentFlow
   }
 
+  setFlowDirection(direction: SpawnDirection): void {
+    if (!this.currentFlow) return
+    this.currentFlow = { ...this.currentFlow, direction }
+  }
+
   spawnChildAndEdit(
     sourceId: ElementId,
     direction: SpawnDirection,
@@ -330,6 +335,20 @@ export class EditorController {
     })
     this.currentFlow = { editingId: sibling.id, parentId, direction }
     return siblingId
+  }
+
+  deleteFlowPlaceholder(elementId: ElementId): void {
+    const snapshot = this.store.getSnapshot()
+    if (!snapshot.elements[elementId]) return
+    const removal = new Set<ElementId>([elementId])
+    for (const id of snapshot.order) {
+      const element = snapshot.elements[id]
+      if (!element || !isArrowElement(element)) continue
+      if (element.start?.elementId === elementId || element.end?.elementId === elementId) {
+        removal.add(id)
+      }
+    }
+    this.store.deleteElements(removal)
   }
 
   private resolveSiblingParent(childId: ElementId): ElementId | null {
