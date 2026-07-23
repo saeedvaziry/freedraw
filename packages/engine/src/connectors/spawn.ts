@@ -29,6 +29,14 @@ function shapeTypeOf(element: Element): ShapeType {
   return element.type
 }
 
+function plainShapeType(element: Element): ShapeType | undefined {
+  if (isArrowElement(element)) return undefined
+  if (element.type === 'sticky' || element.type === 'text' || element.type === 'image' || element.type === 'freedraw') {
+    return undefined
+  }
+  return element.type
+}
+
 export type SpawnDirection = 'left' | 'right' | 'up' | 'down'
 
 export interface SpawnMenuRequest {
@@ -45,6 +53,23 @@ const vectors: Record<SpawnDirection, Point> = {
   right: { x: 1, y: 0 },
   up: { x: 0, y: -1 },
   down: { x: 0, y: 1 },
+}
+
+export function inferSpawnDirection(source: Element, target: Element): SpawnDirection {
+  const from = elementCenter(source)
+  const to = elementCenter(target)
+  const delta: Point = { x: to.x - from.x, y: to.y - from.y }
+  let best: SpawnDirection = 'right'
+  let bestDot = -Infinity
+  for (const direction of Object.keys(vectors) as SpawnDirection[]) {
+    const vector = vectors[direction]
+    const dot = vector.x * delta.x + vector.y * delta.y
+    if (dot > bestDot) {
+      bestDot = dot
+      best = direction
+    }
+  }
+  return best
 }
 
 export interface SpawnPlan {
@@ -129,4 +154,9 @@ export function spawnConnectedShape(
   store.stopCapturing()
   store.setUiState({ selectedIds: new Set([target.id]) })
   return target.id
+}
+
+export function spawnSiblingShape(store: Store, parent: Element, existingChild: Element): string {
+  const direction = inferSpawnDirection(parent, existingChild)
+  return spawnConnectedShape(store, parent, direction, plainShapeType(existingChild))
 }

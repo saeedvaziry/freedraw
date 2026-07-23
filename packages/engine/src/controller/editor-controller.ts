@@ -13,7 +13,9 @@ import type { PinchDelta } from '../input/pinch.js'
 import type { CameraState, Element, ElementId, Label, Point, ShapeType } from '../model/types.js'
 import { isArrowElement } from '../model/guards.js'
 import {
+  inferSpawnDirection,
   spawnConnectedShape,
+  spawnSiblingShape,
   type SpawnDirection,
   type SpawnMenuRequest,
 } from '../connectors/spawn.js'
@@ -326,6 +328,44 @@ export class EditorController {
     })
     this.currentFlow = { editingId: target.id, parentId: sourceId, direction }
     return targetId
+  }
+
+  spawnSiblingAndEdit(childId: ElementId): ElementId | null {
+    const snapshot = this.store.getSnapshot()
+    const child = snapshot.elements[childId]
+    if (!child || isArrowElement(child)) return null
+    const parentId = this.resolveSiblingParent(childId)
+    if (!parentId) return null
+    const parent = snapshot.elements[parentId]
+    if (!parent || isArrowElement(parent)) return null
+    const direction = inferSpawnDirection(parent, child)
+    const siblingId = spawnSiblingShape(this.store, parent, child)
+    const sibling = this.store.getSnapshot().elements[siblingId]
+    if (!sibling) return null
+    this.beginEdit({
+      elementId: sibling.id,
+      target: 'label',
+      text: '',
+      world: labelRect(sibling.type, sibling),
+      style: sibling.style,
+      align: sibling.style.textAlign,
+      verticalAlign: 'middle',
+    })
+    this.currentFlow = { editingId: sibling.id, parentId, direction }
+    return siblingId
+  }
+
+  private resolveSiblingParent(childId: ElementId): ElementId | null {
+    if (this.currentFlow?.editingId === childId) return this.currentFlow.parentId
+    const snapshot = this.store.getSnapshot()
+    for (const id of snapshot.order) {
+      const element = snapshot.elements[id]
+      if (!element || !isArrowElement(element)) continue
+      if (element.end?.elementId !== childId) continue
+      const parentId = element.start?.elementId
+      if (parentId) return parentId
+    }
+    return null
   }
 
   beginLabelEditFromText(elementId: ElementId, text: string): void {
