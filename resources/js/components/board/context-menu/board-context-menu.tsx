@@ -23,7 +23,7 @@ const GROUPS: string[][] = [
   ['align-left', 'align-center-horizontal', 'align-right', 'align-top', 'align-middle-vertical', 'align-bottom'],
   ['distribute-horizontal', 'distribute-vertical'],
   ['select-all', 'deselect'],
-  ['zoom-to-fit', 'zoom-actual-size', 'toggle-snap-guides', 'tool-lock.toggle', 'command.open'],
+  ['zoom-to-fit', 'zoom-actual-size', 'toggle-snap-guides', 'tool-lock.toggle', 'command.open', 'help.open'],
   ['export-png', 'export-jpg', 'copy-image'],
 ]
 

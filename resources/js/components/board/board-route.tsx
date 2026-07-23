@@ -21,6 +21,7 @@ import { EmptyState } from './empty-state.js'
 import { LinksBar } from './links-bar.js'
 import { MobileBar } from './mobile-bar.js'
 import { SelectionToolbarHost } from './selection-toolbar/selection-toolbar-host.js'
+import { ShortcutsSheetHost } from './shortcuts-sheet.js'
 import { StylePanelHost } from './style-panel-host.js'
 import { SyncStatus } from './sync-status.js'
 import { ZoomIndicator } from './zoom-indicator.js'
@@ -217,6 +218,7 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
         <ContextMenuHost />
         <EmptyState />
         <CommandPaletteHost />
+        <ShortcutsSheetHost />
         <SelectionToolbarHost />
 
         <div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-3 sm:hidden">
