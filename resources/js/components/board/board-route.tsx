@@ -2,6 +2,7 @@ import { router, usePage } from '@inertiajs/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { EditorController, type SceneStore } from '@freedraw/engine'
 import { BoardProvider, type BoardContextValue } from './board-context.js'
+import { gcOrphanedPageStores, type PageSync } from '@/lib/persistence'
 import { useImageInsert } from '@/hooks/board/use-image-insert.js'
 import { BoardMobileMenu } from './board-mobile-menu.js'
 import { BoardPagesBar } from './board-pages-bar.js'
@@ -13,6 +14,7 @@ import { EmptyState } from './empty-state.js'
 import { LinksBar } from './links-bar.js'
 import { MobileBar } from './mobile-bar.js'
 import { StylePanelHost } from './style-panel-host.js'
+import { SyncStatus } from './sync-status.js'
 import { ZoomIndicator } from './zoom-indicator.js'
 import { createBoard, type Board as CreatedBoard } from './create-board.js'
 import { useBoardClipboard } from '@/hooks/board/use-board-clipboard.js'
@@ -28,9 +30,13 @@ function destroyBoard(board: CreatedBoard): void {
 }
 
 export function BoardRoute() {
-  const { auth, boardPage, currentOrganization, boardAccess } = usePage().props
+  const { auth, boardPage, boardPages, currentOrganization, boardAccess } = usePage().props
   const publicView = boardAccess?.isPublic ?? false
-  const [board, setBoard] = useState<{ store: SceneStore; page: BoardPage | null } | null>(null)
+  const [board, setBoard] = useState<{
+    store: SceneStore
+    page: BoardPage | null
+    sync: PageSync | null
+  } | null>(null)
   // The board currently mounted on screen. We hold onto it across navigation so
   // the old canvas keeps painting while the next board hydrates in the
   // background, then swap atomically — no blank frame in between.
@@ -48,7 +54,7 @@ export function BoardRoute() {
       // down the one it replaced.
       const previous = displayed.current
       displayed.current = next
-      setBoard({ store: next.store, page: next.page })
+      setBoard({ store: next.store, page: next.page, sync: next.sync ?? null })
       if (previous) destroyBoard(previous)
     }
 
@@ -97,8 +103,15 @@ export function BoardRoute() {
     }
   }, [])
 
+  // Reclaim local storage from pages that no longer exist. Runs on mount and
+  // whenever the page list changes (e.g. after a page is deleted).
+  useEffect(() => {
+    if (publicView || !auth?.user) return
+    void gcOrphanedPageStores(boardPages.map((page) => page.publicId))
+  }, [publicView, auth?.user, boardPages])
+
   if (!board) return <BoardLoading />
-  return <Board store={board.store} readOnly={publicView} />
+  return <Board store={board.store} readOnly={publicView} sync={board.sync} />
 }
 
 function BoardLoading() {
@@ -109,9 +122,10 @@ interface BoardProps {
   store: SceneStore
   /** Read-only public share: pan/zoom/copy/export stay, document edits are blocked. */
   readOnly?: boolean
+  sync: PageSync | null
 }
 
-function Board({ store, readOnly = false }: BoardProps) {
+function Board({ store, readOnly = false, sync }: BoardProps) {
   const sceneRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
   const [controller, setController] = useState<EditorController | null>(null)
@@ -157,8 +171,9 @@ function Board({ store, readOnly = false }: BoardProps) {
       readOnly,
       scope: readOnly ? 'view' : 'edit',
       openImagePicker: imageInsert.openPicker,
+      sync,
     }),
-    [store, controller, boardExport, theme, readOnly, imageInsert.openPicker],
+    [store, controller, boardExport, theme, readOnly, imageInsert.openPicker, sync],
   )
 
   return (
@@ -186,10 +201,11 @@ function Board({ store, readOnly = false }: BoardProps) {
           <BoardSidebar />
         </div>
         <div
-          className="pointer-events-none absolute top-3 hidden transition-[left] duration-200 ease-linear sm:flex"
+          className="pointer-events-none absolute top-3 hidden items-center gap-2 transition-[left] duration-200 ease-linear sm:flex"
           style={{ left: 'calc(1.25rem + var(--board-sidebar-width, 0px))' }}
         >
           <BoardPagesBar />
+          <SyncStatus />
         </div>
         {diagramOpen ? (
           <div

@@ -1,6 +1,7 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import type { EditorController, SceneStore } from '@freedraw/engine'
 import type { BoardExport } from '@/hooks/board/use-export.js'
+import type { PageSync } from '@/lib/persistence'
 
 export type BoardScope = 'view' | 'edit'
 
@@ -12,6 +13,7 @@ export interface BoardContextValue {
   readOnly: boolean
   scope: BoardScope
   openImagePicker: () => void
+  sync: PageSync | null
 }
 
 const BoardContext = createContext<BoardContextValue | null>(null)

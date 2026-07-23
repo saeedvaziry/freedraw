@@ -15,6 +15,7 @@ export {
 } from './page-api.js'
 export type { DeletePageResult, SavePagePayload, SharePagePayload } from './page-api.js'
 export { createPageSync } from './page-sync.js'
-export type { PageSync } from './page-sync.js'
+export type { PageSync, SyncStatus } from './page-sync.js'
 export { createDocumentPersistence, DOCUMENT_DB_NAME } from './document-persistence.js'
 export type { DocumentPersistence } from './document-persistence.js'
+export { gcOrphanedPageStores } from './storage-gc.js'
