@@ -96,7 +96,7 @@ describe('sticky tool with tool lock', () => {
     store.setUiState({ activeTool: 'sticky' })
     const tool = new StickyTool()
 
-    tool.onPointerDown(pointerAt({ x: 0, y: 0 }), ctx)
+    tool.onPointerDown(pointerAt({ x: 0, y: 0 }))
     tool.onPointerUp(pointerAt({ x: 0, y: 0 }), ctx)
 
     const ui = store.getUiState()
@@ -110,7 +110,7 @@ describe('sticky tool with tool lock', () => {
     store.setUiState({ activeTool: 'sticky' })
     const tool = new StickyTool()
 
-    tool.onPointerDown(pointerAt({ x: 0, y: 0 }), ctx)
+    tool.onPointerDown(pointerAt({ x: 0, y: 0 }))
     tool.onPointerUp(pointerAt({ x: 0, y: 0 }), ctx)
 
     expect(edits).toHaveLength(1)
