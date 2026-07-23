@@ -4,6 +4,7 @@ export interface AssetRepo {
   putAsset(id: string, blob: Blob): Promise<void>
   getAsset(id: string): Promise<Blob | undefined>
   deleteAsset(id: string): Promise<void>
+  listAssetIds(): Promise<string[]>
 }
 
 export function createAssetRepo(factory?: IndexedDbFactory): AssetRepo {
@@ -31,6 +32,10 @@ export function createAssetRepo(factory?: IndexedDbFactory): AssetRepo {
     },
     async deleteAsset(id) {
       await withStore('readwrite', (store) => store.delete(id))
+    },
+    async listAssetIds() {
+      const keys = await withStore<IDBValidKey[]>('readonly', (store) => store.getAllKeys())
+      return keys.filter((key): key is string => typeof key === 'string')
     },
   }
 }
