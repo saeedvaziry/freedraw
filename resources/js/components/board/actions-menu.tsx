@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import type { BoardExport } from '@/hooks/board/use-export.js'
 import { BOARD_ACTIONS_BY_ID, type BoardAction, type BoardActionContext } from './board-actions.js'
+import { useBoardContext } from './board-context.js'
 
 interface ActionsMenuProps {
   store: SceneStore
@@ -30,6 +31,7 @@ export function ActionsMenu({
   theme,
   children,
 }: ActionsMenuProps) {
+  const { readOnly } = useBoardContext()
   useSyncExternalStore(
     (cb) => store.subscribeHistory(cb),
     () => store.canUndo,
@@ -56,6 +58,7 @@ export function ActionsMenu({
     controller,
     boardExport,
     theme,
+    readOnly,
     openImagePicker: () => {},
   }
 
@@ -71,6 +74,7 @@ export function ActionsMenu({
         <DropdownMenuSeparator />
 
         <DropdownMenuItem
+          disabled={!snapAction.when(ctx)}
           onSelect={(event) => {
             event.preventDefault()
             snapAction.run(ctx)

@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { IconButton } from '@/components/board/ui-kit'
 import { UserInfo } from '@/components/user-info'
 import { useInitials } from '@/hooks/use-initials'
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation'
@@ -29,11 +30,7 @@ export function BoardUserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label="Account menu"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-accent hover:text-foreground coarse:h-11 coarse:w-11 [&_svg]:size-4"
-        >
+        <IconButton aria-label="Account menu" className="text-foreground/80">
           {user ? (
             <Avatar className="size-6 overflow-hidden rounded-full">
               <AvatarImage src={user.avatar} alt={user.name} />
@@ -44,7 +41,7 @@ export function BoardUserMenu() {
           ) : (
             <UserIcon />
           )}
-        </button>
+        </IconButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="start" side="top">
         {user ? (

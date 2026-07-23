@@ -51,6 +51,7 @@ export interface BoardActionContext {
   controller: EditorController | null
   boardExport: BoardExport
   theme: 'light' | 'dark'
+  readOnly: boolean
   openImagePicker: () => void
 }
 
@@ -69,6 +70,18 @@ function usesMod(event: KeyboardEvent): boolean {
   return event.metaKey || event.ctrlKey
 }
 
+function copyText(text: string, success: string, failure: string): void {
+  const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard
+  if (!clipboard?.writeText) {
+    boardToast(failure, 'error')
+    return
+  }
+  void clipboard
+    .writeText(text)
+    .then(() => boardToast(success))
+    .catch(() => boardToast(failure, 'error'))
+}
+
 export const BOARD_ACTIONS: BoardAction[] = [
   {
     id: 'undo',
@@ -76,7 +89,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     icon: Undo2,
     group: 'history',
     shortcut: '⌘Z',
-    when: ({ store }) => store.canUndo,
+    when: ({ store, readOnly }) => !readOnly && store.canUndo,
     run: ({ store }) => store.undo(),
     match: (event) => usesMod(event) && !event.shiftKey && event.key.toLowerCase() === 'z',
   },
@@ -86,7 +99,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     icon: Redo2,
     group: 'history',
     shortcut: '⇧⌘Z',
-    when: ({ store }) => store.canRedo,
+    when: ({ store, readOnly }) => !readOnly && store.canRedo,
     run: ({ store }) => store.redo(),
     match: (event) => usesMod(event) && event.shiftKey && event.key.toLowerCase() === 'z',
   },
@@ -96,7 +109,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     icon: Trash2,
     group: 'edit',
     shortcut: '⌫',
-    when: ({ store }) => store.getUiState().selectedIds.size > 0,
+    when: ({ store, readOnly }) => !readOnly && store.getUiState().selectedIds.size > 0,
     run: ({ store }) => store.deleteElements(store.getUiState().selectedIds),
     match: (event) => event.key === 'Delete' || event.key === 'Backspace',
   },
@@ -106,7 +119,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     icon: CopyPlus,
     group: 'edit',
     shortcut: '⌘D',
-    when: ({ store }) => store.getUiState().selectedIds.size > 0,
+    when: ({ store, readOnly }) => !readOnly && store.getUiState().selectedIds.size > 0,
     run: ({ store }) => store.duplicateElements(store.getUiState().selectedIds),
     match: (event) => usesMod(event) && event.key.toLowerCase() === 'd',
   },
@@ -116,7 +129,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     icon: Group,
     group: 'edit',
     shortcut: '⌘G',
-    when: ({ store }) => store.getUiState().selectedIds.size >= 2,
+    when: ({ store, readOnly }) => !readOnly && store.getUiState().selectedIds.size >= 2,
     run: ({ store }) => {
       store.groupElements(store.getUiState().selectedIds)
     },
@@ -128,7 +141,8 @@ export const BOARD_ACTIONS: BoardAction[] = [
     icon: Ungroup,
     group: 'edit',
     shortcut: '⇧⌘G',
-    when: ({ store }) => {
+    when: ({ store, readOnly }) => {
+      if (readOnly) return false
       const snapshot = store.getSnapshot()
       return [...store.getUiState().selectedIds].some((id) => snapshot.elements[id]?.groupId != null)
     },
@@ -140,7 +154,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     label: 'Lock',
     icon: Lock,
     group: 'edit',
-    when: ({ store }) => store.getUiState().selectedIds.size > 0,
+    when: ({ store, readOnly }) => !readOnly && store.getUiState().selectedIds.size > 0,
     run: ({ store }) => store.lockElements(store.getUiState().selectedIds),
   },
   {
@@ -148,7 +162,8 @@ export const BOARD_ACTIONS: BoardAction[] = [
     label: 'Unlock all',
     icon: LockOpen,
     group: 'edit',
-    when: ({ store }) => {
+    when: ({ store, readOnly }) => {
+      if (readOnly) return false
       const snapshot = store.getSnapshot()
       return snapshot.order.some((id) => snapshot.elements[id]?.locked)
     },
@@ -160,7 +175,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     icon: BringToFront,
     group: 'edit',
     shortcut: '⇧⌘]',
-    when: ({ store }) => store.getUiState().selectedIds.size > 0,
+    when: ({ store, readOnly }) => !readOnly && store.getUiState().selectedIds.size > 0,
     run: ({ store }) => store.bringToFront(store.getUiState().selectedIds),
     match: (event) => usesMod(event) && event.shiftKey && event.key === ']',
   },
@@ -170,7 +185,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     icon: ArrowUp,
     group: 'edit',
     shortcut: '⌘]',
-    when: ({ store }) => store.getUiState().selectedIds.size > 0,
+    when: ({ store, readOnly }) => !readOnly && store.getUiState().selectedIds.size > 0,
     run: ({ store }) => store.bringForward(store.getUiState().selectedIds),
     match: (event) => usesMod(event) && !event.shiftKey && event.key === ']',
   },
@@ -180,7 +195,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     icon: ArrowDown,
     group: 'edit',
     shortcut: '⌘[',
-    when: ({ store }) => store.getUiState().selectedIds.size > 0,
+    when: ({ store, readOnly }) => !readOnly && store.getUiState().selectedIds.size > 0,
     run: ({ store }) => store.sendBackward(store.getUiState().selectedIds),
     match: (event) => usesMod(event) && !event.shiftKey && event.key === '[',
   },
@@ -190,7 +205,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     icon: SendToBack,
     group: 'edit',
     shortcut: '⇧⌘[',
-    when: ({ store }) => store.getUiState().selectedIds.size > 0,
+    when: ({ store, readOnly }) => !readOnly && store.getUiState().selectedIds.size > 0,
     run: ({ store }) => store.sendToBack(store.getUiState().selectedIds),
     match: (event) => usesMod(event) && event.shiftKey && event.key === '[',
   },
@@ -199,7 +214,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     label: 'Align left',
     icon: AlignStartVertical,
     group: 'edit',
-    when: ({ store }) => store.getUiState().selectedIds.size >= 2,
+    when: ({ store, readOnly }) => !readOnly && store.getUiState().selectedIds.size >= 2,
     run: ({ store }) => store.alignElements(store.getUiState().selectedIds, 'left'),
   },
   {
@@ -207,7 +222,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     label: 'Align center',
     icon: AlignCenterVertical,
     group: 'edit',
-    when: ({ store }) => store.getUiState().selectedIds.size >= 2,
+    when: ({ store, readOnly }) => !readOnly && store.getUiState().selectedIds.size >= 2,
     run: ({ store }) => store.alignElements(store.getUiState().selectedIds, 'centerX'),
   },
   {
@@ -215,7 +230,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     label: 'Align right',
     icon: AlignEndVertical,
     group: 'edit',
-    when: ({ store }) => store.getUiState().selectedIds.size >= 2,
+    when: ({ store, readOnly }) => !readOnly && store.getUiState().selectedIds.size >= 2,
     run: ({ store }) => store.alignElements(store.getUiState().selectedIds, 'right'),
   },
   {
@@ -223,7 +238,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     label: 'Align top',
     icon: AlignStartHorizontal,
     group: 'edit',
-    when: ({ store }) => store.getUiState().selectedIds.size >= 2,
+    when: ({ store, readOnly }) => !readOnly && store.getUiState().selectedIds.size >= 2,
     run: ({ store }) => store.alignElements(store.getUiState().selectedIds, 'top'),
   },
   {
@@ -231,7 +246,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     label: 'Align middle',
     icon: AlignCenterHorizontal,
     group: 'edit',
-    when: ({ store }) => store.getUiState().selectedIds.size >= 2,
+    when: ({ store, readOnly }) => !readOnly && store.getUiState().selectedIds.size >= 2,
     run: ({ store }) => store.alignElements(store.getUiState().selectedIds, 'middleY'),
   },
   {
@@ -239,7 +254,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     label: 'Align bottom',
     icon: AlignEndHorizontal,
     group: 'edit',
-    when: ({ store }) => store.getUiState().selectedIds.size >= 2,
+    when: ({ store, readOnly }) => !readOnly && store.getUiState().selectedIds.size >= 2,
     run: ({ store }) => store.alignElements(store.getUiState().selectedIds, 'bottom'),
   },
   {
@@ -247,7 +262,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     label: 'Distribute horizontally',
     icon: AlignHorizontalDistributeCenter,
     group: 'edit',
-    when: ({ store }) => store.getUiState().selectedIds.size >= 3,
+    when: ({ store, readOnly }) => !readOnly && store.getUiState().selectedIds.size >= 3,
     run: ({ store }) => store.distributeElements(store.getUiState().selectedIds, 'horizontal'),
   },
   {
@@ -255,7 +270,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     label: 'Distribute vertically',
     icon: AlignVerticalDistributeCenter,
     group: 'edit',
-    when: ({ store }) => store.getUiState().selectedIds.size >= 3,
+    when: ({ store, readOnly }) => !readOnly && store.getUiState().selectedIds.size >= 3,
     run: ({ store }) => store.distributeElements(store.getUiState().selectedIds, 'vertical'),
   },
   {
@@ -275,7 +290,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     icon: Scissors,
     group: 'clipboard',
     shortcut: '⌘X',
-    when: ({ store }) => store.getUiState().selectedIds.size > 0,
+    when: ({ store, readOnly }) => !readOnly && store.getUiState().selectedIds.size > 0,
     run: ({ store }) => {
       store.cutElements(store.getUiState().selectedIds)
     },
@@ -286,7 +301,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     icon: ClipboardPaste,
     group: 'clipboard',
     shortcut: '⌘V',
-    when: ({ store }) => store.getUiState().clipboardElementCount > 0,
+    when: ({ store, readOnly }) => !readOnly && store.getUiState().clipboardElementCount > 0,
     run: ({ store, controller }) => {
       store.pasteElements({ target: controller?.cursorWorldPoint })
     },
@@ -297,10 +312,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     icon: Link2,
     group: 'clipboard',
     when: () => true,
-    run: () => {
-      void navigator.clipboard.writeText(window.location.href)
-      boardToast('Link copied')
-    },
+    run: () => copyText(window.location.href, 'Link copied', 'Could not copy the link'),
   },
   {
     id: 'select-all',
@@ -349,7 +361,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     label: 'Snap guides',
     icon: Crosshair,
     group: 'view',
-    when: () => true,
+    when: ({ readOnly }) => !readOnly,
     run: ({ store }) => store.setSnapGuidesEnabled(!store.getSnapshot().appState.snapGuidesEnabled),
   },
   {
@@ -357,8 +369,10 @@ export const BOARD_ACTIONS: BoardAction[] = [
     label: 'Keep tool active',
     icon: Lock,
     group: 'view',
-    when: () => true,
+    shortcut: 'Q',
+    when: ({ readOnly }) => !readOnly,
     run: ({ store }) => store.setUiState({ toolLock: !store.getUiState().toolLock }),
+    match: (event) => !usesMod(event) && !event.altKey && event.key.toLowerCase() === 'q',
   },
   {
     id: 'command.open',
@@ -410,7 +424,7 @@ export const BOARD_ACTIONS: BoardAction[] = [
     label: 'Import JSON',
     icon: Upload,
     group: 'export',
-    when: () => true,
+    when: ({ readOnly }) => !readOnly,
     run: () => window.dispatchEvent(new Event(SCENE_IMPORT_EVENT)),
   },
   {

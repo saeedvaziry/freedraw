@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { FloatingPanel } from '@/components/board/ui-kit'
 import { useBoardContext } from './board-context.js'
 
 export function ZoomIndicator() {
@@ -9,8 +10,12 @@ export function ZoomIndicator() {
   )
 
   return (
-    <div className="pointer-events-auto rounded-md border bg-background/90 px-3 py-1.5 text-sm tabular-nums shadow-sm backdrop-blur">
+    <FloatingPanel
+      padding={false}
+      gap={false}
+      className="pointer-events-auto h-10 px-3 text-sm tabular-nums"
+    >
       {Math.round(zoom * 100)}%
-    </div>
+    </FloatingPanel>
   )
 }

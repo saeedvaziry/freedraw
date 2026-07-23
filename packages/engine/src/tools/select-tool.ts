@@ -96,7 +96,14 @@ export class SelectTool implements Tool {
     if (frame) {
       const handle = handleAtScreen(info.screen, frame, ctx.camera)
       if (handle) {
-        return this.beginHandle(handle, frame, shapeSelectionElements, info.world, otherBounds(store.getSnapshot(), selected))
+        return this.beginHandle(
+          handle,
+          frame,
+          shapeSelectionElements,
+          info.world,
+          otherBounds(store.getSnapshot(), selected),
+          ctx,
+        )
       }
     }
 
@@ -163,6 +170,7 @@ export class SelectTool implements Tool {
     this.mode = { kind: 'idle' }
     this.dragStartScreen = null
     ctx.setMarquee(null)
+    ctx.setTransforming?.(false)
     ctx.setGuides([])
     ctx.setPortTarget(null)
     ctx.setSpawnPreview(null)
@@ -277,6 +285,7 @@ export class SelectTool implements Tool {
     this.dragStartScreen = null
     this.spawnPreviewActive = false
     ctx.setMarquee(null)
+    ctx.setTransforming?.(false)
     ctx.setGuides([])
     ctx.setPortTarget(null)
     ctx.setSpawnPreview(null)
@@ -289,7 +298,9 @@ export class SelectTool implements Tool {
     elements: Element[],
     pointer: Point,
     others: Rect[],
+    ctx: ToolContext,
   ): ToolResult {
+    ctx.setTransforming?.(true)
     if (handle === 'rotate') {
       const startAngle = Math.atan2(pointer.y - frame.center.y, pointer.x - frame.center.x)
       this.mode = { kind: 'rotate', elements, center: frame.center, startAngle }

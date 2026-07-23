@@ -12,7 +12,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { UserInfo } from '@/components/user-info'
-import { cn } from '@/components/board/ui-kit'
+import { FloatingPanel, IconButton, cn } from '@/components/board/ui-kit'
 import { usePages } from '@/hooks/board/use-pages'
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation'
 import type { Organization } from '@/types'
@@ -59,15 +59,13 @@ export function BoardMobileMenu() {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <button
-          type="button"
-          aria-label="Menu"
-          className="pointer-events-auto flex size-11 items-center justify-center rounded-2xl border bg-background/95 text-foreground/80 shadow-lg backdrop-blur transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-5"
-        >
-          <Menu />
-        </button>
-      </SheetTrigger>
+      <FloatingPanel className="pointer-events-auto">
+        <SheetTrigger asChild>
+          <IconButton aria-label="Menu" className="text-foreground/80 [&_svg]:size-5">
+            <Menu />
+          </IconButton>
+        </SheetTrigger>
+      </FloatingPanel>
 
       <SheetContent side="left" className="w-[18rem] gap-0 p-0 sm:max-w-sm">
         <SheetHeader className="border-b p-3">
@@ -144,18 +142,22 @@ export function BoardMobileMenu() {
           {user ? (
             <div className="flex items-center gap-2 rounded-md px-2 py-1.5">
               <UserInfo user={user} showEmail />
-              <Link
-                href="/logout"
-                method="post"
-                as="button"
-                onClick={handleLogout}
-                data-test="board-mobile-menu-logout"
+              <IconButton
+                asChild
                 aria-label="Log out"
-                title="Log out"
-                className="flex size-8 shrink-0 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4"
+                className="size-8 rounded-md text-foreground/70 coarse:size-8"
               >
-                <LogOut />
-              </Link>
+                <Link
+                  href="/logout"
+                  method="post"
+                  as="button"
+                  onClick={handleLogout}
+                  data-test="board-mobile-menu-logout"
+                  title="Log out"
+                >
+                  <LogOut />
+                </Link>
+              </IconButton>
             </div>
           ) : null}
         </div>
@@ -197,6 +199,7 @@ function SelectionSection({ onRun }: { onRun(): void }) {
     controller: board.controller,
     boardExport: board.boardExport,
     theme: board.theme,
+    readOnly: board.readOnly,
     openImagePicker: () => {},
   }
 

@@ -1,6 +1,8 @@
 import { StickyNote } from 'lucide-react'
 import type { StickyColor } from '@freedraw/engine'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover.js'
+import { FloatingPanel } from '../ui/floating-panel.js'
+import { IconButton } from '../ui/icon-button.js'
 import { cn } from '@/lib/utils'
 import { ToolButton } from './tool-button.js'
 
@@ -43,26 +45,27 @@ export function StickyPopover({
           <StickyNote />
         </ToolButton>
       </PopoverTrigger>
-      <PopoverContent side={side} align="start" sideOffset={12} className="w-auto rounded-2xl p-2">
-        <div className="grid grid-cols-3 gap-1.5">
-          {STICKY_COLOR_ENTRIES.map(({ key, label, swatch }) => (
-            <button
-              key={key}
-              type="button"
-              aria-label={label}
-              aria-pressed={active && activeColor === key}
-              onClick={() => onSelectColor(key)}
-              style={{ backgroundColor: swatch }}
-              className={cn(
-                'h-9 w-9 rounded-lg border border-black/5 shadow-sm transition-transform hover:scale-110',
-                active &&
-                  activeColor === key &&
-                  'ring-2 ring-primary ring-offset-1 ring-offset-background',
-              )}
-            />
-          ))}
-        </div>
-      </PopoverContent>
+      <FloatingPanel asChild gap={false}>
+        <PopoverContent side={side} align="start" sideOffset={12} className="w-auto">
+          <div className="grid grid-cols-3 gap-1.5">
+            {STICKY_COLOR_ENTRIES.map(({ key, label, swatch }) => (
+              <IconButton
+                key={key}
+                aria-label={label}
+                aria-pressed={active && activeColor === key}
+                onClick={() => onSelectColor(key)}
+                style={{ backgroundColor: swatch }}
+                className={cn(
+                  'border border-black/5 shadow-sm transition-transform hover:scale-110',
+                  active &&
+                    activeColor === key &&
+                    'ring-2 ring-[color:var(--selection-accent)] ring-offset-1 ring-offset-background',
+                )}
+              />
+            ))}
+          </div>
+        </PopoverContent>
+      </FloatingPanel>
     </Popover>
   )
 }

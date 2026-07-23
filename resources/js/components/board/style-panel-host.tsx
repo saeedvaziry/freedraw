@@ -3,10 +3,11 @@ import { useCallback, useLayoutEffect, useMemo, useState, useSyncExternalStore }
 import type { ArrowElement, Element, SceneStore } from '@freedraw/engine'
 import { useBoardContext } from './board-context.js'
 import {
+  FloatingPanel,
+  IconButton,
   StylePanel,
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
   type ArrowPanelPatch,
   type ArrowPanelState,
@@ -81,21 +82,20 @@ export function StylePanelHost({ collapsible = false }: StylePanelHostProps) {
 
   if (collapsed) {
     return (
-      <TooltipProvider delayDuration={300}>
+      <FloatingPanel className="pointer-events-auto">
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
-              type="button"
+            <IconButton
               onClick={expand}
               aria-label="Show style panel"
-              className="pointer-events-auto flex size-10 items-center justify-center rounded-xl border bg-background/95 text-foreground/70 shadow-lg backdrop-blur transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-5"
+              className="text-foreground/70 [&_svg]:size-5"
             >
               <SlidersHorizontal />
-            </button>
+            </IconButton>
           </TooltipTrigger>
           <TooltipContent side="left">Style</TooltipContent>
         </Tooltip>
-      </TooltipProvider>
+      </FloatingPanel>
     )
   }
 
@@ -117,15 +117,14 @@ function PanelHeader({ onCollapse }: { onCollapse(): void }) {
   return (
     <div className="flex items-center justify-between gap-2">
       <span className="text-sm font-medium">Style</span>
-      <button
-        type="button"
+      <IconButton
         onClick={onCollapse}
         aria-label="Collapse style panel"
         title="Collapse style panel"
-        className="flex size-7 shrink-0 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4"
+        className="size-7 rounded-md text-foreground/70 coarse:size-7"
       >
         <PanelRightClose />
-      </button>
+      </IconButton>
     </div>
   )
 }

@@ -50,6 +50,7 @@ export function BoardContextMenu({ request, onClose }: BoardContextMenuProps) {
     controller: board.controller,
     boardExport: board.boardExport,
     theme: board.theme,
+    readOnly: board.readOnly,
     openImagePicker: board.openImagePicker,
   }
 
@@ -102,7 +103,7 @@ export function BoardContextMenu({ request, onClose }: BoardContextMenuProps) {
                   </DropdownMenuItem>
                 )
               })}
-              {index === CONNECTED_GROUP_INDEX && request.sourceId ? (
+              {index === CONNECTED_GROUP_INDEX && request.sourceId && !board.readOnly ? (
                 <AddConnectedShape sourceId={request.sourceId} controller={board.controller} />
               ) : null}
             </Fragment>

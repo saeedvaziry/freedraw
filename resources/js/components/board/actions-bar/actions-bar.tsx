@@ -1,6 +1,8 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { FloatingPanel } from '../ui/floating-panel.js'
+import { IconButton } from '../ui/icon-button.js'
 import { ExportMenu } from '../export-menu/export-menu.js'
 import { BOARD_ACTIONS_BY_ID, type BoardActionContext } from '../board-actions.js'
 
@@ -18,68 +20,63 @@ export function ActionsBar({ ctx, snapGuidesEnabled, compact = false, userMenu }
   const SnapIcon = snap.icon
 
   return (
-    <TooltipProvider delayDuration={300}>
-      <div
-        className={cn(
-          'pointer-events-auto flex items-center gap-1 rounded-2xl border bg-background/95 p-1.5 shadow-lg backdrop-blur',
-          compact && 'max-w-full overflow-x-auto',
-        )}
+    <FloatingPanel className={cn('pointer-events-auto', compact && 'max-w-full overflow-x-auto')}>
+      {userMenu ? (
+        <>
+          {userMenu}
+          <Divider />
+        </>
+      ) : null}
+      {BAR_ACTION_IDS.map((id) => {
+        const action = BOARD_ACTIONS_BY_ID[id]
+        const Icon = action.icon
+        return (
+          <ActionButton
+            key={id}
+            label={action.label}
+            disabled={!action.when(ctx)}
+            onClick={() => action.run(ctx)}
+          >
+            <Icon />
+          </ActionButton>
+        )
+      })}
+      <Divider />
+      <ActionButton
+        label={snap.label}
+        aria-pressed={snapGuidesEnabled}
+        active={snapGuidesEnabled}
+        disabled={!snap.when(ctx)}
+        onClick={() => snap.run(ctx)}
       >
-        {userMenu ? (
-          <>
-            {userMenu}
-            <div className="mx-1 h-7 w-px shrink-0 bg-border" />
-          </>
-        ) : null}
-        {BAR_ACTION_IDS.map((id) => {
-          const action = BOARD_ACTIONS_BY_ID[id]
-          const Icon = action.icon
-          return (
-            <ActionButton
-              key={id}
-              label={action.label}
-              disabled={!action.when(ctx)}
-              onClick={() => action.run(ctx)}
-            >
-              <Icon />
-            </ActionButton>
-          )
-        })}
-        <div className="mx-1 h-7 w-px shrink-0 bg-border" />
-        <ActionButton
-          label={snap.label}
-          aria-pressed={snapGuidesEnabled}
-          className={snapGuidesEnabled ? 'bg-accent text-foreground' : undefined}
-          disabled={!snap.when(ctx)}
-          onClick={() => snap.run(ctx)}
-        >
-          <SnapIcon />
-        </ActionButton>
-        <ExportMenu />
-      </div>
-    </TooltipProvider>
+        <SnapIcon />
+      </ActionButton>
+      <ExportMenu />
+    </FloatingPanel>
   )
+}
+
+function Divider() {
+  return <div className="mx-1 h-7 w-px shrink-0 bg-[color:var(--panel-border)]" />
 }
 
 interface ActionButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   label: string
+  active?: boolean
 }
 
-function ActionButton({ label, className, children, ...props }: ActionButtonProps) {
+function ActionButton({ label, active = false, className, children, ...props }: ActionButtonProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button
-          type="button"
+        <IconButton
           aria-label={label}
-          className={cn(
-            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40 coarse:h-11 coarse:w-11 [&_svg]:size-4',
-            className,
-          )}
+          active={active}
+          className={cn(!active && 'text-foreground/80', className)}
           {...props}
         >
           {children}
-        </button>
+        </IconButton>
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>

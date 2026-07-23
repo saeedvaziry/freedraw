@@ -79,7 +79,7 @@ export function SegmentedControl<T extends string>({
   return (
     <div className="flex flex-col gap-1.5">
       <FieldLabel>{label}</FieldLabel>
-      <div className="grid grid-flow-col auto-cols-fr gap-1 rounded-lg border bg-muted/40 p-1">
+      <div className="grid grid-flow-col auto-cols-fr gap-1 rounded-[var(--control-radius)] border border-[color:var(--panel-border)] bg-muted/40 p-1">
         {options.map((option) => (
           <Tooltip key={option.value}>
             <TooltipTrigger asChild>

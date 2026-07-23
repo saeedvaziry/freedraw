@@ -53,6 +53,7 @@ export function useBoardActions(ctx: BoardActionContext): void {
       }
 
       if (event.metaKey || event.ctrlKey || event.altKey) return
+      if (context.readOnly) return
 
       const { store, controller } = context
       if (controller && isPrintableKey(event.key) && tryBeginLabelEdit(store, controller, event.key)) {

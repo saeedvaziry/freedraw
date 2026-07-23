@@ -1,8 +1,15 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import type { RefObject } from 'react'
 import {
   MIXED,
-  hitTest,
   selectionBounds,
   shallowEqual,
   type EditorController,
@@ -40,10 +47,10 @@ export function SelectionToolbarHost() {
   )
   const state = useSyncExternalStore(view.subscribe, view.getSnapshot)
   const editing = useTextEditing(controller)
-  const dragging = useEmptyCanvasDrag(store, controller)
+  const interacting = useSelectionInteraction(controller)
 
   const containerRef = useRef<HTMLDivElement>(null)
-  const visible = !readOnly && controller != null && state.count > 0 && !editing && !dragging
+  const visible = !readOnly && controller != null && state.count > 0 && !editing && !interacting
   usePositionSync(containerRef, store, controller, visible)
 
   if (!visible || !controller) return null
@@ -55,6 +62,7 @@ export function SelectionToolbarHost() {
     controller,
     boardExport: board.boardExport,
     theme: board.theme,
+    readOnly,
     openImagePicker: () => {},
   }
 
@@ -133,40 +141,40 @@ function usePositionSync(
   controller: EditorController | null,
   active: boolean,
 ): void {
-  useEffect(() => {
-    if (!active || !controller) return
-    let raf = 0
-    let last = ''
-    const tick = (): void => {
-      const el = ref.current
-      if (el) {
-        const anchor = selectionAnchor(store, controller)
-        if (anchor) {
-          const width = el.offsetWidth
-          const height = el.offsetHeight
-          const viewportWidth = controller.viewportSize.width
-          const half = width / 2
-          const left = clamp(anchor.centerX, half + MARGIN, viewportWidth - half - MARGIN)
-          const below = anchor.top - GAP - height < MARGIN
-          const top = below ? anchor.bottom + GAP : anchor.top - GAP
-          const transform = below ? 'translateX(-50%)' : 'translate(-50%, -100%)'
-          const next = `${left}|${top}|${transform}`
-          if (next !== last) {
-            last = next
-            el.style.left = `${left}px`
-            el.style.top = `${top}px`
-            el.style.transform = transform
-          }
-          el.style.visibility = 'visible'
-        } else {
-          el.style.visibility = 'hidden'
-        }
-      }
-      raf = requestAnimationFrame(tick)
+  const sync = useCallback((): void => {
+    const el = ref.current
+    if (!el || !controller) return
+    const anchor = selectionAnchor(store, controller)
+    if (!anchor) {
+      el.style.visibility = 'hidden'
+      return
     }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [ref, store, controller, active])
+    const width = el.offsetWidth
+    const height = el.offsetHeight
+    const viewportWidth = controller.viewportSize.width
+    const half = width / 2
+    const left = clamp(anchor.centerX, half + MARGIN, viewportWidth - half - MARGIN)
+    const below = anchor.top - GAP - height < MARGIN
+    const top = below ? anchor.bottom + GAP : anchor.top - GAP
+    el.style.left = `${left}px`
+    el.style.top = `${top}px`
+    el.style.transform = below ? 'translateX(-50%)' : 'translate(-50%, -100%)'
+    el.style.visibility = 'visible'
+  }, [ref, store, controller])
+
+  useLayoutEffect(() => {
+    if (!active || !controller) return
+    sync()
+    const unsubscribe = controller.subscribeCamera(sync)
+    const element = ref.current
+    if (!element || typeof ResizeObserver === 'undefined') return unsubscribe
+    const observer = new ResizeObserver(sync)
+    observer.observe(element)
+    return () => {
+      observer.disconnect()
+      unsubscribe()
+    }
+  }, [ref, controller, active, sync])
 }
 
 function useTextEditing(controller: EditorController | null): boolean {
@@ -182,28 +190,19 @@ function useTextEditing(controller: EditorController | null): boolean {
   return editing
 }
 
-function useEmptyCanvasDrag(store: SceneStore, controller: EditorController | null): boolean {
-  const [dragging, setDragging] = useState(false)
+function useSelectionInteraction(controller: EditorController | null): boolean {
+  const [interacting, setInteracting] = useState<boolean>(
+    () => controller?.activeInteraction != null,
+  )
   useEffect(() => {
-    if (!controller) return
-    const onDown = (event: PointerEvent): void => {
-      const target = event.target
-      if (!(target instanceof HTMLCanvasElement)) return
-      const rect = target.getBoundingClientRect()
-      const world = controller.screenToWorld({
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top,
-      })
-      if (hitTest(world, store.getSnapshot())) return
-      setDragging(true)
-      const clear = (): void => setDragging(false)
-      window.addEventListener('pointerup', clear, { once: true })
-      window.addEventListener('pointercancel', clear, { once: true })
+    if (!controller) {
+      setInteracting(false)
+      return
     }
-    window.addEventListener('pointerdown', onDown)
-    return () => window.removeEventListener('pointerdown', onDown)
-  }, [store, controller])
-  return dragging
+    setInteracting(controller.activeInteraction != null)
+    return controller.subscribeInteraction((interaction) => setInteracting(interaction != null))
+  }, [controller])
+  return interacting
 }
 
 function clamp(value: number, min: number, max: number): number {

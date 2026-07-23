@@ -7,12 +7,7 @@ export {
   PopoverContent,
   PopoverAnchor,
 } from './ui/popover.js'
-export {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-  TooltipProvider,
-} from '@/components/ui/tooltip'
+export { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 export { FloatingPanel } from './ui/floating-panel.js'
 export type { FloatingPanelProps, FloatingPanelOrientation } from './ui/floating-panel.js'
 export { IconButton } from './ui/icon-button.js'

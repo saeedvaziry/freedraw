@@ -2,12 +2,13 @@ import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react
 import { Palette, PencilRuler, Shapes, type LucideIcon } from 'lucide-react'
 import type { SceneStore } from '@freedraw/engine'
 import {
+  FloatingPanel,
+  IconButton,
   Popover,
   PopoverContent,
   PopoverTrigger,
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
   cn,
 } from '@/components/board/ui-kit'
@@ -28,46 +29,44 @@ export function MobileBar() {
   }, [hasSelection])
 
   return (
-    <TooltipProvider delayDuration={300}>
-      <div className="pointer-events-auto flex items-center gap-1 rounded-2xl border bg-background/95 p-1.5 shadow-lg backdrop-blur">
-        <SectionItem
-          label="Tools"
-          Icon={Shapes}
-          value="tools"
-          section={section}
-          onChange={setSection}
-        >
-          <ToolbarHost store={store} layout="horizontal" />
-        </SectionItem>
+    <FloatingPanel className="pointer-events-auto">
+      <SectionItem
+        label="Tools"
+        Icon={Shapes}
+        value="tools"
+        section={section}
+        onChange={setSection}
+      >
+        <ToolbarHost store={store} layout="horizontal" />
+      </SectionItem>
 
-        <SectionItem
-          label="Style"
-          Icon={Palette}
-          value="style"
-          section={section}
-          disabled={!hasSelection}
-          onChange={setSection}
-        >
-          <StylePanelHost />
-        </SectionItem>
+      <SectionItem
+        label="Style"
+        Icon={Palette}
+        value="style"
+        section={section}
+        disabled={!hasSelection}
+        onChange={setSection}
+      >
+        <StylePanelHost />
+      </SectionItem>
 
-        <SectionItem
-          label="Edit"
-          Icon={PencilRuler}
-          value="edit"
-          section={section}
-          onChange={setSection}
-        >
-          <ActionsBarHost
-            store={store}
-            controller={controller}
-            boardExport={boardExport}
-            theme={theme}
-            compact
-          />
-        </SectionItem>
-      </div>
-    </TooltipProvider>
+      <SectionItem
+        label="Edit"
+        Icon={PencilRuler}
+        value="edit"
+        section={section}
+        onChange={setSection}
+      >
+        <ActionsBarHost
+          store={store}
+          controller={controller}
+          boardExport={boardExport}
+          theme={theme}
+          compact
+        />
+      </SectionItem>
+    </FloatingPanel>
   )
 }
 
@@ -88,18 +87,15 @@ function SectionItem({ label, Icon, value, section, disabled, onChange, children
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <button
-              type="button"
+            <IconButton
               aria-label={label}
               aria-pressed={open}
+              active={open}
               disabled={disabled}
-              className={cn(
-                'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40 coarse:h-11 coarse:w-11 [&_svg]:size-4',
-                open && 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground',
-              )}
+              className={cn(!open && 'text-foreground/80')}
             >
               <Icon />
-            </button>
+            </IconButton>
           </PopoverTrigger>
         </TooltipTrigger>
         <TooltipContent>{label}</TooltipContent>

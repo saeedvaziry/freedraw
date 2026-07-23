@@ -4,6 +4,7 @@ import { shallowEqual, type EditorController, type SceneStore } from '@freedraw/
 import { ActionsBar } from '@/components/board/ui-kit'
 import { BoardUserMenu } from './board-user-menu.js'
 import type { BoardActionContext } from './board-actions.js'
+import { useBoardContext } from './board-context.js'
 import type { BoardExport } from '@/hooks/board/use-export.js'
 
 interface ActionsBarHostProps {
@@ -21,6 +22,7 @@ export function ActionsBarHost({
   theme,
   compact,
 }: ActionsBarHostProps) {
+  const { readOnly } = useBoardContext()
   const view = useMemo(
     () =>
       store.select(
@@ -48,6 +50,7 @@ export function ActionsBarHost({
     controller,
     boardExport,
     theme,
+    readOnly,
     openImagePicker: () => {},
   }
 

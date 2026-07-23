@@ -20,6 +20,23 @@ export const EXPORT_DEFAULT_PADDING = 16
 export const EXPORT_DEFAULT_SCALE = 2
 export const EXPORT_JPG_QUALITY = 0.92
 
+export const EXPORT_MAX_CANVAS_DIMENSION = 16384
+export const EXPORT_MAX_CANVAS_AREA = 16384 * 8192
+
+export interface ExportSize {
+  width: number
+  height: number
+  scale: number
+  maxScale: number
+}
+
+export type ExportFailure =
+  | { ok: false; reason: 'empty' }
+  | { ok: false; reason: 'unsupported' }
+  | { ok: false; reason: 'too-large'; size: ExportSize }
+
+export type ExportRenderResult = { ok: true; canvas: HTMLCanvasElement; size: ExportSize } | ExportFailure
+
 const MIME: Record<ExportFormat, string> = {
   png: 'image/png',
   jpg: 'image/jpeg',
@@ -46,6 +63,23 @@ export function exportCanvasSize(bounds: Rect, padding: number, scale: number): 
   }
 }
 
+export function maxExportScale(width: number, height: number): number {
+  if (width <= 0 || height <= 0) return 0
+  const byDimension = EXPORT_MAX_CANVAS_DIMENSION / Math.max(width, height)
+  const byArea = Math.sqrt(EXPORT_MAX_CANVAS_AREA / (width * height))
+  return Math.min(byDimension, byArea)
+}
+
+export function exportSizeFor(bounds: Rect, padding: number, scale: number): ExportSize {
+  const { width, height } = exportCanvasSize(bounds, padding, scale)
+  const maxScale = maxExportScale(bounds.width + padding * 2, bounds.height + padding * 2)
+  return { width, height, scale, maxScale }
+}
+
+export function exportTooLarge(size: ExportSize): ExportFailure {
+  return { ok: false, reason: 'too-large', size: { ...size, maxScale: Math.min(size.maxScale, size.scale - 1) } }
+}
+
 export function exportSubset(snapshot: SceneSnapshot, ids?: readonly ElementId[]): SceneSnapshot {
   if (!ids || ids.length === 0) return snapshot
   const keep = new Set(ids)
@@ -59,20 +93,23 @@ export function exportSubset(snapshot: SceneSnapshot, ids?: readonly ElementId[]
   return { ...snapshot, order, elements }
 }
 
-export function renderSceneToCanvas(snapshot: SceneSnapshot, options: ExportOptions): HTMLCanvasElement | null {
+export function renderSceneExport(snapshot: SceneSnapshot, options: ExportOptions): ExportRenderResult {
   const scene = exportSubset(snapshot, options.elementIds)
   const bounds = contentBounds(scene)
-  if (!bounds || bounds.width <= 0 || bounds.height <= 0) return null
+  if (!bounds || bounds.width <= 0 || bounds.height <= 0) return { ok: false, reason: 'empty' }
 
   const padding = options.padding ?? EXPORT_DEFAULT_PADDING
   const scale = options.scale ?? EXPORT_DEFAULT_SCALE
-  const { width, height } = exportCanvasSize(bounds, padding, scale)
+  const size = exportSizeFor(bounds, padding, scale)
+  const { width, height } = size
+  if (scale > size.maxScale) return exportTooLarge(size)
 
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
   const ctx = canvas.getContext('2d')
-  if (!ctx) return null
+  if (!ctx) return { ok: false, reason: 'unsupported' }
+  if (!canvasHoldsPixels(canvas, ctx, width, height)) return exportTooLarge(size)
 
   if (options.background) {
     ctx.fillStyle = options.dark ? invertColor(options.background) : options.background
@@ -85,7 +122,31 @@ export function renderSceneToCanvas(snapshot: SceneSnapshot, options: ExportOpti
     const element: Element | undefined = scene.elements[id]
     if (element) paintElement(ctx, element, dark)
   }
-  return canvas
+  return { ok: true, canvas, size }
+}
+
+export function renderSceneToCanvas(snapshot: SceneSnapshot, options: ExportOptions): HTMLCanvasElement | null {
+  const result = renderSceneExport(snapshot, options)
+  return result.ok ? result.canvas : null
+}
+
+function canvasHoldsPixels(
+  canvas: HTMLCanvasElement,
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+): boolean {
+  if (canvas.width !== width || canvas.height !== height) return false
+  if (typeof ctx.getImageData !== 'function') return true
+  try {
+    ctx.fillStyle = '#000000'
+    ctx.fillRect(width - 1, height - 1, 1, 1)
+    const alpha = ctx.getImageData(width - 1, height - 1, 1, 1).data[3] ?? 0
+    ctx.clearRect(width - 1, height - 1, 1, 1)
+    return alpha !== 0
+  } catch {
+    return true
+  }
 }
 
 export function canvasToBlob(canvas: HTMLCanvasElement, options: ExportOptions): Promise<Blob | null> {

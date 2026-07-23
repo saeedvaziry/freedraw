@@ -29,7 +29,9 @@ import type { PresenceOverlay } from '../render/overlay/presence.js'
 import {
   canvasToBlob,
   exportImageAssetIds,
-  renderSceneToCanvas,
+  exportTooLarge,
+  renderSceneExport,
+  type ExportFailure,
   type ExportFormat,
 } from '../render/export-scene.js'
 import { setImageCache } from '../render/painters/image.js'
@@ -38,7 +40,12 @@ import { clearDrawCaches, sweepDrawCaches } from '../render/draw-cache.js'
 import { HANDWRITTEN_FONT_FAMILY } from '../text/measure.js'
 import type { SceneStore } from '../store/scene-store.js'
 import { ToolManager } from '../tools/tool-manager.js'
-import type { ContextMenuRequest, ToolContext, ToolResult } from '../tools/tool.js'
+import type {
+  ContextMenuRequest,
+  SelectionInteraction,
+  ToolContext,
+  ToolResult,
+} from '../tools/tool.js'
 
 const GROWABLE_TYPES = new Set<string>([
   'rect',
@@ -67,6 +74,7 @@ type Cleanup = () => void
 type ContextMenuListener = (request: ContextMenuRequest | null) => void
 export type CursorListener = (point: Point | null) => void
 export type CameraListener = (camera: CameraState) => void
+export type InteractionListener = (interaction: SelectionInteraction | null) => void
 
 export interface FlowContext {
   editingId: ElementId
@@ -95,6 +103,8 @@ export class EditorController {
   private readonly cursorListeners = new Set<CursorListener>()
   private readonly cameraInputListeners = new Set<CameraListener>()
   private readonly cameraFrameListeners = new Set<CameraListener>()
+  private interaction: SelectionInteraction | null = null
+  private readonly interactionListeners = new Set<InteractionListener>()
   private presenceOverlay: PresenceOverlay | null = null
   private isSpaceDown = false
   private isSpacePanning = false
@@ -131,7 +141,9 @@ export class EditorController {
       },
       setMarquee: (rect) => {
         this.marquee = rect
+        this.setInteraction('marquee', rect != null)
       },
+      setTransforming: (active) => this.setInteraction('transform', active),
       setGuides: (guides) => {
         this.guides = guides
       },
@@ -411,6 +423,26 @@ export class EditorController {
     return () => this.cameraFrameListeners.delete(listener)
   }
 
+  subscribeInteraction(listener: InteractionListener): () => void {
+    this.interactionListeners.add(listener)
+    return () => this.interactionListeners.delete(listener)
+  }
+
+  get activeInteraction(): SelectionInteraction | null {
+    return this.interaction
+  }
+
+  get isMarqueeActive(): boolean {
+    return this.interaction === 'marquee'
+  }
+
+  private setInteraction(kind: SelectionInteraction, active: boolean): void {
+    const next = active ? kind : this.interaction === kind ? null : this.interaction
+    if (next === this.interaction) return
+    this.interaction = next
+    this.interactionListeners.forEach((listener) => listener(next))
+  }
+
   setPresenceOverlay(presence: PresenceOverlay | null): void {
     this.presenceOverlay = presence
     this.loop.markOverlayDirty()
@@ -442,31 +474,33 @@ export class EditorController {
     this.commitCamera()
   }
 
-  async exportImage(options: ExportImageOptions): Promise<Blob | null> {
+  async exportImage(options: ExportImageOptions): Promise<ExportImageResult> {
     const snapshot = this.store.getSnapshot()
     const elementIds = options.selectionOnly ? [...this.store.getUiState().selectedIds] : undefined
     await this.imageCache.ensureBitmaps(exportImageAssetIds(snapshot))
-    const canvas = renderSceneToCanvas(snapshot, {
+    const rendered = renderSceneExport(snapshot, {
       format: options.format,
       scale: options.scale,
       background: exportBackground(options),
       dark: options.dark,
       elementIds,
     })
-    if (!canvas) return null
-    return canvasToBlob(canvas, { format: options.format })
+    if (!rendered.ok) return rendered
+    const blob = await canvasToBlob(rendered.canvas, { format: options.format })
+    if (!blob) return exportTooLarge(rendered.size)
+    return { ok: true, blob }
   }
 
   async copyImageToClipboard(options?: Partial<ExportImageOptions>): Promise<boolean> {
-    const blob = await this.exportImage({
+    const result = await this.exportImage({
       format: 'png',
       transparent: false,
       dark: this.darkMode,
       ...options,
     })
-    if (!blob) return false
+    if (!result.ok) return false
     if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) return false
-    await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })])
+    await navigator.clipboard.write([new ClipboardItem({ [result.blob.type]: result.blob })])
     return true
   }
 
@@ -825,6 +859,8 @@ export interface ExportImageOptions {
   scale?: number
   selectionOnly?: boolean
 }
+
+export type ExportImageResult = { ok: true; blob: Blob } | ExportFailure
 
 const EXPORT_BASE_BACKGROUND = '#ffffff'
 

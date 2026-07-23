@@ -7,6 +7,7 @@ import {
   SCENE_FILE_MIME,
   SCENE_FILE_VERSION,
   type EditorController,
+  type ExportFailure,
   type ExportImageOptions,
   type SceneStore,
 } from '@freedraw/engine'
@@ -43,18 +44,18 @@ export function useExport(controller: EditorController | null, store: SceneStore
     ): Promise<void> => {
       if (!controller) return
       try {
-        const blob = await controller.exportImage({
+        const result = await controller.exportImage({
           format,
           transparent,
           dark,
           scale: options?.scale,
           selectionOnly: options?.selectionOnly,
         })
-        if (!blob) {
-          boardToast('Nothing to export', 'error')
+        if (!result.ok) {
+          boardToast(exportFailureMessage(result), 'error')
           return
         }
-        downloadBlob(blob, `freedraw.${EXTENSION[format]}`)
+        downloadBlob(result.blob, `freedraw.${EXTENSION[format]}`)
         boardToast(`Exported as ${format.toUpperCase()}`)
       } catch (error) {
         console.error('Export failed', error)
@@ -127,6 +128,14 @@ export function useExport(controller: EditorController | null, store: SceneStore
     () => ({ exportImage, copyImage, exportScene, importScene }),
     [exportImage, copyImage, exportScene, importScene],
   )
+}
+
+function exportFailureMessage(failure: ExportFailure): string {
+  if (failure.reason === 'empty') return 'Nothing to export'
+  if (failure.reason === 'unsupported') return 'Export is not supported in this browser'
+  const suggested = Math.floor(failure.size.maxScale)
+  if (suggested < 1) return 'Board too large to export — try exporting a selection'
+  return `Board too large at ${failure.size.scale}x — try ${suggested}x or lower`
 }
 
 function downloadBlob(blob: Blob, filename: string): void {

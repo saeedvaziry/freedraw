@@ -6,12 +6,12 @@ import { CommandPalette } from './command-palette.js'
 export const COMMAND_PALETTE_OPEN_EVENT = 'freedraw:command-palette-open'
 
 export function CommandPaletteHost() {
-  const { store, controller, boardExport, theme, openImagePicker } = useBoardContext()
+  const { store, controller, boardExport, theme, readOnly, openImagePicker } = useBoardContext()
   const [open, setOpen] = useState(false)
 
   const context = useMemo<BoardActionContext>(
-    () => ({ store, controller, boardExport, theme, openImagePicker }),
-    [store, controller, boardExport, theme, openImagePicker],
+    () => ({ store, controller, boardExport, theme, readOnly, openImagePicker }),
+    [store, controller, boardExport, theme, readOnly, openImagePicker],
   )
 
   useEffect(() => {

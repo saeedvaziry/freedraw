@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { IconButton } from '../ui/icon-button.js'
 
 export interface ToolButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   label: string
@@ -12,20 +13,16 @@ export const ToolButton = React.forwardRef<HTMLButtonElement, ToolButtonProps>(
   ({ label, active = false, shortcut, className, children, ...props }, ref) => (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button
+        <IconButton
           ref={ref}
-          type="button"
           aria-label={shortcut ? `${label} (${shortcut})` : label}
           aria-pressed={active}
-          className={cn(
-            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-accent hover:text-foreground coarse:h-11 coarse:w-11 [&_svg]:size-4',
-            active && 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground',
-            className,
-          )}
+          active={active}
+          className={cn(!active && 'text-foreground/80', className)}
           {...props}
         >
           {children}
-        </button>
+        </IconButton>
       </TooltipTrigger>
       <TooltipContent>{shortcut ? `${label} (${shortcut})` : label}</TooltipContent>
     </Tooltip>

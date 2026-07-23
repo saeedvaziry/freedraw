@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import type { ShapeType, StickyColor, ToolId } from '@freedraw/engine'
 import { cn } from '@/lib/utils'
-import { TooltipProvider } from '@/components/ui/tooltip'
+import { FloatingPanel } from '../ui/floating-panel.js'
 import { ToolButton } from './tool-button.js'
 import { ShapesPopover } from './shapes-popover.js'
 import { StickyPopover } from './sticky-popover.js'
@@ -85,76 +85,50 @@ export function Toolbar({
   const horizontal = layout === 'horizontal'
 
   return (
-    <TooltipProvider delayDuration={300}>
-      <div
-        className={cn(
-          'pointer-events-auto rounded-2xl border bg-background/95 p-1.5 shadow-lg backdrop-blur',
-          horizontal
-            ? 'flex max-w-full items-center gap-1 overflow-x-auto'
-            : 'grid max-h-[calc(100vh-3rem)] grid-cols-2 gap-1 overflow-y-auto',
-        )}
-      >
-        {TOOLS.map(({ key, label, Icon, shortcut }) => (
-          <ToolButton
-            key={key}
-            label={label}
-            shortcut={shortcut}
-            active={activeTool === key}
-            onClick={() => onSelectTool(key)}
-          >
-            <Icon />
-          </ToolButton>
-        ))}
-        <StickyPopover
-          open={stickyOpen}
-          onOpenChange={setStickyOpen}
-          side={horizontal ? 'top' : 'right'}
-          active={activeTool === 'sticky'}
-          activeColor={activeStickyColor}
-          onSelectColor={(color) => {
-            onSelectStickyColor(color)
-            setStickyOpen(false)
-          }}
-        />
-        {onToggleToolLock ? (
-          <ToolButton
-            label={toolLock ? 'Unlock tool' : 'Keep tool active'}
-            active={toolLock}
-            onClick={onToggleToolLock}
-          >
-            {toolLock ? <Lock /> : <LockOpen />}
-          </ToolButton>
-        ) : null}
-        <Divider horizontal={horizontal} />
-        {horizontal ? (
-          <>
-            {FEATURED_SHAPES.map(({ type, label, Icon }) => (
-              <ToolButton
-                key={type}
-                label={label}
-                shortcut={SHAPE_SHORTCUTS[type]}
-                active={activeTool === 'shape' && activeShapeType === type}
-                onClick={() => onSelectShape(type)}
-              >
-                <Icon />
-              </ToolButton>
-            ))}
-            <ShapesPopover
-              open={shapesOpen}
-              onOpenChange={setShapesOpen}
-              shapes={MORE_SHAPES}
-              activeShapeType={activeShapeType}
-              shapeToolActive={
-                activeTool === 'shape' && !FEATURED_SHAPE_TYPES.includes(activeShapeType)
-              }
-              onSelectShape={(type) => {
-                onSelectShape(type)
-                setShapesOpen(false)
-              }}
-            />
-          </>
-        ) : (
-          SHAPES.map(({ type, label, Icon }) => (
+    <FloatingPanel
+      orientation={horizontal ? 'horizontal' : 'vertical'}
+      className={cn(
+        'pointer-events-auto',
+        horizontal
+          ? 'max-w-full overflow-x-auto'
+          : 'grid max-h-[calc(100vh-3rem)] grid-cols-2 overflow-y-auto',
+      )}
+    >
+      {TOOLS.map(({ key, label, Icon, shortcut }) => (
+        <ToolButton
+          key={key}
+          label={label}
+          shortcut={shortcut}
+          active={activeTool === key}
+          onClick={() => onSelectTool(key)}
+        >
+          <Icon />
+        </ToolButton>
+      ))}
+      <StickyPopover
+        open={stickyOpen}
+        onOpenChange={setStickyOpen}
+        side={horizontal ? 'top' : 'right'}
+        active={activeTool === 'sticky'}
+        activeColor={activeStickyColor}
+        onSelectColor={(color) => {
+          onSelectStickyColor(color)
+          setStickyOpen(false)
+        }}
+      />
+      {onToggleToolLock ? (
+        <ToolButton
+          label={toolLock ? 'Unlock tool' : 'Keep tool active'}
+          active={toolLock}
+          onClick={onToggleToolLock}
+        >
+          {toolLock ? <Lock /> : <LockOpen />}
+        </ToolButton>
+      ) : null}
+      <Divider horizontal={horizontal} />
+      {horizontal ? (
+        <>
+          {FEATURED_SHAPES.map(({ type, label, Icon }) => (
             <ToolButton
               key={type}
               label={label}
@@ -164,28 +138,53 @@ export function Toolbar({
             >
               <Icon />
             </ToolButton>
-          ))
-        )}
-        {onToggleDiagram ? (
-          <>
-            <Divider horizontal={horizontal} />
-            <ToolButton label="Diagram code" active={diagramOpen} onClick={onToggleDiagram}>
-              <Code2 />
-            </ToolButton>
-          </>
-        ) : null}
-        {trailing ? (
-          <>
-            <Divider horizontal={horizontal} />
-            {trailing}
-          </>
-        ) : null}
-      </div>
-    </TooltipProvider>
+          ))}
+          <ShapesPopover
+            open={shapesOpen}
+            onOpenChange={setShapesOpen}
+            shapes={MORE_SHAPES}
+            activeShapeType={activeShapeType}
+            shapeToolActive={
+              activeTool === 'shape' && !FEATURED_SHAPE_TYPES.includes(activeShapeType)
+            }
+            onSelectShape={(type) => {
+              onSelectShape(type)
+              setShapesOpen(false)
+            }}
+          />
+        </>
+      ) : (
+        SHAPES.map(({ type, label, Icon }) => (
+          <ToolButton
+            key={type}
+            label={label}
+            shortcut={SHAPE_SHORTCUTS[type]}
+            active={activeTool === 'shape' && activeShapeType === type}
+            onClick={() => onSelectShape(type)}
+          >
+            <Icon />
+          </ToolButton>
+        ))
+      )}
+      {onToggleDiagram ? (
+        <>
+          <Divider horizontal={horizontal} />
+          <ToolButton label="Diagram code" active={diagramOpen} onClick={onToggleDiagram}>
+            <Code2 />
+          </ToolButton>
+        </>
+      ) : null}
+      {trailing ? (
+        <>
+          <Divider horizontal={horizontal} />
+          {trailing}
+        </>
+      ) : null}
+    </FloatingPanel>
   )
 }
 
 function Divider({ horizontal }: { horizontal: boolean }) {
-  if (horizontal) return <div className="mx-0.5 h-7 w-px shrink-0 bg-border" />
-  return <div className="col-span-2 my-1 h-px bg-border" />
+  if (horizontal) return <div className="mx-0.5 h-7 w-px shrink-0 bg-[color:var(--panel-border)]" />
+  return <div className="col-span-2 my-1 h-px bg-[color:var(--panel-border)]" />
 }

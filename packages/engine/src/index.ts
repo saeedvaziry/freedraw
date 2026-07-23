@@ -51,19 +51,34 @@ export type { SerializeReport } from './diagram/serialize.js'
 export type { DiagramError, Direction } from './diagram/ast.js'
 
 export { EditorController } from './controller/editor-controller.js'
-export type { ExportImageOptions, FlowContext } from './controller/editor-controller.js'
-export type { CursorListener, CameraListener } from './controller/editor-controller.js'
+export type { ExportImageOptions, ExportImageResult, FlowContext } from './controller/editor-controller.js'
+export type {
+  CursorListener,
+  CameraListener,
+  InteractionListener,
+} from './controller/editor-controller.js'
 export { paintPresence } from './render/overlay/presence.js'
 export type { PresenceOverlay, PresenceCursor, PresenceHalo } from './render/overlay/presence.js'
 export {
   renderSceneToCanvas,
+  renderSceneExport,
   canvasToBlob,
   exportImageAssetIds,
+  exportTooLarge,
+  maxExportScale,
   EXPORT_DEFAULT_PADDING,
   EXPORT_DEFAULT_SCALE,
   EXPORT_JPG_QUALITY,
+  EXPORT_MAX_CANVAS_DIMENSION,
+  EXPORT_MAX_CANVAS_AREA,
 } from './render/export-scene.js'
-export type { ExportFormat, ExportOptions } from './render/export-scene.js'
+export type {
+  ExportFormat,
+  ExportOptions,
+  ExportSize,
+  ExportFailure,
+  ExportRenderResult,
+} from './render/export-scene.js'
 
 export { ToolManager } from './tools/tool-manager.js'
 export { ShapeTool } from './tools/shape-tool.js'
@@ -97,7 +112,14 @@ export type { EditRequest, EditTarget, EditListener } from './text/edit.js'
 
 export { snapEndpoint, snapToShapes, shapeAnchors, SNAP_DISTANCE } from './geometry/snap.js'
 export type { SnapGuide, SnapResult } from './geometry/snap.js'
-export type { Tool, ToolContext, ToolResult, PointerInfo, ContextMenuRequest } from './tools/tool.js'
+export type {
+  Tool,
+  ToolContext,
+  ToolResult,
+  PointerInfo,
+  ContextMenuRequest,
+  SelectionInteraction,
+} from './tools/tool.js'
 export { InputManager } from './input/input-manager.js'
 export { pinchSample, pinchDelta } from './input/pinch.js'
 export type { PinchSample, PinchDelta } from './input/pinch.js'

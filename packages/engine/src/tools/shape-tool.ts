@@ -48,15 +48,17 @@ export class ShapeTool implements Tool {
     ctx.store.transact((api) => api.addElement(element))
     const { toolLock } = ctx.store.getUiState()
     ctx.store.setUiState({ selectedIds: new Set([element.id]), ...(toolLock ? {} : { activeTool: 'select' }) })
-    ctx.beginEdit({
-      elementId: element.id,
-      target: 'label',
-      text: '',
-      world: labelRect(element.type, element),
-      style: element.style,
-      align: element.style.textAlign,
-      verticalAlign: 'middle',
-    })
+    if (!toolLock) {
+      ctx.beginEdit({
+        elementId: element.id,
+        target: 'label',
+        text: '',
+        world: labelRect(element.type, element),
+        style: element.style,
+        align: element.style.textAlign,
+        verticalAlign: 'middle',
+      })
+    }
     return { scene: true, overlay: true }
   }
 

@@ -1,5 +1,9 @@
 import { BookOpen, Copy, FileInput, Play, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { FloatingPanel } from '../ui/floating-panel.js'
+import { IconButton } from '../ui/icon-button.js'
+
+const smallButtonClass = 'size-7 rounded-md text-foreground/70 coarse:size-7'
 
 export interface DiagramPanelProps {
   code: string
@@ -27,17 +31,20 @@ export function DiagramPanel({
   onClose,
 }: DiagramPanelProps) {
   return (
-    <div className="pointer-events-auto flex max-h-[calc(100vh-3rem)] w-[26rem] max-w-[calc(100vw-3rem)] flex-col gap-3 rounded-2xl border bg-background/95 p-3 shadow-lg backdrop-blur">
+    <FloatingPanel
+      orientation="vertical"
+      gap={false}
+      className="pointer-events-auto max-h-[calc(100vh-3rem)] w-[26rem] max-w-[calc(100vw-3rem)] gap-3 p-3"
+    >
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">Diagram code</span>
-        <button
-          type="button"
+        <IconButton
           aria-label="Close diagram code"
           onClick={onClose}
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-foreground/70 transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4"
+          className="size-7 rounded-md text-foreground/70 coarse:size-7"
         >
           <X />
-        </button>
+        </IconButton>
       </div>
 
       <textarea
@@ -56,41 +63,39 @@ export function DiagramPanel({
         Generate diagram
       </Button>
 
-      <div className="flex flex-col gap-2 border-t pt-3">
+      <div className="flex flex-col gap-2 border-t border-[color:var(--panel-border)] pt-3">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium text-foreground/70">Current diagram</span>
           <div className="flex items-center gap-0.5">
-            <button
-              type="button"
+            <IconButton
               aria-label="Copy code"
               title="Copy code"
               onClick={onCopyCode}
               disabled={generatedCode.length === 0}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-foreground/70 transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4"
+              className={smallButtonClass}
             >
               <Copy />
-            </button>
-            <button
-              type="button"
+            </IconButton>
+            <IconButton
               aria-label="Load into editor"
               title="Load into editor"
               onClick={onUseGenerated}
               disabled={generatedCode.length === 0}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-foreground/70 transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4"
+              className={smallButtonClass}
             >
               <FileInput />
-            </button>
+            </IconButton>
             {docsHref ? (
-              <a
-                href={docsHref}
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Diagram code docs"
-                title="Diagram code docs"
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-foreground/70 transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4"
-              >
-                <BookOpen />
-              </a>
+              <IconButton asChild aria-label="Diagram code docs" className={smallButtonClass}>
+                <a
+                  href={docsHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Diagram code docs"
+                >
+                  <BookOpen />
+                </a>
+              </IconButton>
             ) : null}
           </div>
         </div>
@@ -103,6 +108,6 @@ export function DiagramPanel({
           </p>
         ) : null}
       </div>
-    </div>
+    </FloatingPanel>
   )
 }

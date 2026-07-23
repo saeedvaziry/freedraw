@@ -22,12 +22,15 @@ export interface ContextMenuRequest {
   sourceId: ElementId | null
 }
 
+export type SelectionInteraction = 'marquee' | 'transform'
+
 export interface ToolContext {
   store: SceneStore
   camera: Camera
   setPreview(element: Element | null): void
   setSpawnPreview(preview: SpawnPreview | null): void
   setMarquee(rect: Rect | null): void
+  setTransforming?(active: boolean): void
   setGuides(guides: SnapGuide[]): void
   setPortTarget(id: ElementId | null): void
   beginEdit(request: EditRequest): void

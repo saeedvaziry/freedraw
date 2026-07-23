@@ -21,7 +21,7 @@ export function AppearanceSegmented({ className }: { className?: string }) {
     <div
       role="radiogroup"
       aria-label="Theme"
-      className={cn('flex gap-1 rounded-lg bg-muted p-1', className)}
+      className={cn('flex gap-1 rounded-[var(--control-radius)] bg-muted p-1', className)}
     >
       {tabs.map(({ value, icon: Icon, label }) => {
         const active = appearance === value

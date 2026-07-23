@@ -164,6 +164,7 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
     controller,
     boardExport,
     theme,
+    readOnly,
     openImagePicker: imageInsert.openPicker,
   })
   useBoardClipboard(store, controller)

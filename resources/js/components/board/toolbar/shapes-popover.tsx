@@ -1,5 +1,7 @@
 import { Shapes } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover.js'
+import { FloatingPanel } from '../ui/floating-panel.js'
+import { IconButton } from '../ui/icon-button.js'
 import { cn } from '@/lib/utils'
 import { ToolButton } from './tool-button.js'
 import { SHAPES, type ShapeEntry, type ShapeType } from './shapes.js'
@@ -31,32 +33,27 @@ export function ShapesPopover({
           <Shapes />
         </ToolButton>
       </PopoverTrigger>
-      <PopoverContent
-        side="top"
-        align="end"
-        sideOffset={12}
-        className="w-auto rounded-2xl p-2"
-      >
-        <div className="grid grid-cols-4 gap-1">
-          {shapes.map(({ type, label, Icon }) => (
-            <button
-              key={type}
-              type="button"
-              aria-label={label}
-              aria-pressed={shapeToolActive && activeShapeType === type}
-              onClick={() => onSelectShape(type)}
-              className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-accent hover:text-foreground',
-                shapeToolActive &&
-                  activeShapeType === type &&
-                  'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground',
-              )}
-            >
-              <Icon className="size-4" />
-            </button>
-          ))}
-        </div>
-      </PopoverContent>
+      <FloatingPanel asChild gap={false}>
+        <PopoverContent side="top" align="end" sideOffset={12} className="w-auto">
+          <div className="grid grid-cols-4 gap-[var(--panel-gap)]">
+            {shapes.map(({ type, label, Icon }) => {
+              const active = shapeToolActive && activeShapeType === type
+              return (
+                <IconButton
+                  key={type}
+                  aria-label={label}
+                  aria-pressed={active}
+                  active={active}
+                  onClick={() => onSelectShape(type)}
+                  className={cn(!active && 'text-foreground/80')}
+                >
+                  <Icon className="size-4" />
+                </IconButton>
+              )
+            })}
+          </div>
+        </PopoverContent>
+      </FloatingPanel>
     </Popover>
   )
 }
