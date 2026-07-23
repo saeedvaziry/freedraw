@@ -1,6 +1,14 @@
-import { useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useId, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { ClipboardCopy, Download, FileJson, ImageDown, Moon, Sun, Upload } from 'lucide-react'
-import { EXPORT_DEFAULT_SCALE, shallowEqual } from '@freedraw/engine'
+import {
+  elementBounds,
+  maxExportScale,
+  shallowEqual,
+  EXPORT_DEFAULT_PADDING,
+  EXPORT_DEFAULT_SCALE,
+  type ElementId,
+  type SceneSnapshot,
+} from '@freedraw/engine'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover.js'
 import { FloatingPanel } from '../ui/floating-panel.js'
 import { IconButton } from '../ui/icon-button.js'
@@ -18,6 +26,26 @@ export interface ExportMenuOptions {
 
 const SCALES = [1, 2, 3]
 
+function exportScaleLimit(snapshot: SceneSnapshot, ids: ReadonlySet<ElementId> | null): number {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const id of snapshot.order) {
+    if (ids && !ids.has(id)) continue
+    const element = snapshot.elements[id]
+    if (!element) continue
+    const bounds = elementBounds(element)
+    minX = Math.min(minX, bounds.x)
+    minY = Math.min(minY, bounds.y)
+    maxX = Math.max(maxX, bounds.x + bounds.width)
+    maxY = Math.max(maxY, bounds.y + bounds.height)
+  }
+  if (!Number.isFinite(minX)) return Infinity
+  const padding = EXPORT_DEFAULT_PADDING * 2
+  return maxExportScale(maxX - minX + padding, maxY - minY + padding)
+}
+
 export function ExportMenu() {
   const { store, boardExport, theme: boardTheme, readOnly } = useBoardContext()
   const [open, setOpen] = useState(false)
@@ -25,23 +53,48 @@ export function ExportMenu() {
   const [dark, setDark] = useState(boardTheme === 'dark')
   const [scale, setScale] = useState(EXPORT_DEFAULT_SCALE)
   const [selectionOnly, setSelectionOnly] = useState(false)
+  const scaleHintId = useId()
 
   const view = useMemo(
     () =>
       store.select(
-        (s) => ({
-          canExport: s.getSnapshot().order.length > 0,
-          hasSelection: s.getUiState().selectedIds.size > 0,
-        }),
+        (s) => {
+          const snapshot = s.getSnapshot()
+          const selectedIds = s.getUiState().selectedIds
+          const measure = open && snapshot.order.length > 0
+          return {
+            canExport: snapshot.order.length > 0,
+            hasSelection: selectedIds.size > 0,
+            sceneScaleLimit: measure ? exportScaleLimit(snapshot, null) : Infinity,
+            selectionScaleLimit:
+              measure && selectedIds.size > 0 ? exportScaleLimit(snapshot, selectedIds) : Infinity,
+          }
+        },
         { equals: shallowEqual, channels: ['doc', 'selection'] },
       ),
-    [store],
+    [store, open],
   )
   const state = useSyncExternalStore(view.subscribe, view.getSnapshot)
 
+  const scopedToSelection = selectionOnly && state.hasSelection
+  const scaleLimit = scopedToSelection ? state.selectionScaleLimit : state.sceneScaleLimit
+  const allowedScales = SCALES.filter((value) => value <= scaleLimit)
+  const activeScale = allowedScales.includes(scale)
+    ? scale
+    : allowedScales.length > 0
+      ? Math.max(...allowedScales)
+      : SCALES[0]
+  const scope = scopedToSelection ? 'Selection' : 'Board'
+  const scaleHint =
+    allowedScales.length === SCALES.length
+      ? null
+      : allowedScales.length === 0
+        ? `${scope} too large to export at any size`
+        : `${scope} too large above ${Math.max(...allowedScales)}x`
+
   const options: ExportMenuOptions = {
-    scale,
-    selectionOnly: selectionOnly && state.hasSelection,
+    scale: activeScale,
+    selectionOnly: scopedToSelection,
   }
 
   const runExport = (format: ExportFormat, formatTransparent: boolean): void => {
@@ -129,20 +182,32 @@ export function ExportMenu() {
                 </SegmentOption>
               </div>
             </div>
-            <div className="flex items-center justify-between px-3 py-2 text-sm text-foreground/80">
-              <span>Size</span>
-              <div className="flex items-center gap-0.5 rounded-[var(--control-radius)] bg-muted p-0.5">
-                {SCALES.map((value) => (
-                  <SegmentOption
-                    key={value}
-                    active={scale === value}
-                    label={`${value}x`}
-                    onClick={() => setScale(value)}
-                  >
-                    {value}x
-                  </SegmentOption>
-                ))}
+            <div className="flex flex-col">
+              <div className="flex items-center justify-between px-3 py-2 text-sm text-foreground/80">
+                <span>Size</span>
+                <div className="flex items-center gap-0.5 rounded-[var(--control-radius)] bg-muted p-0.5">
+                  {SCALES.map((value) => {
+                    const unavailable = value > scaleLimit
+                    return (
+                      <SegmentOption
+                        key={value}
+                        active={activeScale === value}
+                        disabled={unavailable}
+                        describedBy={unavailable ? scaleHintId : undefined}
+                        label={unavailable ? `${value}x (unavailable)` : `${value}x`}
+                        onClick={() => setScale(value)}
+                      >
+                        {value}x
+                      </SegmentOption>
+                    )
+                  })}
+                </div>
               </div>
+              {scaleHint ? (
+                <p id={scaleHintId} className="px-3 pb-2 text-right text-xs text-foreground/50">
+                  {scaleHint}
+                </p>
+              ) : null}
             </div>
             <label className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-sm text-foreground/80 hover:bg-accent">
               <span>Transparent (PNG)</span>
@@ -178,20 +243,27 @@ export function ExportMenu() {
 interface SegmentOptionProps {
   active: boolean
   label: string
+  disabled?: boolean
+  describedBy?: string
   children: ReactNode
   onClick(): void
 }
 
-function SegmentOption({ active, label, children, onClick }: SegmentOptionProps) {
+function SegmentOption({ active, label, disabled, describedBy, children, onClick }: SegmentOptionProps) {
   return (
     <button
       type="button"
       aria-label={label}
       aria-pressed={active}
-      onClick={onClick}
+      aria-disabled={disabled || undefined}
+      aria-describedby={describedBy}
+      onClick={() => {
+        if (!disabled) onClick()
+      }}
       className={cn(
         'flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-foreground/70 transition-colors hover:text-foreground [&_svg]:size-3.5',
         active && 'bg-background text-foreground shadow-sm',
+        disabled && 'cursor-not-allowed text-foreground/30 hover:text-foreground/30',
       )}
     >
       {children}
