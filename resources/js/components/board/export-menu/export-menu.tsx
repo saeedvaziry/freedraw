@@ -16,8 +16,6 @@ export interface ExportMenuOptions {
 export interface ExportMenuProps {
   disabled?: boolean
   theme?: 'light' | 'dark'
-  onExport?(format: ExportFormat, transparent: boolean, dark: boolean, options?: ExportMenuOptions): void
-  onCopyToClipboard?(): void
 }
 
 const SCALES = [1, 2, 3]

@@ -62,12 +62,7 @@ export function ActionsBar({
         >
           <SnapIcon />
         </ActionButton>
-        <ExportMenu
-          disabled={!canExport}
-          theme={ctx.theme}
-          onExport={(format, transparent, dark) => void ctx.boardExport.exportImage(format, transparent, dark)}
-          onCopyToClipboard={() => void ctx.boardExport.copyImage()}
-        />
+        <ExportMenu disabled={!canExport} theme={ctx.theme} />
       </div>
     </TooltipProvider>
   )

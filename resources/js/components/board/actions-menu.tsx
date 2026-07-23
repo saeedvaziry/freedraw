@@ -22,7 +22,6 @@ interface ActionsMenuProps {
 }
 
 const EDIT_ACTION_IDS = ['undo', 'redo', 'delete', 'duplicate', 'copy', 'cut', 'paste']
-const EXPORT_ACTION_IDS = ['export-png', 'export-jpg', 'copy-image']
 
 export function ActionsMenu({
   store,
@@ -81,12 +80,6 @@ export function ActionsMenu({
           <span className="flex-1">{snapAction.label}</span>
           {snapGuidesEnabled ? <Check className="size-4 text-foreground/70" /> : null}
         </DropdownMenuItem>
-
-        <DropdownMenuSeparator />
-
-        {EXPORT_ACTION_IDS.map((id) => (
-          <ActionMenuRow key={id} action={BOARD_ACTIONS_BY_ID[id]} ctx={ctx} />
-        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   )
