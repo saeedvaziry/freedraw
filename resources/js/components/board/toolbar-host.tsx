@@ -1,6 +1,7 @@
 import { useMemo, useSyncExternalStore, type ReactNode } from 'react'
 import { shallowEqual, type SceneStore, type ShapeType, type StickyColor, type ToolId } from '@freedraw/engine'
-import { Toolbar, type ToolbarLayout } from '@/components/board/ui-kit'
+import { FloatingPanel, Toolbar, type ToolbarLayout } from '@/components/board/ui-kit'
+import { useBoardContext } from './board-context.js'
 
 interface ToolbarHostProps {
   store: SceneStore
@@ -11,6 +12,7 @@ interface ToolbarHostProps {
 }
 
 export function ToolbarHost({ store, layout, diagramOpen, trailing, onToggleDiagram }: ToolbarHostProps) {
+  const { readOnly } = useBoardContext()
   const chrome = useMemo(
     () =>
       store.select(
@@ -39,6 +41,18 @@ export function ToolbarHost({ store, layout, diagramOpen, trailing, onToggleDiag
 
   const selectStickyColor = (color: StickyColor): void => {
     store.setUiState({ activeTool: 'sticky', activeStickyColor: color })
+  }
+
+  if (readOnly) {
+    if (!trailing) return null
+    return (
+      <FloatingPanel
+        orientation={layout === 'horizontal' ? 'horizontal' : 'vertical'}
+        className="pointer-events-auto max-w-full"
+      >
+        {trailing}
+      </FloatingPanel>
+    )
   }
 
   return (

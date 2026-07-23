@@ -48,7 +48,7 @@ const DEFAULT_SELECTION: StylePanelSelection = {
 }
 
 export function StylePanelHost({ collapsible = false }: StylePanelHostProps) {
-  const { store } = useBoardContext()
+  const { store, readOnly } = useBoardContext()
   const panel = useMemo(
     () => store.select(readSnapshot, { equals: panelEquals, channels: ['doc', 'selection'] }),
     [store],
@@ -64,6 +64,8 @@ export function StylePanelHost({ collapsible = false }: StylePanelHostProps) {
 
   const collapse = useCallback(() => setCollapsed(true), [])
   const expand = useCallback(() => setCollapsed(false), [])
+
+  if (readOnly) return null
 
   const updateStyle = (patch: PanelStylePatch): void => {
     const selectedIds = store.getUiState().selectedIds

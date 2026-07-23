@@ -197,10 +197,11 @@ export function BoardSidebar() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <IconButton
+              size="sm"
               aria-label={currentOrganization?.name ?? 'Select organization'}
               title={currentOrganization?.name ?? 'Select organization'}
               data-test="board-organization-switcher-trigger"
-              className={railButtonClass}
+              className={railStateClass}
             >
               <Users />
             </IconButton>
@@ -216,10 +217,11 @@ export function BoardSidebar() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <IconButton
+                size="sm"
                 aria-label="Account menu"
                 title={user.name}
                 data-test="board-sidebar-user-menu"
-                className={railButtonClass}
+                className={railStateClass}
               >
                 <UserAvatar user={user} />
               </IconButton>
@@ -316,8 +318,13 @@ export function BoardSidebar() {
   )
 }
 
-const railButtonClass =
-  'flex size-9 coarse:size-9 items-center justify-center rounded-[var(--icon-button-radius)] text-foreground/70 transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground [&_svg]:size-4'
+const railStateClass =
+  'text-foreground/70 transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground [&_svg]:size-4'
+
+const railLinkClass = cn(
+  'flex size-9 items-center justify-center rounded-[var(--icon-button-radius)]',
+  railStateClass,
+)
 
 function RailButton({
   label,
@@ -331,9 +338,10 @@ function RailButton({
 } & React.ComponentProps<'button'>) {
   return (
     <IconButton
+      size="sm"
       aria-label={label}
       title={label}
-      className={cn(railButtonClass, className)}
+      className={cn(railStateClass, className)}
       {...props}
     >
       {children}
@@ -353,7 +361,7 @@ function RailLink({
 } & Omit<React.ComponentProps<typeof Link>, 'href' | 'children'>) {
   return (
     <RailTooltip label={label}>
-      <Link href={href} aria-label={label} className={railButtonClass} {...props}>
+      <Link href={href} aria-label={label} className={railLinkClass} {...props}>
         {children}
       </Link>
     </RailTooltip>

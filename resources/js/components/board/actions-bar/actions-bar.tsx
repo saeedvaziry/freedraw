@@ -20,7 +20,9 @@ export function ActionsBar({ ctx, snapGuidesEnabled, compact = false, userMenu }
   const SnapIcon = snap.icon
 
   return (
-    <FloatingPanel className={cn('pointer-events-auto', compact && 'max-w-full overflow-x-auto')}>
+    <FloatingPanel
+      className={cn('pointer-events-auto', compact && 'max-w-full flex-wrap justify-center')}
+    >
       {userMenu ? (
         <>
           {userMenu}

@@ -20,7 +20,7 @@ import { ToolbarHost } from './toolbar-host.js'
 type Section = 'tools' | 'style' | 'edit'
 
 export function MobileBar() {
-  const { store, controller, boardExport, theme } = useBoardContext()
+  const { store, controller, boardExport, theme, readOnly } = useBoardContext()
   const [section, setSection] = useState<Section | null>(null)
   const hasSelection = useHasSelection(store)
 
@@ -30,26 +30,30 @@ export function MobileBar() {
 
   return (
     <FloatingPanel className="pointer-events-auto">
-      <SectionItem
-        label="Tools"
-        Icon={Shapes}
-        value="tools"
-        section={section}
-        onChange={setSection}
-      >
-        <ToolbarHost store={store} layout="horizontal" />
-      </SectionItem>
+      {!readOnly ? (
+        <>
+          <SectionItem
+            label="Tools"
+            Icon={Shapes}
+            value="tools"
+            section={section}
+            onChange={setSection}
+          >
+            <ToolbarHost store={store} layout="horizontal" />
+          </SectionItem>
 
-      <SectionItem
-        label="Style"
-        Icon={Palette}
-        value="style"
-        section={section}
-        disabled={!hasSelection}
-        onChange={setSection}
-      >
-        <StylePanelHost />
-      </SectionItem>
+          <SectionItem
+            label="Style"
+            Icon={Palette}
+            value="style"
+            section={section}
+            disabled={!hasSelection}
+            onChange={setSection}
+          >
+            <StylePanelHost />
+          </SectionItem>
+        </>
+      ) : null}
 
       <SectionItem
         label="Edit"
