@@ -60,7 +60,6 @@ export type {
 export { paintPresence } from './render/overlay/presence.js'
 export type { PresenceOverlay, PresenceCursor, PresenceHalo } from './render/overlay/presence.js'
 export {
-  renderSceneToCanvas,
   renderSceneExport,
   canvasToBlob,
   exportImageAssetIds,

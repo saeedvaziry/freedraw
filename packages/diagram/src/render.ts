@@ -1,12 +1,23 @@
 import {
-  renderSceneToCanvas,
+  renderSceneExport,
   canvasToBlob,
+  exportTooLarge,
   EXPORT_DEFAULT_SCALE,
+  type ExportFailure,
   type ExportFormat,
+  type ExportRenderResult,
 } from '@freedraw/engine/render/exportScene'
-import type { Direction, LayoutOptions } from '@freedraw/engine/diagram'
+import type { DiagramError, Direction, LayoutOptions } from '@freedraw/engine/diagram'
 import type { Style } from '@freedraw/engine/model/types'
 import { buildScene, type BuildSceneOptions, type DiagramScene } from './scene.js'
+
+export interface RenderParseFailure {
+  ok: false
+  reason: 'parse-error'
+  errors: DiagramError[]
+}
+
+export type RenderFailure = ExportFailure | RenderParseFailure
 
 export interface RenderOptions {
   scale?: number
@@ -15,6 +26,7 @@ export interface RenderOptions {
   dark?: boolean
   format?: ExportFormat
   quality?: number
+  onFailure?: (failure: RenderFailure) => void
 }
 
 export interface RenderFromCodeOptions extends RenderOptions {
@@ -25,6 +37,7 @@ export interface RenderFromCodeOptions extends RenderOptions {
 
 type Input = string | DiagramScene
 type OptionsFor<T extends Input> = T extends string ? RenderFromCodeOptions : RenderOptions
+type RenderResult = ExportRenderResult | RenderParseFailure
 
 const MIME: Record<ExportFormat, string> = {
   png: 'image/png',
@@ -37,9 +50,9 @@ function toScene(input: Input, options: RenderFromCodeOptions): DiagramScene {
   return buildScene(input, buildOptions)
 }
 
-function toCanvas(input: Input, options: RenderFromCodeOptions): HTMLCanvasElement | null {
+function toCanvas(input: Input, options: RenderFromCodeOptions): RenderResult {
   const scene = toScene(input, options)
-  return renderSceneToCanvas(scene.snapshot, {
+  const rendered = renderSceneExport(scene.snapshot, {
     format: options.format ?? 'png',
     scale: options.scale,
     padding: options.padding,
@@ -47,23 +60,32 @@ function toCanvas(input: Input, options: RenderFromCodeOptions): HTMLCanvasEleme
     dark: options.dark,
     quality: options.quality,
   })
+  const result: RenderResult =
+    !rendered.ok && rendered.reason === 'empty' && scene.errors.length > 0
+      ? { ok: false, reason: 'parse-error', errors: scene.errors }
+      : rendered
+  if (!result.ok) options.onFailure?.(result)
+  return result
 }
 
 export function renderToCanvas<T extends Input>(input: T, options: OptionsFor<T> = {} as OptionsFor<T>): HTMLCanvasElement | null {
-  return toCanvas(input, options)
+  const result = toCanvas(input, options)
+  return result.ok ? result.canvas : null
 }
 
 export function renderToDataURL<T extends Input>(input: T, options: OptionsFor<T> = {} as OptionsFor<T>): string | null {
-  const canvas = toCanvas(input, options)
-  if (!canvas) return null
+  const result = toCanvas(input, options)
+  if (!result.ok) return null
   const format = options.format ?? 'png'
-  return canvas.toDataURL(MIME[format], options.quality)
+  return result.canvas.toDataURL(MIME[format], options.quality)
 }
 
-export function renderToBlob<T extends Input>(input: T, options: OptionsFor<T> = {} as OptionsFor<T>): Promise<Blob | null> {
-  const canvas = toCanvas(input, options)
-  if (!canvas) return Promise.resolve(null)
-  return canvasToBlob(canvas, { format: options.format ?? 'png', quality: options.quality })
+export async function renderToBlob<T extends Input>(input: T, options: OptionsFor<T> = {} as OptionsFor<T>): Promise<Blob | null> {
+  const result = toCanvas(input, options)
+  if (!result.ok) return null
+  const blob = await canvasToBlob(result.canvas, { format: options.format ?? 'png', quality: options.quality })
+  if (!blob) options.onFailure?.(exportTooLarge(result.size))
+  return blob
 }
 
 export function mount<T extends Input>(
@@ -71,9 +93,10 @@ export function mount<T extends Input>(
   input: T,
   options: OptionsFor<T> = {} as OptionsFor<T>,
 ): HTMLCanvasElement | null {
-  const canvas = toCanvas(input, options)
-  if (!canvas) return null
+  const result = toCanvas(input, options)
+  if (!result.ok) return null
   const scale = options.scale ?? EXPORT_DEFAULT_SCALE
+  const canvas = result.canvas
   canvas.style.width = `${canvas.width / scale}px`
   canvas.style.height = `${canvas.height / scale}px`
   container.appendChild(canvas)

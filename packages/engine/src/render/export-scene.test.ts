@@ -7,7 +7,6 @@ import {
   EXPORT_MAX_CANVAS_DIMENSION,
   maxExportScale,
   renderSceneExport,
-  renderSceneToCanvas,
 } from './export-scene.js'
 
 interface FakeCanvas {
@@ -123,18 +122,5 @@ describe('renderSceneExport', () => {
     stubDocument({ context: false })
     const result = renderSceneExport(sceneWith(100, 100), { format: 'png' })
     expect(result).toEqual({ ok: false, reason: 'unsupported' })
-  })
-})
-
-describe('renderSceneToCanvas', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
-  it('returns the canvas on success and null on failure', () => {
-    stubDocument()
-    expect(renderSceneToCanvas(sceneWith(100, 100), { format: 'png' })).not.toBeNull()
-    expect(renderSceneToCanvas(emptyScene(), { format: 'png' })).toBeNull()
-    expect(renderSceneToCanvas(sceneWith(9000, 9000), { format: 'png', scale: 3 })).toBeNull()
   })
 })

@@ -125,11 +125,6 @@ export function renderSceneExport(snapshot: SceneSnapshot, options: ExportOption
   return { ok: true, canvas, size }
 }
 
-export function renderSceneToCanvas(snapshot: SceneSnapshot, options: ExportOptions): HTMLCanvasElement | null {
-  const result = renderSceneExport(snapshot, options)
-  return result.ok ? result.canvas : null
-}
-
 function canvasHoldsPixels(
   canvas: HTMLCanvasElement,
   ctx: CanvasRenderingContext2D,

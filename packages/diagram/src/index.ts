@@ -27,4 +27,10 @@ export { defaultDiagramStyle, defaultDiagramLayout } from './style.js'
 export { resolveDiagramArrows } from './resolve.js'
 
 export { renderToCanvas, renderToDataURL, renderToBlob, mount } from './render.js'
-export type { RenderOptions, RenderFromCodeOptions } from './render.js'
+export type {
+  RenderOptions,
+  RenderFromCodeOptions,
+  RenderFailure,
+  RenderParseFailure,
+} from './render.js'
+export type { ExportFailure } from '@freedraw/engine/render/exportScene'
