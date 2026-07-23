@@ -314,6 +314,7 @@ export class SelectTool implements Tool {
     const target = this.selectedArrowHandleAt(info, ctx, selected)
     if (!target) return null
     const { element, handle } = target
+    ctx.setTransforming?.(true)
     if (handle.id === 'midpoint') {
       this.mode = {
         kind: 'reshapeSegment',
@@ -366,6 +367,7 @@ export class SelectTool implements Tool {
     ctx: ToolContext,
     pending: Extract<Mode, { kind: 'portPending' }>,
   ): ToolResult {
+    ctx.setTransforming?.(true)
     const arrow = createArrow({
       points: [pending.start, pending.start],
       start: pending.startBinding,
