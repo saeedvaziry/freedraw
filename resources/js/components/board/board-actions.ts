@@ -13,11 +13,13 @@ import {
   BringToFront,
   ClipboardCopy,
   ClipboardPaste,
+  Command,
   CopyPlus,
   Crosshair,
   Download,
   Group,
   ImageDown,
+  Link2,
   Lock,
   LockOpen,
   Maximize,
@@ -33,6 +35,7 @@ import {
 } from 'lucide-react'
 import type { EditorController, SceneStore } from '@freedraw/engine'
 import type { BoardExport } from '@/hooks/board/use-export.js'
+import { boardToast } from '@/lib/board-toast'
 
 export type BoardActionScope = 'canvas' | 'menu-open' | 'text-editing'
 
@@ -284,6 +287,17 @@ export const BOARD_ACTIONS: BoardAction[] = [
     },
   },
   {
+    id: 'copy-link',
+    label: 'Copy link',
+    icon: Link2,
+    group: 'clipboard',
+    when: () => true,
+    run: () => {
+      void navigator.clipboard.writeText(window.location.href)
+      boardToast('Link copied')
+    },
+  },
+  {
     id: 'select-all',
     label: 'Select all',
     icon: BoxSelect,
@@ -340,6 +354,15 @@ export const BOARD_ACTIONS: BoardAction[] = [
     group: 'view',
     when: () => true,
     run: ({ store }) => store.setUiState({ toolLock: !store.getUiState().toolLock }),
+  },
+  {
+    id: 'command.open',
+    label: 'Command palette',
+    icon: Command,
+    group: 'view',
+    shortcut: '⌘K',
+    when: () => true,
+    run: () => window.dispatchEvent(new Event('freedraw:command-palette-open')),
   },
   {
     id: 'export-png',
