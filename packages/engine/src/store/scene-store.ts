@@ -1,7 +1,16 @@
 import * as Y from 'yjs'
-import { DEFAULT_STICKY_COLOR, type StickyColor } from '../model/factory.js'
+import { createId, DEFAULT_STICKY_COLOR, pointsBounds, type StickyColor } from '../model/factory.js'
 import { isArrowElement } from '../model/guards.js'
 import { defaultAppState } from '../model/schema.js'
+import { rotatedBounds } from '../geometry/rotate.js'
+import {
+  alignDeltas,
+  distributeDeltas,
+  type AlignEdge,
+  type ArrangeDelta,
+  type ArrangeTarget,
+  type DistributeAxis,
+} from '../geometry/arrange.js'
 import type {
   AppState,
   ArrowElement,
@@ -134,6 +143,54 @@ function toYElement(element: Element): Y.Map<unknown> {
 
 function fromYElement(map: Y.Map<unknown>): Element {
   return map.toJSON() as Element
+}
+
+function moveToFront(order: ElementId[], ids: ElementId[]): ElementId[] {
+  const set = new Set(ids)
+  return [...order.filter((id) => !set.has(id)), ...order.filter((id) => set.has(id))]
+}
+
+function moveToBack(order: ElementId[], ids: ElementId[]): ElementId[] {
+  const set = new Set(ids)
+  return [...order.filter((id) => set.has(id)), ...order.filter((id) => !set.has(id))]
+}
+
+function moveForward(order: ElementId[], ids: ElementId[]): ElementId[] {
+  const set = new Set(ids)
+  const result = [...order]
+  for (let i = result.length - 2; i >= 0; i -= 1) {
+    if (set.has(result[i]!) && !set.has(result[i + 1]!)) {
+      const swap = result[i]!
+      result[i] = result[i + 1]!
+      result[i + 1] = swap
+    }
+  }
+  return result
+}
+
+function moveBackward(order: ElementId[], ids: ElementId[]): ElementId[] {
+  const set = new Set(ids)
+  const result = [...order]
+  for (let i = 1; i < result.length; i += 1) {
+    if (set.has(result[i]!) && !set.has(result[i - 1]!)) {
+      const swap = result[i]!
+      result[i] = result[i - 1]!
+      result[i - 1] = swap
+    }
+  }
+  return result
+}
+
+function sameOrder(a: ElementId[], b: ElementId[]): boolean {
+  return a.length === b.length && a.every((id, index) => id === b[index])
+}
+
+function translatedPatch(element: Element, dx: number, dy: number): Partial<Element> {
+  if (isArrowElement(element) || element.type === 'freedraw') {
+    const points = element.points.map((point) => ({ x: point.x + dx, y: point.y + dy }))
+    return { points, ...pointsBounds(points) }
+  }
+  return { x: element.x + dx, y: element.y + dy }
 }
 
 export class SceneStore {
@@ -340,6 +397,110 @@ export class SceneStore {
     this.stopCapturing()
     this.setUiState({ selectedIds: new Set(cloneIds) })
     return cloneIds
+  }
+
+  groupElements(ids: Iterable<ElementId>): ElementId | null {
+    const targets = [...ids].filter((id) => this.yElements.has(id))
+    if (targets.length < 2) return null
+    const groupId = createId()
+    this.stopCapturing()
+    this.transact((api) => {
+      for (const id of targets) api.updateElement(id, { groupId })
+    })
+    this.stopCapturing()
+    return groupId
+  }
+
+  ungroupElements(ids: Iterable<ElementId>): void {
+    const groupIds = new Set<ElementId>()
+    for (const id of ids) {
+      const groupId = this.snapshot.elements[id]?.groupId
+      if (groupId) groupIds.add(groupId)
+    }
+    if (groupIds.size === 0) return
+    const members = this.snapshot.order.filter((id) => {
+      const groupId = this.snapshot.elements[id]?.groupId
+      return groupId !== undefined && groupIds.has(groupId)
+    })
+    if (members.length === 0) return
+    this.stopCapturing()
+    this.transact((api) => {
+      for (const id of members) api.updateElement(id, { groupId: undefined })
+    })
+    this.stopCapturing()
+  }
+
+  lockElements(ids: Iterable<ElementId>): void {
+    this.writeLocked([...ids], true)
+  }
+
+  unlockAll(): void {
+    const locked = this.snapshot.order.filter((id) => this.snapshot.elements[id]?.locked)
+    this.writeLocked(locked, false)
+  }
+
+  private writeLocked(ids: ElementId[], locked: boolean): void {
+    const targets = ids.filter((id) => this.yElements.has(id))
+    if (targets.length === 0) return
+    this.stopCapturing()
+    this.transact((api) => {
+      for (const id of targets) api.updateElement(id, { locked })
+    })
+    this.stopCapturing()
+    if (locked) this.deselect(targets)
+  }
+
+  bringToFront(ids: Iterable<ElementId>): void {
+    this.reorderElements(moveToFront(this.snapshot.order, [...ids]))
+  }
+
+  sendToBack(ids: Iterable<ElementId>): void {
+    this.reorderElements(moveToBack(this.snapshot.order, [...ids]))
+  }
+
+  bringForward(ids: Iterable<ElementId>): void {
+    this.reorderElements(moveForward(this.snapshot.order, [...ids]))
+  }
+
+  sendBackward(ids: Iterable<ElementId>): void {
+    this.reorderElements(moveBackward(this.snapshot.order, [...ids]))
+  }
+
+  private reorderElements(order: ElementId[]): void {
+    if (sameOrder(order, this.snapshot.order)) return
+    this.stopCapturing()
+    this.transact((api) => api.reorder(order))
+    this.stopCapturing()
+  }
+
+  alignElements(ids: Iterable<ElementId>, edge: AlignEdge): void {
+    this.applyArrangeDeltas(alignDeltas(this.arrangeTargets(ids), edge))
+  }
+
+  distributeElements(ids: Iterable<ElementId>, axis: DistributeAxis): void {
+    this.applyArrangeDeltas(distributeDeltas(this.arrangeTargets(ids), axis))
+  }
+
+  private arrangeTargets(ids: Iterable<ElementId>): ArrangeTarget[] {
+    const targets: ArrangeTarget[] = []
+    for (const id of ids) {
+      const element = this.snapshot.elements[id]
+      if (element) targets.push({ id, bounds: rotatedBounds(element) })
+    }
+    return targets
+  }
+
+  private applyArrangeDeltas(deltas: ArrangeDelta[]): void {
+    const moving = deltas.filter((delta) => delta.dx !== 0 || delta.dy !== 0)
+    if (moving.length === 0) return
+    this.stopCapturing()
+    this.transact((api) => {
+      for (const { id, dx, dy } of moving) {
+        const element = this.snapshot.elements[id]
+        if (element) api.updateElement(id, translatedPatch(element, dx, dy))
+      }
+    })
+    this.stopCapturing()
   }
 
   createClipboard(ids: Iterable<ElementId>): SceneClipboardPayload | null {

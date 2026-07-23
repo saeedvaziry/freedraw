@@ -361,3 +361,150 @@ describe('tool lock', () => {
     expect(handle.getSnapshot()).toBe(true)
   })
 })
+
+describe('grouping', () => {
+  it('assigns a shared groupId to at least two elements', () => {
+    const store = new SceneStore()
+    store.transact((api) => {
+      api.addElement(shapeAt('a', 0))
+      api.addElement(shapeAt('b', 60))
+    })
+
+    const groupId = store.groupElements(['a', 'b'])
+
+    expect(groupId).not.toBeNull()
+    expect(store.getSnapshot().elements.a?.groupId).toBe(groupId)
+    expect(store.getSnapshot().elements.b?.groupId).toBe(groupId)
+  })
+
+  it('refuses to group a single element', () => {
+    const store = new SceneStore()
+    store.transact((api) => api.addElement(shapeAt('a', 0)))
+
+    expect(store.groupElements(['a'])).toBeNull()
+    expect(store.getSnapshot().elements.a?.groupId).toBeUndefined()
+  })
+
+  it('ungroups every member when any member is passed', () => {
+    const store = new SceneStore()
+    store.transact((api) => {
+      api.addElement(shapeAt('a', 0))
+      api.addElement(shapeAt('b', 60))
+    })
+    store.groupElements(['a', 'b'])
+
+    store.ungroupElements(['a'])
+
+    expect(store.getSnapshot().elements.a?.groupId).toBeUndefined()
+    expect(store.getSnapshot().elements.b?.groupId).toBeUndefined()
+  })
+})
+
+describe('lock', () => {
+  it('locks and deselects the given elements', () => {
+    const store = new SceneStore()
+    store.transact((api) => {
+      api.addElement(shapeAt('a', 0))
+      api.addElement(shapeAt('b', 60))
+    })
+    store.setUiState({ selectedIds: new Set(['a', 'b']) })
+
+    store.lockElements(['a', 'b'])
+
+    expect(store.getSnapshot().elements.a?.locked).toBe(true)
+    expect(store.getSnapshot().elements.b?.locked).toBe(true)
+    expect(store.getUiState().selectedIds.size).toBe(0)
+  })
+
+  it('unlocks every locked element in the scene', () => {
+    const store = new SceneStore()
+    store.transact((api) => {
+      api.addElement(shapeAt('a', 0))
+      api.addElement(shapeAt('b', 60))
+    })
+    store.lockElements(['a'])
+
+    store.unlockAll()
+
+    expect(store.getSnapshot().elements.a?.locked).toBe(false)
+  })
+})
+
+describe('z-order', () => {
+  const seed = (): SceneStore => {
+    const store = new SceneStore()
+    store.transact((api) => ['a', 'b', 'c', 'd'].forEach((id, i) => api.addElement(shapeAt(id, i * 60))))
+    return store
+  }
+
+  it('brings selected elements to the front', () => {
+    const store = seed()
+    store.bringToFront(['a'])
+    expect(store.getSnapshot().order).toEqual(['b', 'c', 'd', 'a'])
+  })
+
+  it('sends selected elements to the back', () => {
+    const store = seed()
+    store.sendToBack(['d'])
+    expect(store.getSnapshot().order).toEqual(['d', 'a', 'b', 'c'])
+  })
+
+  it('brings a block forward one step keeping it together', () => {
+    const store = seed()
+    store.bringForward(['a', 'b'])
+    expect(store.getSnapshot().order).toEqual(['c', 'a', 'b', 'd'])
+  })
+
+  it('sends a block backward one step keeping it together', () => {
+    const store = seed()
+    store.sendBackward(['c', 'd'])
+    expect(store.getSnapshot().order).toEqual(['a', 'c', 'd', 'b'])
+  })
+
+  it('does not create an undo step when order is unchanged', () => {
+    const store = seed()
+    store.stopCapturing()
+    let history = 0
+    store.subscribeHistory(() => {
+      history += 1
+    })
+
+    store.bringToFront(['a', 'b', 'c', 'd'])
+
+    expect(history).toBe(0)
+    expect(store.getSnapshot().order).toEqual(['a', 'b', 'c', 'd'])
+  })
+})
+
+describe('align and distribute', () => {
+  it('aligns left edges of selected shapes', () => {
+    const store = new SceneStore()
+    store.transact((api) => {
+      api.addElement(shapeAt('a', 0))
+      api.addElement(shapeAt('b', 100))
+      api.addElement(shapeAt('c', 40))
+    })
+
+    store.alignElements(['a', 'b', 'c'], 'left')
+
+    expect(store.getSnapshot().elements.a?.x).toBe(0)
+    expect(store.getSnapshot().elements.b?.x).toBe(0)
+    expect(store.getSnapshot().elements.c?.x).toBe(0)
+  })
+
+  it('distributes shapes so gaps are equal', () => {
+    const store = new SceneStore()
+    store.transact((api) => {
+      api.addElement(shapeAt('a', 0))
+      api.addElement(shapeAt('b', 30))
+      api.addElement(shapeAt('c', 200))
+    })
+
+    store.distributeElements(['a', 'b', 'c'], 'horizontal')
+
+    const { elements } = store.getSnapshot()
+    const gapAB = elements.b!.x - (elements.a!.x + elements.a!.width)
+    const gapBC = elements.c!.x - (elements.b!.x + elements.b!.width)
+    expect(gapAB).toBeCloseTo(gapBC)
+  })
+})

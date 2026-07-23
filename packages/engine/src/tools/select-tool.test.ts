@@ -285,6 +285,30 @@ describe('SelectTool arrow labels', () => {
   })
 })
 
+describe('SelectTool grouping', () => {
+  it('selects the whole group when one member is clicked', () => {
+    const { store, ctx } = setup()
+    const tool = new SelectTool()
+    const other = createShape({ id: 'shape-2', x: 300, y: 0, width: 120, height: 80 })
+    store.transact((api) => api.addElement(other))
+    store.groupElements(['shape-1', 'shape-2'])
+
+    tool.onPointerDown(pointerAt({ x: 60, y: 40 }), ctx)
+
+    expect([...store.getUiState().selectedIds].sort()).toEqual(['shape-1', 'shape-2'])
+  })
+
+  it('does not select a locked element', () => {
+    const { store, ctx } = setup()
+    const tool = new SelectTool()
+    store.lockElements(['shape-1'])
+
+    tool.onPointerDown(pointerAt({ x: 60, y: 40 }), ctx)
+
+    expect(store.getUiState().selectedIds.size).toBe(0)
+  })
+})
+
 describe('SelectTool flow spawn', () => {
   it('routes an Alt+Arrow press through spawnChildAndEdit', () => {
     const { store, ctx, flowCalls } = setup()

@@ -121,7 +121,11 @@ export {
   marqueeHits,
   elementBounds,
   elementCenter,
+  expandGroupSelection,
+  groupMembers,
 } from './geometry/hit-test.js'
+export { alignDeltas, distributeDeltas } from './geometry/arrange.js'
+export type { AlignEdge, DistributeAxis, ArrangeTarget, ArrangeDelta } from './geometry/arrange.js'
 
 export {
   createShape,

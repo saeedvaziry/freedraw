@@ -18,6 +18,10 @@ import { useBoardContext } from '../board-context.js'
 const GROUPS: string[][] = [
   ['copy', 'cut', 'paste'],
   ['duplicate', 'delete'],
+  ['group', 'ungroup', 'lock', 'unlock'],
+  ['order-front', 'order-forward', 'order-backward', 'order-back'],
+  ['align-left', 'align-center-horizontal', 'align-right', 'align-top', 'align-middle-vertical', 'align-bottom'],
+  ['distribute-horizontal', 'distribute-vertical'],
   ['select-all', 'deselect'],
   ['zoom-to-fit', 'zoom-actual-size', 'toggle-snap-guides', 'tool-lock.toggle'],
   ['export-png', 'export-jpg', 'copy-image'],

@@ -58,7 +58,9 @@ const migrateArrowsToIntent: Migration = (doc) => {
   })
 }
 
-export const migrations: Migration[] = [noop, addSloppiness, migrateArrowsToIntent]
+const addGrouping: Migration = () => {}
+
+export const migrations: Migration[] = [noop, addSloppiness, migrateArrowsToIntent, addGrouping]
 
 export function readSchemaVersion(doc: Y.Doc): number {
   const version = doc.getMap('appState').get('schemaVersion')

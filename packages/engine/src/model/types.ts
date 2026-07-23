@@ -39,6 +39,8 @@ export interface BaseElement {
   rotation: number
   style: Style
   label?: Label
+  groupId?: ElementId
+  locked?: boolean
 }
 
 export type ShapeType =

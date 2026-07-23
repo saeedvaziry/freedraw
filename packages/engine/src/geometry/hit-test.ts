@@ -1,4 +1,4 @@
-import type { ArrowElement, Element, Point, SceneSnapshot } from '../model/types.js'
+import type { ArrowElement, Element, ElementId, Point, SceneSnapshot } from '../model/types.js'
 import { arrowRoute } from '../connectors/resolve.js'
 import { isArrowElement } from '../model/guards.js'
 import { expand, intersects, type Rect } from './rect.js'
@@ -93,7 +93,7 @@ export function hitTest(point: Point, snapshot: SceneSnapshot): Element | null {
     const id = snapshot.order[i]
     if (!id) continue
     const element = snapshot.elements[id]
-    if (!element) continue
+    if (!element || element.locked) continue
     const broad = expand(hitBounds(element), element.style.strokeWidth / 2 + HIT_TOLERANCE)
     if (!pointInRect(point, broad, 0)) continue
     if (hitTestElement(point, element)) return element
@@ -154,8 +154,31 @@ export function marqueeHits(marquee: Rect, snapshot: SceneSnapshot): Element[] {
   const hits: Element[] = []
   for (const id of snapshot.order) {
     const element = snapshot.elements[id]
-    if (!element) continue
+    if (!element || element.locked) continue
     if (intersects(rotatedBounds(element), marquee)) hits.push(element)
   }
   return hits
+}
+
+export function groupMembers(snapshot: SceneSnapshot, groupId: ElementId): ElementId[] {
+  const members: ElementId[] = []
+  for (const id of snapshot.order) {
+    if (snapshot.elements[id]?.groupId === groupId) members.push(id)
+  }
+  return members
+}
+
+export function expandGroupSelection(ids: Iterable<ElementId>, snapshot: SceneSnapshot): Set<ElementId> {
+  const result = new Set<ElementId>()
+  const groups = new Set<ElementId>()
+  for (const id of ids) {
+    const element = snapshot.elements[id]
+    if (!element) continue
+    result.add(id)
+    if (element.groupId) groups.add(element.groupId)
+  }
+  for (const groupId of groups) {
+    for (const memberId of groupMembers(snapshot, groupId)) result.add(memberId)
+  }
+  return result
 }

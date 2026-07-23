@@ -52,4 +52,30 @@ describe('migrateDoc', () => {
       side: 'top',
     })
   })
+
+  it('bumps v3 docs to the grouping schema version without mutating elements', () => {
+    const doc = new Y.Doc()
+    const elements = doc.getMap<Y.Map<unknown>>('elements')
+    const appState = doc.getMap('appState')
+    appState.set('schemaVersion', 3)
+
+    const shape = new Y.Map<unknown>()
+    shape.set('id', 'shape')
+    shape.set('type', 'rect')
+    shape.set('x', 0)
+    shape.set('y', 0)
+    shape.set('width', 100)
+    shape.set('height', 80)
+    shape.set('rotation', 0)
+    shape.set('style', defaultStyle)
+    elements.set('shape', shape)
+
+    migrateDoc(doc)
+
+    expect(appState.get('schemaVersion')).toBe(SCHEMA_VERSION)
+    expect(shape.get('groupId')).toBeUndefined()
+    expect(shape.get('locked')).toBeUndefined()
+    expect(shape.get('type')).toBe('rect')
+    expect(shape.get('width')).toBe(100)
+  })
 })

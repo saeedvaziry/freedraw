@@ -1,6 +1,6 @@
 import type { AppState, CameraState, Style } from './types.js'
 
-export const SCHEMA_VERSION = 3
+export const SCHEMA_VERSION = 4
 
 export const defaultStyle: Style = {
   stroke: '#454545',

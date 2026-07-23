@@ -1,7 +1,7 @@
 import { createEndpointBinding, rebindEnd, routingForBindings } from '../connectors/lifecycle.js'
 import { previewArrow } from '../connectors/preview.js'
 import { handleAtScreen, type HandleId, type ResizeHandleId } from '../geometry/handles.js'
-import { elementBounds, elementCenter, hitTest, marqueeHits } from '../geometry/hit-test.js'
+import { elementBounds, elementCenter, expandGroupSelection, hitTest, marqueeHits } from '../geometry/hit-test.js'
 import type { Rect } from '../geometry/rect.js'
 import { snapPointToGrid } from '../geometry/grid.js'
 import { snapEndpoint, SNAP_DISTANCE } from '../geometry/snap.js'
@@ -115,7 +115,8 @@ export class SelectTool implements Tool {
       return { overlay: true }
     }
 
-    const nextSelection = this.resolveSelection(selected, hit.id, info.shiftKey)
+    const targets = expandGroupSelection([hit.id], store.getSnapshot())
+    const nextSelection = this.resolveSelection(selected, targets, info.shiftKey)
     store.setUiState({ selectedIds: nextSelection })
     if (nextSelection.has(hit.id)) {
       this.mode = {
@@ -211,7 +212,7 @@ export class SelectTool implements Tool {
     if (!hit) {
       if (selected.size > 0) ctx.store.setUiState({ selectedIds: new Set() })
     } else if (!selected.has(hit.id)) {
-      ctx.store.setUiState({ selectedIds: new Set([hit.id]) })
+      ctx.store.setUiState({ selectedIds: expandGroupSelection([hit.id], ctx.store.getSnapshot()) })
     }
     const sourceId = hit && !isArrowElement(hit) ? hit.id : null
     ctx.requestContextMenu?.({ screen: info.screen, sourceId })
@@ -592,9 +593,10 @@ export class SelectTool implements Tool {
     const rect = boundsBetween(this.mode.origin, info.world)
     ctx.setMarquee(rect)
     if (rect.width < MARQUEE_THRESHOLD && rect.height < MARQUEE_THRESHOLD) return { overlay: true }
-    const hits = marqueeHits(rect, ctx.store.getSnapshot())
+    const snapshot = ctx.store.getSnapshot()
+    const hits = marqueeHits(rect, snapshot)
     const selected = new Set(this.mode.additive ? this.mode.base : [])
-    hits.forEach((element) => selected.add(element.id))
+    for (const id of expandGroupSelection(hits.map((element) => element.id), snapshot)) selected.add(id)
     ctx.store.setUiState({ selectedIds: selected })
     return { overlay: true }
   }
@@ -658,14 +660,18 @@ export class SelectTool implements Tool {
     })
   }
 
-  private resolveSelection(current: Set<ElementId>, id: ElementId, shift: boolean): Set<ElementId> {
+  private resolveSelection(current: Set<ElementId>, targets: Set<ElementId>, shift: boolean): Set<ElementId> {
     if (!shift) {
-      if (current.has(id) && current.size > 1) return new Set(current)
-      return new Set([id])
+      const allSelected = [...targets].every((id) => current.has(id))
+      if (allSelected && current.size > targets.size) return new Set(current)
+      return new Set(targets)
     }
     const next = new Set(current)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
+    const allSelected = [...targets].every((id) => next.has(id))
+    for (const id of targets) {
+      if (allSelected) next.delete(id)
+      else next.add(id)
+    }
     return next
   }
 }

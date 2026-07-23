@@ -67,7 +67,11 @@ export function cloneSceneClipboard(
 ): SceneClipboardClone {
   const idMap = new Map<ElementId, ElementId>()
   for (const element of payload.elements) idMap.set(element.id, createId())
-  const elements = payload.elements.map((element) => cloneElement(element, idMap, offset))
+  const groupMap = new Map<ElementId, ElementId>()
+  for (const element of payload.elements) {
+    if (element.groupId && !groupMap.has(element.groupId)) groupMap.set(element.groupId, createId())
+  }
+  const elements = payload.elements.map((element) => cloneElement(element, idMap, groupMap, offset))
   return { elements, ids: elements.map((element) => element.id) }
 }
 
@@ -132,12 +136,14 @@ function hasSelectedEndpoints(element: ArrowElement, selected: Set<ElementId>): 
 function cloneElement(
   element: Element,
   idMap: Map<ElementId, ElementId>,
+  groupMap: Map<ElementId, ElementId>,
   offset: Point,
 ): Element {
-  if (isArrowElement(element)) return cloneArrow(element, idMap, offset)
+  if (isArrowElement(element)) return cloneArrow(element, idMap, groupMap, offset)
   return {
     ...structuredClone(element),
     id: idMap.get(element.id)!,
+    ...(element.groupId ? { groupId: groupMap.get(element.groupId)! } : {}),
     x: element.x + offset.x,
     y: element.y + offset.y,
   } as Element
@@ -146,12 +152,14 @@ function cloneElement(
 function cloneArrow(
   element: ArrowElement,
   idMap: Map<ElementId, ElementId>,
+  groupMap: Map<ElementId, ElementId>,
   offset: Point,
 ): ArrowElement {
   const points = offsetPoints(element.points, offset)
   return {
     ...structuredClone(element),
     id: idMap.get(element.id)!,
+    ...(element.groupId ? { groupId: groupMap.get(element.groupId)! } : {}),
     ...pointsBounds(points),
     points,
     route: points,
