@@ -1,6 +1,6 @@
 import { useSyncExternalStore, type ReactNode } from 'react'
 import type { SceneStore, ShapeType, StickyColor, ToolId } from '@freedraw/engine'
-import { Toolbar, type StickyColorKey, type ToolbarLayout, type ToolKey } from '@/components/board/ui-kit'
+import { Toolbar, type ToolbarLayout } from '@/components/board/ui-kit'
 
 interface ToolbarHostProps {
   store: SceneStore
@@ -16,16 +16,16 @@ export function ToolbarHost({ store, layout, diagramOpen, trailing, onToggleDiag
     () => store.getUiState(),
   )
 
-  const selectTool = (tool: ToolKey): void => {
-    store.setUiState({ activeTool: tool as ToolId })
+  const selectTool = (tool: ToolId): void => {
+    store.setUiState({ activeTool: tool })
   }
 
   const selectShape = (type: ShapeType): void => {
     store.setUiState({ activeTool: 'shape', activeShapeType: type })
   }
 
-  const selectStickyColor = (color: StickyColorKey): void => {
-    store.setUiState({ activeTool: 'sticky', activeStickyColor: color as StickyColor })
+  const selectStickyColor = (color: StickyColor): void => {
+    store.setUiState({ activeTool: 'sticky', activeStickyColor: color })
   }
 
   return (
@@ -33,9 +33,9 @@ export function ToolbarHost({ store, layout, diagramOpen, trailing, onToggleDiag
       layout={layout}
       diagramOpen={diagramOpen}
       trailing={trailing}
-      activeTool={ui.activeTool as ToolKey}
-      activeShapeType={ui.activeShapeType as ShapeType}
-      activeStickyColor={ui.activeStickyColor as StickyColorKey}
+      activeTool={ui.activeTool}
+      activeShapeType={ui.activeShapeType}
+      activeStickyColor={ui.activeStickyColor}
       onSelectTool={selectTool}
       onSelectShape={selectShape}
       onSelectStickyColor={selectStickyColor}

@@ -8,27 +8,18 @@ import {
   Type,
   type LucideIcon,
 } from 'lucide-react'
+import type { ShapeType, StickyColor, ToolId } from '@freedraw/engine'
 import { cn } from '@/lib/utils'
 import { TooltipProvider } from '../ui/tooltip.js'
 import { ToolButton } from './tool-button.js'
 import { ShapesPopover } from './shapes-popover.js'
-import { StickyPopover, type StickyColorKey } from './sticky-popover.js'
-import { FEATURED_SHAPES, FEATURED_SHAPE_TYPES, MORE_SHAPES, SHAPES, type ShapeType } from './shapes.js'
-
-export type ToolKey =
-  | 'select'
-  | 'hand'
-  | 'arrow'
-  | 'freedraw'
-  | 'text'
-  | 'sticky'
-  | 'image'
-  | 'shape'
+import { StickyPopover } from './sticky-popover.js'
+import { FEATURED_SHAPES, FEATURED_SHAPE_TYPES, MORE_SHAPES, SHAPES } from './shapes.js'
 
 export type ToolbarLayout = 'vertical' | 'horizontal'
 
 interface ToolDef {
-  key: ToolKey
+  key: ToolId
   label: string
   Icon: LucideIcon
   shortcut: string
@@ -58,16 +49,16 @@ const SHAPE_SHORTCUTS: Record<ShapeType, string> = {
 }
 
 export interface ToolbarProps {
-  activeTool: ToolKey
+  activeTool: ToolId
   activeShapeType: ShapeType
-  activeStickyColor: StickyColorKey
+  activeStickyColor: StickyColor
   layout?: ToolbarLayout
   diagramOpen?: boolean
   /** Extra controls rendered inside the toolbar pill, after the diagram button. */
   trailing?: ReactNode
-  onSelectTool(tool: ToolKey): void
+  onSelectTool(tool: ToolId): void
   onSelectShape(type: ShapeType): void
-  onSelectStickyColor(color: StickyColorKey): void
+  onSelectStickyColor(color: StickyColor): void
   onToggleDiagram?(): void
 }
 

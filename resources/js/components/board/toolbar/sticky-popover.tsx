@@ -1,12 +1,11 @@
 import { StickyNote } from 'lucide-react'
+import type { StickyColor } from '@freedraw/engine'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover.js'
 import { cn } from '@/lib/utils'
 import { ToolButton } from './tool-button.js'
 
-export type StickyColorKey = 'yellow' | 'green' | 'blue' | 'pink' | 'orange' | 'purple'
-
 interface StickyColorEntry {
-  key: StickyColorKey
+  key: StickyColor
   label: string
   swatch: string
 }
@@ -24,8 +23,8 @@ export interface StickyPopoverProps {
   open: boolean
   onOpenChange(open: boolean): void
   active: boolean
-  activeColor: StickyColorKey
-  onSelectColor(color: StickyColorKey): void
+  activeColor: StickyColor
+  onSelectColor(color: StickyColor): void
   side?: 'right' | 'top'
 }
 

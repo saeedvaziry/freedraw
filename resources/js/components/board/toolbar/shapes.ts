@@ -12,21 +12,10 @@ import {
   Zap,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
+import type { ShapeType } from '@freedraw/engine'
 import { ParallelogramIcon } from './icons.js'
 
-export type ShapeType =
-  | 'rect'
-  | 'roundRect'
-  | 'ellipse'
-  | 'diamond'
-  | 'triangle'
-  | 'cylinder'
-  | 'hexagon'
-  | 'parallelogram'
-  | 'star'
-  | 'cloud'
-  | 'heart'
-  | 'lightning'
+export type { ShapeType }
 
 export interface ShapeEntry {
   type: ShapeType
