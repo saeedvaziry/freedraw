@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import {
     Tooltip,
     TooltipContent,
-    TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import type { PendingInvitation, Organization } from '@/types';
@@ -98,77 +97,75 @@ export default function OrganizationsIndex({
                                     </div>
                                 </div>
 
-                                <TooltipProvider>
-                                    <div className="flex items-center gap-2">
-                                        {canLeaveOrganization ? (
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        data-test="organization-leave-button"
-                                                        onClick={() =>
-                                                            openLeaveOrganizationDialog(
-                                                                organization,
-                                                            )
-                                                        }
-                                                    >
-                                                        <LogOut className="h-4 w-4" />
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    <p>Leave organization</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        ) : null}
+                                <div className="flex items-center gap-2">
+                                    {canLeaveOrganization ? (
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    data-test="organization-leave-button"
+                                                    onClick={() =>
+                                                        openLeaveOrganizationDialog(
+                                                            organization,
+                                                        )
+                                                    }
+                                                >
+                                                    <LogOut className="h-4 w-4" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>Leave organization</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    ) : null}
 
-                                        {organization.role === 'member' ? (
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        data-test="organization-view-button"
-                                                        asChild
+                                    {organization.role === 'member' ? (
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    data-test="organization-view-button"
+                                                    asChild
+                                                >
+                                                    <Link
+                                                        href={organizationUrl(
+                                                            organization.slug,
+                                                        )}
                                                     >
-                                                        <Link
-                                                            href={organizationUrl(
-                                                                organization.slug,
-                                                            )}
-                                                        >
-                                                            <Eye className="h-4 w-4" />
-                                                        </Link>
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    <p>View organization</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        ) : (
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        data-test="organization-edit-button"
-                                                        asChild
+                                                        <Eye className="h-4 w-4" />
+                                                    </Link>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>View organization</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    ) : (
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    data-test="organization-edit-button"
+                                                    asChild
+                                                >
+                                                    <Link
+                                                        href={organizationUrl(
+                                                            organization.slug,
+                                                        )}
                                                     >
-                                                        <Link
-                                                            href={organizationUrl(
-                                                                organization.slug,
-                                                            )}
-                                                        >
-                                                            <Pencil className="h-4 w-4" />
-                                                        </Link>
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    <p>Edit organization</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        )}
-                                    </div>
-                                </TooltipProvider>
+                                                        <Pencil className="h-4 w-4" />
+                                                    </Link>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>Edit organization</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    )}
+                                </div>
                             </div>
                         );
                     })}
