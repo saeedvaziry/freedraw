@@ -32,6 +32,7 @@ import {
 } from '../render/export-scene.js'
 import { setImageCache } from '../render/painters/image.js'
 import { clearTextLayoutCache } from '../render/painters/text.js'
+import { clearDrawCaches, sweepDrawCaches } from '../render/draw-cache.js'
 import { HANDWRITTEN_FONT_FAMILY } from '../text/measure.js'
 import type { SceneStore } from '../store/scene-store.js'
 import { ToolManager } from '../tools/tool-manager.js'
@@ -89,6 +90,7 @@ export class EditorController {
   private lastPointerScreen: Point | null = null
   private darkMode = false
   private readOnly = false
+  private elementCount = 0
 
   constructor(
     private readonly store: SceneStore,
@@ -163,7 +165,13 @@ export class EditorController {
     this.resize()
     this.loop.start()
 
-    this.cleanups.push(this.store.subscribe(() => this.loop.markDirty()))
+    this.elementCount = this.store.getSnapshot().order.length
+    this.cleanups.push(
+      this.store.subscribe(() => {
+        this.sweepCachesOnDelete()
+        this.loop.markDirty()
+      }),
+    )
     this.cleanups.push(
       this.store.subscribeUi(() => {
         this.syncTool()
@@ -187,8 +195,15 @@ export class EditorController {
   private unmount(): void {
     this.loop.stop()
     setImageCache(null)
+    clearDrawCaches()
     this.cleanups.forEach((fn) => fn())
     this.cleanups.length = 0
+  }
+
+  private sweepCachesOnDelete(): void {
+    const order = this.store.getSnapshot().order
+    if (order.length < this.elementCount) sweepDrawCaches(new Set(order))
+    this.elementCount = order.length
   }
 
   requestRepaint(): void {

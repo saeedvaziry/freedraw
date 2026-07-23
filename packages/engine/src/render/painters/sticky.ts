@@ -46,7 +46,7 @@ export function paintSticky(proxyCtx: CanvasRenderingContext2D, element: Element
     ctx.strokeStyle = style.stroke
     ctx.lineJoin = 'round'
     ctx.setLineDash(dashPattern(style.strokeStyle))
-    strokeOutline(ctx, outline, element)
+    strokeOutline(ctx, outline, element, 'roundRect')
   }
   ctx.restore()
 

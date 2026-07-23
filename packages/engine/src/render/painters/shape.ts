@@ -23,7 +23,7 @@ export function paintShape(ctx: CanvasRenderingContext2D, element: Element): voi
   ctx.strokeStyle = style.stroke
   ctx.lineJoin = 'round'
   ctx.setLineDash(dashPattern(style.strokeStyle))
-  strokeOutline(ctx, outline, element)
+  strokeOutline(ctx, outline, element, element.type)
   ctx.restore()
 
   paintLabel(ctx, element)

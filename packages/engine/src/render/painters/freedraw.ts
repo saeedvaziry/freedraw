@@ -1,5 +1,6 @@
 import { getStroke } from 'perfect-freehand'
-import type { Element, FreedrawElement, Point } from '../../model/types.js'
+import type { Element, FreedrawElement } from '../../model/types.js'
+import { strokeCache } from '../draw-cache.js'
 
 const STROKE_SIZE_FACTOR = 4
 const STROKE_SMOOTHING = 0.5
@@ -18,17 +19,25 @@ export function paintFreedraw(ctx: CanvasRenderingContext2D, element: Element): 
   ctx.save()
   ctx.globalAlpha = style.opacity
 
-  const outline = getStroke(points.map(toPair), {
-    size: freedrawSize(style.strokeWidth),
-    smoothing: STROKE_SMOOTHING,
-    thinning: STROKE_THINNING,
-    streamline: STROKE_STREAMLINE,
-  })
+  const size = freedrawSize(style.strokeWidth)
+  const key = `${size}|${points.length}|${round(freedraw.width)}|${round(freedraw.height)}`
+  const outline = strokeCache.get(freedraw.id, key, () =>
+    getStroke(
+      points.map((p) => [p.x - freedraw.x, p.y - freedraw.y]),
+      {
+        size,
+        smoothing: STROKE_SMOOTHING,
+        thinning: STROKE_THINNING,
+        streamline: STROKE_STREAMLINE,
+      },
+    ),
+  )
   if (outline.length === 0) {
     ctx.restore()
     return
   }
 
+  ctx.translate(freedraw.x, freedraw.y)
   ctx.fillStyle = style.stroke
   ctx.beginPath()
   outline.forEach(([x, y], index) => {
@@ -40,6 +49,6 @@ export function paintFreedraw(ctx: CanvasRenderingContext2D, element: Element): 
   ctx.restore()
 }
 
-function toPair(point: Point): [number, number] {
-  return [point.x, point.y]
+function round(value: number): number {
+  return Math.round(value * 100) / 100
 }

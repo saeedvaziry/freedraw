@@ -49,20 +49,21 @@ export function strokeRoughPolygon(
   paintDrawable(ctx, drawable)
 }
 
+export function roughOutlineDrawable(outline: Outline, sloppiness: number, seed: number): Drawable {
+  const options = sketchOptions(sloppiness, seed)
+  if (outline.kind === 'polygon') return roughGenerator().polygon(outline.points.map(toPair), options)
+  if (outline.kind === 'ellipse')
+    return roughGenerator().ellipse(outline.cx, outline.cy, outline.rx * 2, outline.ry * 2, options)
+  return roughGenerator().path(outlinePathD(outline), options)
+}
+
 export function strokeRoughOutline(
   ctx: CanvasRenderingContext2D,
   outline: Outline,
   sloppiness: number,
   seed: number,
 ): void {
-  const options = sketchOptions(sloppiness, seed)
-  const drawable =
-    outline.kind === 'polygon'
-      ? roughGenerator().polygon(outline.points.map(toPair), options)
-      : outline.kind === 'ellipse'
-        ? roughGenerator().ellipse(outline.cx, outline.cy, outline.rx * 2, outline.ry * 2, options)
-        : roughGenerator().path(outlinePathD(outline), options)
-  paintDrawable(ctx, drawable)
+  paintDrawable(ctx, roughOutlineDrawable(outline, sloppiness, seed))
 }
 
 export function strokeRoughPolyline(
@@ -86,7 +87,7 @@ export function strokeRoughPath(
   paintDrawable(ctx, drawable)
 }
 
-function paintDrawable(ctx: CanvasRenderingContext2D, drawable: Drawable): void {
+export function paintDrawable(ctx: CanvasRenderingContext2D, drawable: Drawable): void {
   for (const set of drawable.sets) {
     if (set.type !== 'path') continue
     ctx.beginPath()
