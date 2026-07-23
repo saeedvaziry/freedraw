@@ -1,5 +1,5 @@
-import { ClipboardCopy, CopyPlus, MoreHorizontal, Pencil, Scissors, Trash2 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { CopyPlus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { Fragment } from 'react'
 import {
   FloatingPanel,
   IconButton,
@@ -8,15 +8,38 @@ import {
   PopoverTrigger,
   cn,
 } from '@/components/board/ui-kit'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { BOARD_ACTIONS_BY_ID, type BoardAction, type BoardActionContext } from '../board-actions.js'
 
 const QUICK_COLORS = ['#1e1e1e', '#e03131', '#2f9e44', '#1971c2', '#f08c00', '#ae3ec9'] as const
 
 const MIXED_PATTERN =
   'bg-[conic-gradient(#ccc_25%,#fff_0_50%,#ccc_0_75%,#fff_0)] bg-[length:6px_6px]'
 
+export const SELECTION_ACTION_GROUPS: string[][] = [
+  ['group', 'ungroup', 'lock'],
+  [
+    'align-left',
+    'align-center-horizontal',
+    'align-right',
+    'align-top',
+    'align-middle-vertical',
+    'align-bottom',
+  ],
+  ['order-front', 'order-forward', 'order-backward', 'order-back'],
+]
+
 export interface SelectionToolbarProps {
   stroke: string | null
   canEdit: boolean
+  actionContext: BoardActionContext
   onPickColor(color: string): void
   onEdit(): void
   onDuplicate(): void
@@ -28,6 +51,7 @@ export interface SelectionToolbarProps {
 export function SelectionToolbar({
   stroke,
   canEdit,
+  actionContext,
   onPickColor,
   onEdit,
   onDuplicate,
@@ -54,7 +78,7 @@ export function SelectionToolbar({
       >
         <Trash2 />
       </IconButton>
-      <MoreMenu onCopy={onCopy} onCut={onCut} />
+      <MoreMenu actionContext={actionContext} onCopy={onCopy} onCut={onCut} />
     </FloatingPanel>
   )
 }
@@ -96,39 +120,56 @@ function ColorButton({ stroke, onPick }: { stroke: string | null; onPick(color: 
   )
 }
 
-function MoreMenu({ onCopy, onCut }: { onCopy(): void; onCut(): void }) {
+function MoreMenu({
+  actionContext,
+  onCopy,
+  onCut,
+}: {
+  actionContext: BoardActionContext
+  onCopy(): void
+  onCut(): void
+}) {
   return (
-    <Popover>
-      <PopoverTrigger asChild>
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
         <IconButton aria-label="More actions" title="More">
           <MoreHorizontal />
         </IconButton>
-      </PopoverTrigger>
-      <PopoverContent side="top" align="end" sideOffset={10} className="w-40 rounded-xl p-1">
-        <MenuItem icon={ClipboardCopy} label="Copy" onClick={onCopy} />
-        <MenuItem icon={Scissors} label="Cut" onClick={onCut} />
-      </PopoverContent>
-    </Popover>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="end" sideOffset={10} className="w-52 rounded-xl">
+        <ActionItem action={BOARD_ACTIONS_BY_ID['copy']} ctx={actionContext} onSelect={onCopy} />
+        <ActionItem action={BOARD_ACTIONS_BY_ID['cut']} ctx={actionContext} onSelect={onCut} />
+        {SELECTION_ACTION_GROUPS.map((group) => (
+          <Fragment key={group.join('|')}>
+            <DropdownMenuSeparator />
+            {group.map((id) => (
+              <ActionItem key={id} action={BOARD_ACTIONS_BY_ID[id]} ctx={actionContext} />
+            ))}
+          </Fragment>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
-function MenuItem({
-  icon: Icon,
-  label,
-  onClick,
+function ActionItem({
+  action,
+  ctx,
+  onSelect,
 }: {
-  icon: LucideIcon
-  label: string
-  onClick(): void
+  action: BoardAction
+  ctx: BoardActionContext
+  onSelect?(): void
 }) {
+  const Icon = action.icon
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/80 transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4"
+    <DropdownMenuItem
+      disabled={!action.when(ctx)}
+      onSelect={() => (onSelect ? onSelect() : action.run(ctx))}
     >
-      <Icon />
-      <span>{label}</span>
-    </button>
+      <Icon className="text-foreground/70" />
+      <span className="flex-1">{action.label}</span>
+      {action.shortcut ? <DropdownMenuShortcut>{action.shortcut}</DropdownMenuShortcut> : null}
+    </DropdownMenuItem>
   )
 }

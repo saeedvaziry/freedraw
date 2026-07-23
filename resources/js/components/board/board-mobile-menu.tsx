@@ -1,6 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react'
 import { Check, ChevronsUpDown, House, LogIn, LogOut, Menu, Plus, Settings, Share2, UserPlus, Users } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { Fragment, useCallback, useMemo, useState, useSyncExternalStore } from 'react'
+import { shallowEqual, type SceneStore } from '@freedraw/engine'
 import AppLogoIcon from '@/components/app-logo-icon'
 import CreateOrganizationModal from '@/components/create-organization-modal'
 import {
@@ -16,7 +17,10 @@ import { usePages } from '@/hooks/board/use-pages'
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation'
 import type { Organization } from '@/types'
 import { AppearanceSegmented } from './appearance-segmented.js'
+import { BOARD_ACTIONS_BY_ID, type BoardAction, type BoardActionContext } from './board-actions.js'
+import { useBoardContext } from './board-context.js'
 import { PageRow } from './page-row.js'
+import { SELECTION_ACTION_GROUPS } from './selection-toolbar/selection-toolbar.js'
 import { SharePageModal } from './share-page-modal.js'
 
 /**
@@ -74,6 +78,8 @@ export function BoardMobileMenu() {
         </SheetHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-2">
+          <SelectionSection onRun={close} />
+
           <Link
             href="/"
             prefetch
@@ -155,6 +161,93 @@ export function BoardMobileMenu() {
         </div>
       </SheetContent>
     </Sheet>
+  )
+}
+
+interface SelectionState {
+  count: number
+  grouped: boolean
+}
+
+function readSelectionState(store: SceneStore): SelectionState {
+  const ids = [...store.getUiState().selectedIds]
+  const elements = store.getSnapshot().elements
+  return {
+    count: ids.length,
+    grouped: ids.some((id) => elements[id]?.groupId != null),
+  }
+}
+
+function SelectionSection({ onRun }: { onRun(): void }) {
+  const board = useBoardContext()
+  const view = useMemo(
+    () =>
+      board.store.select(readSelectionState, {
+        equals: shallowEqual,
+        channels: ['doc', 'selection'],
+      }),
+    [board.store],
+  )
+  const state = useSyncExternalStore(view.subscribe, view.getSnapshot)
+
+  if (board.readOnly || state.count === 0) return null
+
+  const ctx: BoardActionContext = {
+    store: board.store,
+    controller: board.controller,
+    boardExport: board.boardExport,
+    theme: board.theme,
+    openImagePicker: () => {},
+  }
+
+  return (
+    <>
+      <div className="flex flex-col gap-0.5">
+        <p className="px-2 py-1 text-xs font-normal text-muted-foreground">Selection</p>
+        {SELECTION_ACTION_GROUPS.map((group, index) => (
+          <Fragment key={group.join('|')}>
+            {index > 0 ? <div className="my-1 h-px bg-border" /> : null}
+            {group.map((id) => (
+              <SelectionActionRow
+                key={id}
+                action={BOARD_ACTIONS_BY_ID[id]}
+                ctx={ctx}
+                onRun={onRun}
+              />
+            ))}
+          </Fragment>
+        ))}
+      </div>
+
+      <div className="my-1 h-px bg-border" />
+    </>
+  )
+}
+
+function SelectionActionRow({
+  action,
+  ctx,
+  onRun,
+}: {
+  action: BoardAction
+  ctx: BoardActionContext
+  onRun(): void
+}) {
+  const Icon = action.icon
+  return (
+    <button
+      type="button"
+      disabled={!action.when(ctx)}
+      data-test={`board-mobile-action-${action.id}`}
+      onClick={() => {
+        action.run(ctx)
+        onRun()
+      }}
+      className="flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+    >
+      <Icon className="size-4 shrink-0 text-foreground/70" />
+      <span className="truncate">{action.label}</span>
+    </button>
   )
 }
 

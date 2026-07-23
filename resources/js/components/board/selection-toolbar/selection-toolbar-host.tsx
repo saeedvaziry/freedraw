@@ -10,6 +10,7 @@ import {
   type ElementId,
   type SceneStore,
 } from '@freedraw/engine'
+import type { BoardActionContext } from '../board-actions.js'
 import { useBoardContext } from '../board-context.js'
 import { SelectionToolbar } from './selection-toolbar.js'
 
@@ -20,6 +21,7 @@ interface ToolbarState {
   count: number
   stroke: string | null
   editableId: ElementId | null
+  grouped: boolean
 }
 
 interface Anchor {
@@ -29,7 +31,8 @@ interface Anchor {
 }
 
 export function SelectionToolbarHost() {
-  const { store, controller, readOnly } = useBoardContext()
+  const board = useBoardContext()
+  const { store, controller, readOnly } = board
 
   const view = useMemo(
     () => store.select(readToolbarState, { equals: shallowEqual, channels: ['doc', 'selection'] }),
@@ -47,6 +50,13 @@ export function SelectionToolbarHost() {
 
   const anchor = selectionAnchor(store, controller)
   const selectedIds = () => store.getUiState().selectedIds
+  const actionContext: BoardActionContext = {
+    store,
+    controller,
+    boardExport: board.boardExport,
+    theme: board.theme,
+    openImagePicker: () => {},
+  }
 
   return (
     <div
@@ -61,6 +71,7 @@ export function SelectionToolbarHost() {
       <SelectionToolbar
         stroke={state.stroke}
         canEdit={state.editableId != null}
+        actionContext={actionContext}
         onPickColor={(color) => store.updateStyle(selectedIds(), { stroke: color })}
         onEdit={() => editSelection(store, controller)}
         onDuplicate={() => store.duplicateElements(selectedIds())}
@@ -77,12 +88,14 @@ function readToolbarState(store: SceneStore): ToolbarState {
   const count = ids.length
   const style = store.getSelectionStyle()
   const stroke = style.stroke === MIXED ? null : style.stroke
+  const elements = store.getSnapshot().elements
   let editableId: ElementId | null = null
   if (count === 1) {
-    const element = store.getSnapshot().elements[ids[0]!]
+    const element = elements[ids[0]!]
     if (element && element.type !== 'freedraw' && element.type !== 'image') editableId = element.id
   }
-  return { count, stroke, editableId }
+  const grouped = ids.some((id) => elements[id]?.groupId != null)
+  return { count, stroke, editableId, grouped }
 }
 
 function selectedElements(store: SceneStore): Element[] {
