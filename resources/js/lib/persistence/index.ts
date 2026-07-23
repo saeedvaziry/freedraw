@@ -26,7 +26,6 @@ export type { DocumentPersistence } from './document-persistence.js'
 export {
   buildAssetReferenceIndex,
   gcOrphanedAssets,
-  gcOrphanedPageStores,
   gcOrphanedStorage,
 } from './storage-gc.js'
 export type { AssetReferenceIndex } from './storage-gc.js'

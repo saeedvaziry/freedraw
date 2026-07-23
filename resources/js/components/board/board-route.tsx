@@ -4,7 +4,7 @@ import { EditorController, type SceneStore } from '@freedraw/engine'
 import { BoardProvider, type BoardContextValue } from './board-context.js'
 import {
   attachViewportPersistence,
-  gcOrphanedPageStores,
+  gcOrphanedStorage,
   type AssetSource,
   type PageSync,
 } from '@/lib/persistence'
@@ -123,7 +123,7 @@ export function BoardRoute() {
   // whenever the page list changes (e.g. after a page is deleted).
   useEffect(() => {
     if (publicView || !auth?.user) return
-    void gcOrphanedPageStores(boardPages.map((page) => page.publicId))
+    void gcOrphanedStorage(boardPages.map((page) => page.publicId))
   }, [publicView, auth?.user, boardPages])
 
   if (!board) return <BoardLoading />

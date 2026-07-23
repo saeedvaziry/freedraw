@@ -220,5 +220,3 @@ export async function gcOrphanedStorage(livePublicIds: Iterable<string>): Promis
 
   scheduleAssetGc(liveIds)
 }
-
-export const gcOrphanedPageStores = gcOrphanedStorage
