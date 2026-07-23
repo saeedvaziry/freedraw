@@ -3,6 +3,7 @@ import { useMemo, useSyncExternalStore } from 'react'
 import { shallowEqual, type EditorController, type SceneStore } from '@freedraw/engine'
 import { ActionsBar } from '@/components/board/ui-kit'
 import { BoardUserMenu } from './board-user-menu.js'
+import type { BoardActionContext } from './board-actions.js'
 import type { BoardExport } from '@/hooks/board/use-export.js'
 
 interface ActionsBarHostProps {
@@ -40,31 +41,22 @@ export function ActionsBarHost({
     [store],
   )
   const state = useSyncExternalStore(view.subscribe, view.getSnapshot)
-  const { exportImage, copyImage } = boardExport
 
-  // Signed-in users get the full sidebar (org / settings / logout), so the
-  // actions-bar avatar menu is only needed by guests to log in or register.
   const isAuthenticated = Boolean(usePage().props.auth?.user)
+
+  const ctx: BoardActionContext = {
+    store,
+    controller,
+    boardExport,
+    theme,
+    openImagePicker: () => {},
+  }
 
   return (
     <ActionsBar
-      canUndo={state.canUndo}
-      canRedo={state.canRedo}
-      hasSelection={state.hasSelection}
-      hasClipboard={state.hasClipboard}
-      canExport={state.canExport}
-      onUndo={() => store.undo()}
-      onRedo={() => store.redo()}
-      onDelete={() => store.deleteElements(store.getUiState().selectedIds)}
-      onDuplicate={() => store.duplicateElements(store.getUiState().selectedIds)}
-      onCopy={() => store.copyElements(store.getUiState().selectedIds)}
-      onCut={() => store.cutElements(store.getUiState().selectedIds)}
-      onPaste={() => store.pasteElements({ target: controller?.cursorWorldPoint })}
-      onExport={(format, transparent, dark) => void exportImage(format, transparent, dark)}
-      onCopyToClipboard={() => void copyImage()}
-      theme={theme}
+      ctx={ctx}
       snapGuidesEnabled={state.snapGuidesEnabled}
-      onToggleSnapGuides={() => store.setSnapGuidesEnabled(!store.getSnapshot().appState.snapGuidesEnabled)}
+      canExport={state.canExport}
       compact={compact}
       userMenu={compact || isAuthenticated ? undefined : <BoardUserMenu />}
     />

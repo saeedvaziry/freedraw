@@ -1,78 +1,28 @@
 import * as React from 'react'
-import {
-  ClipboardCopy,
-  ClipboardPaste,
-  CopyPlus,
-  Crosshair,
-  Redo2,
-  Scissors,
-  Trash2,
-  Undo2,
-} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { ExportMenu, type ExportFormat } from '../export-menu/export-menu.js'
+import { ExportMenu } from '../export-menu/export-menu.js'
+import { BOARD_ACTIONS_BY_ID, type BoardActionContext } from '../board-actions.js'
+
+const BAR_ACTION_IDS = ['undo', 'redo', 'delete', 'duplicate', 'copy', 'cut', 'paste']
 
 export interface ActionsBarProps {
-  canUndo: boolean
-  canRedo: boolean
-  hasSelection: boolean
-  hasClipboard: boolean
-  canExport: boolean
-  onUndo(): void
-  onRedo(): void
-  onDelete(): void
-  onDuplicate(): void
-  onCopy(): void
-  onCut(): void
-  onPaste(): void
-  onExport(format: ExportFormat, transparent: boolean, dark: boolean): void
-  onCopyToClipboard(): void
-  theme: 'light' | 'dark'
+  ctx: BoardActionContext
   snapGuidesEnabled: boolean
-  onToggleSnapGuides(): void
+  canExport: boolean
   compact?: boolean
   userMenu?: React.ReactNode
 }
 
-interface ActionDef {
-  key: string
-  label: string
-  Icon: typeof Undo2
-  onClick(): void
-  disabled: boolean
-}
-
 export function ActionsBar({
-  canUndo,
-  canRedo,
-  hasSelection,
-  hasClipboard,
-  canExport,
-  onUndo,
-  onRedo,
-  onDelete,
-  onDuplicate,
-  onCopy,
-  onCut,
-  onPaste,
-  onExport,
-  onCopyToClipboard,
-  theme,
+  ctx,
   snapGuidesEnabled,
-  onToggleSnapGuides,
+  canExport,
   compact = false,
   userMenu,
 }: ActionsBarProps) {
-  const actions: ActionDef[] = [
-    { key: 'undo', label: 'Undo', Icon: Undo2, onClick: onUndo, disabled: !canUndo },
-    { key: 'redo', label: 'Redo', Icon: Redo2, onClick: onRedo, disabled: !canRedo },
-    { key: 'delete', label: 'Delete', Icon: Trash2, onClick: onDelete, disabled: !hasSelection },
-    { key: 'duplicate', label: 'Duplicate', Icon: CopyPlus, onClick: onDuplicate, disabled: !hasSelection },
-    { key: 'copy', label: 'Copy', Icon: ClipboardCopy, onClick: onCopy, disabled: !hasSelection },
-    { key: 'cut', label: 'Cut', Icon: Scissors, onClick: onCut, disabled: !hasSelection },
-    { key: 'paste', label: 'Paste', Icon: ClipboardPaste, onClick: onPaste, disabled: !hasClipboard },
-  ]
+  const snap = BOARD_ACTIONS_BY_ID['toggle-snap-guides']
+  const SnapIcon = snap.icon
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -88,25 +38,35 @@ export function ActionsBar({
             <div className="mx-1 h-7 w-px shrink-0 bg-border" />
           </>
         ) : null}
-        {actions.map(({ key, label, Icon, onClick, disabled }) => (
-          <ActionButton key={key} label={label} onClick={onClick} disabled={disabled}>
-            <Icon />
-          </ActionButton>
-        ))}
+        {BAR_ACTION_IDS.map((id) => {
+          const action = BOARD_ACTIONS_BY_ID[id]
+          const Icon = action.icon
+          return (
+            <ActionButton
+              key={id}
+              label={action.label}
+              disabled={!action.when(ctx)}
+              onClick={() => action.run(ctx)}
+            >
+              <Icon />
+            </ActionButton>
+          )
+        })}
         <div className="mx-1 h-7 w-px shrink-0 bg-border" />
         <ActionButton
-          label={snapGuidesEnabled ? 'Hide guides' : 'Show guides'}
+          label={snap.label}
           aria-pressed={snapGuidesEnabled}
           className={snapGuidesEnabled ? 'bg-accent text-foreground' : undefined}
-          onClick={onToggleSnapGuides}
+          disabled={!snap.when(ctx)}
+          onClick={() => snap.run(ctx)}
         >
-          <Crosshair />
+          <SnapIcon />
         </ActionButton>
         <ExportMenu
           disabled={!canExport}
-          theme={theme}
-          onExport={onExport}
-          onCopyToClipboard={onCopyToClipboard}
+          theme={ctx.theme}
+          onExport={(format, transparent, dark) => void ctx.boardExport.exportImage(format, transparent, dark)}
+          onCopyToClipboard={() => void ctx.boardExport.copyImage()}
         />
       </div>
     </TooltipProvider>
