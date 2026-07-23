@@ -4,6 +4,8 @@ import type { TextAlign, TextLayout, VerticalAlign } from '../../text/layout.js'
 import { labelRect } from '../../geometry/shape-outline.js'
 import type { Element, Style, TextElement } from '../../model/types.js'
 import { ARROW_LABEL_PADDING_X, ARROW_LABEL_PADDING_Y } from '../../text/arrow-label.js'
+import { elementColors } from '../draw-cache.js'
+import { invertColor } from '../invert.js'
 
 const layoutCache = new LayoutCache()
 
@@ -13,6 +15,7 @@ export function clearTextLayoutCache(): void {
 
 export const TEXT_PADDING = 6
 const ARROW_LABEL_BACKGROUND = '#fafafa'
+const ARROW_LABEL_BACKGROUND_DARK = invertColor(ARROW_LABEL_BACKGROUND)
 
 interface TextBlock {
   x: number
@@ -39,7 +42,7 @@ function measure(
   )
 }
 
-export function paintText(ctx: CanvasRenderingContext2D, element: Element): void {
+export function paintText(ctx: CanvasRenderingContext2D, element: Element, dark: boolean): void {
   const text = element as TextElement
   if (!text.text) return
   paintTextBlock(
@@ -55,29 +58,37 @@ export function paintText(ctx: CanvasRenderingContext2D, element: Element): void
       verticalAlign: 'middle',
       style: element.style,
     },
+    elementColors(element, dark).textColor,
     Infinity,
   )
 }
 
-export function paintLabel(ctx: CanvasRenderingContext2D, element: Element): void {
+export function paintLabel(ctx: CanvasRenderingContext2D, element: Element, dark: boolean): void {
   const label = element.label
   if (!label || !label.text) return
   const rect = labelRect(element.type, element)
-  paintTextBlock(ctx, `${element.id}:label`, label.text, {
-    x: rect.x + TEXT_PADDING,
-    y: rect.y,
-    width: Math.max(0, rect.width - TEXT_PADDING * 2),
-    height: rect.height,
-    align: label.align,
-    verticalAlign: label.verticalAlign,
-    style: element.style,
-  })
+  paintTextBlock(
+    ctx,
+    `${element.id}:label`,
+    label.text,
+    {
+      x: rect.x + TEXT_PADDING,
+      y: rect.y,
+      width: Math.max(0, rect.width - TEXT_PADDING * 2),
+      height: rect.height,
+      align: label.align,
+      verticalAlign: label.verticalAlign,
+      style: element.style,
+    },
+    elementColors(element, dark).textColor,
+  )
 }
 
 export function paintArrowLabel(
   ctx: CanvasRenderingContext2D,
   element: Element,
   midpoint: { x: number; y: number },
+  dark: boolean,
 ): void {
   const label = element.label
   if (!label || !label.text) return
@@ -87,16 +98,22 @@ export function paintArrowLabel(
 
   ctx.save()
   ctx.globalAlpha = element.style.opacity
-  ctx.fillStyle = ARROW_LABEL_BACKGROUND
+  ctx.fillStyle = dark ? ARROW_LABEL_BACKGROUND_DARK : ARROW_LABEL_BACKGROUND
   ctx.fillRect(midpoint.x - plateWidth / 2, midpoint.y - plateHeight / 2, plateWidth, plateHeight)
   ctx.restore()
 
-  paintLayout(ctx, layout, element.style, {
-    x: midpoint.x - layout.width / 2,
-    y: midpoint.y - layout.height / 2,
-    width: layout.width,
-    align: 'center',
-  })
+  paintLayout(
+    ctx,
+    layout,
+    element.style,
+    {
+      x: midpoint.x - layout.width / 2,
+      y: midpoint.y - layout.height / 2,
+      width: layout.width,
+      align: 'center',
+    },
+    elementColors(element, dark).textColor,
+  )
 }
 
 function paintTextBlock(
@@ -104,16 +121,23 @@ function paintTextBlock(
   id: string,
   text: string,
   block: TextBlock,
+  color: string,
   wrapWidth: number = block.width,
 ): void {
   const layout = measure(ctx, id, text, wrapWidth, block.style)
   const top = verticalOffset(block, layout.height)
-  paintLayout(ctx, layout, block.style, {
-    x: block.x,
-    y: top,
-    width: block.width,
-    align: block.align,
-  })
+  paintLayout(
+    ctx,
+    layout,
+    block.style,
+    {
+      x: block.x,
+      y: top,
+      width: block.width,
+      align: block.align,
+    },
+    color,
+  )
 }
 
 function verticalOffset(block: TextBlock, contentHeight: number): number {
@@ -127,10 +151,11 @@ function paintLayout(
   layout: TextLayout,
   style: Style,
   box: { x: number; y: number; width: number; align: TextAlign },
+  color: string,
 ): void {
   ctx.save()
   ctx.globalAlpha = style.opacity
-  ctx.fillStyle = style.textColor
+  ctx.fillStyle = color
   ctx.font = fontString(style.fontSize, style.fontFamily)
   ctx.textBaseline = 'middle'
   ctx.textAlign = canvasAlign(box.align)

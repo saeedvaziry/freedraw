@@ -6,7 +6,7 @@ import { paintShape } from './shape.js'
 import { paintSticky } from './sticky.js'
 import { paintText } from './text.js'
 
-export type Painter = (ctx: CanvasRenderingContext2D, element: Element) => void
+export type Painter = (ctx: CanvasRenderingContext2D, element: Element, dark: boolean) => void
 
 const shapeTypes: ShapeType[] = [
   'rect',
@@ -37,11 +37,15 @@ export function getPainter(type: string): Painter | undefined {
   return painters[type]
 }
 
-export function paintElement(ctx: CanvasRenderingContext2D, element: Element): void {
+export function paintElement(
+  ctx: CanvasRenderingContext2D,
+  element: Element,
+  dark: boolean,
+): void {
   const painter = getPainter(element.type)
   if (!painter) return
   if (!element.rotation) {
-    painter(ctx, element)
+    painter(ctx, element, dark)
     return
   }
   const cx = element.x + element.width / 2
@@ -50,6 +54,6 @@ export function paintElement(ctx: CanvasRenderingContext2D, element: Element): v
   ctx.translate(cx, cy)
   ctx.rotate(element.rotation)
   ctx.translate(-cx, -cy)
-  painter(ctx, element)
+  painter(ctx, element, dark)
   ctx.restore()
 }

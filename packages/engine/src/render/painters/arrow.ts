@@ -1,6 +1,7 @@
 import type { ArrowElement, Arrowhead, Element, Point } from '../../model/types.js'
 import { arrowRoute } from '../../connectors/resolve.js'
 import { polylineMidpoint } from '../../text/arrow-label.js'
+import { elementColors } from '../draw-cache.js'
 import { dashPattern } from './dash.js'
 import { isSloppy, strokeSloppyPath, strokeSloppyPathData, strokeSloppyPolygon } from './sketch.js'
 import { paintArrowLabel } from './text.js'
@@ -11,11 +12,12 @@ const DOT_RADIUS = 4
 const BAR_HALF = 7
 const BEND_RADIUS = 18
 
-export function paintArrow(ctx: CanvasRenderingContext2D, element: Element): void {
+export function paintArrow(ctx: CanvasRenderingContext2D, element: Element, dark: boolean): void {
   const arrow = element as ArrowElement
   const points = arrowRoute(arrow)
   if (points.length < 2) return
   const { style } = arrow
+  const stroke = elementColors(arrow, dark).stroke
   const scale = headScale(style.strokeWidth)
   const startTrim = headTrim(arrow.startArrowhead, scale)
   const endTrim = headTrim(arrow.endArrowhead, scale)
@@ -24,8 +26,8 @@ export function paintArrow(ctx: CanvasRenderingContext2D, element: Element): voi
   ctx.save()
   ctx.globalAlpha = style.opacity
   ctx.lineWidth = style.strokeWidth
-  ctx.strokeStyle = style.stroke
-  ctx.fillStyle = style.stroke
+  ctx.strokeStyle = stroke
+  ctx.fillStyle = stroke
   ctx.lineJoin = style.roundness > 0 ? 'round' : 'miter'
   ctx.lineCap = style.roundness > 0 ? 'round' : 'butt'
 
@@ -47,7 +49,7 @@ export function paintArrow(ctx: CanvasRenderingContext2D, element: Element): voi
   if (last && beforeLast) paintHead(ctx, arrow.endArrowhead, last, beforeLast, arrow, 2)
   ctx.restore()
 
-  paintArrowLabel(ctx, arrow, polylineMidpoint(points))
+  paintArrowLabel(ctx, arrow, polylineMidpoint(points), dark)
 }
 
 export function trimmedShaftPoints(points: Point[], startTrim: number, endTrim: number): Point[] {

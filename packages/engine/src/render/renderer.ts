@@ -11,7 +11,7 @@ import {
 } from '../geometry/grid.js'
 import type { ArrowElement, Element, SceneSnapshot } from '../model/types.js'
 import { paintElement } from './painters/index.js'
-import { invertingContext } from './invert.js'
+import { invertColor } from './invert.js'
 import { paintHover, paintMarquee, paintSelection } from './overlay/selection.js'
 import { paintPorts, paintTargetHighlight } from './overlay/ports.js'
 import { paintArrowHandles } from './overlay/arrow-handles.js'
@@ -60,9 +60,8 @@ export class Renderer {
   private readonly overlay: HTMLCanvasElement
   private readonly sceneCtx: CanvasRenderingContext2D
   private readonly overlayCtx: CanvasRenderingContext2D
-  private readonly invertedSceneCtx: CanvasRenderingContext2D
-  private readonly invertedOverlayCtx: CanvasRenderingContext2D
   private readonly grid: GridStyle
+  private readonly darkGrid: GridStyle
   private dpr = 1
   private cssWidth = 0
   private cssHeight = 0
@@ -80,17 +79,21 @@ export class Renderer {
     this.overlay = overlay
     this.sceneCtx = sceneCtx
     this.overlayCtx = overlayCtx
-    this.invertedSceneCtx = invertingContext(sceneCtx)
-    this.invertedOverlayCtx = invertingContext(overlayCtx)
     this.grid = { ...defaultGrid, ...grid }
+    this.darkGrid = {
+      ...this.grid,
+      color: invertColor(this.grid.color),
+      majorColor: invertColor(this.grid.majorColor),
+      background: invertColor(this.grid.background),
+    }
   }
 
   setDark(dark: boolean): void {
     this.dark = dark
   }
 
-  private get drawCtx(): CanvasRenderingContext2D {
-    return this.dark ? this.invertedSceneCtx : this.sceneCtx
+  private get activeGrid(): GridStyle {
+    return this.dark ? this.darkGrid : this.grid
   }
 
   get viewportWidth(): number {
@@ -120,8 +123,9 @@ export class Renderer {
   }
 
   renderScene(snapshot: SceneSnapshot, camera: Camera, editingId: string | null = null): void {
-    const { dpr, cssWidth, cssHeight, grid } = this
-    const ctx = this.drawCtx
+    const { dpr, cssWidth, cssHeight } = this
+    const ctx = this.sceneCtx
+    const grid = this.activeGrid
     const scale = dpr * camera.zoom
 
     ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -141,15 +145,14 @@ export class Renderer {
     ctx.clearRect(0, 0, cssWidth * dpr, cssHeight * dpr)
 
     const scale = dpr * camera.zoom
-    const worldCtx = this.dark ? this.invertedOverlayCtx : ctx
     if (overlay.preview) {
-      worldCtx.setTransform(scale, 0, 0, scale, -camera.x * scale, -camera.y * scale)
-      paintElement(worldCtx, overlay.preview)
+      ctx.setTransform(scale, 0, 0, scale, -camera.x * scale, -camera.y * scale)
+      paintElement(ctx, overlay.preview, this.dark)
     }
     if (overlay.spawnPreview) {
-      worldCtx.setTransform(scale, 0, 0, scale, -camera.x * scale, -camera.y * scale)
-      paintElement(worldCtx, overlay.spawnPreview.arrow)
-      paintElement(worldCtx, overlay.spawnPreview.target)
+      ctx.setTransform(scale, 0, 0, scale, -camera.x * scale, -camera.y * scale)
+      paintElement(ctx, overlay.spawnPreview.arrow, this.dark)
+      paintElement(ctx, overlay.spawnPreview.target, this.dark)
     }
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -169,7 +172,7 @@ export class Renderer {
   private paintGrid(viewport: Rect, zoom: number): void {
     const endX = viewport.x + viewport.width
     const endY = viewport.y + viewport.height
-    const step = gridStepForZoom(this.grid, zoom)
+    const step = gridStepForZoom(this.activeGrid, zoom)
     const xLines = gridLineValues(viewport.x, endX, step)
     const yLines = gridLineValues(viewport.y, endY, step)
 
@@ -187,8 +190,8 @@ export class Renderer {
     major: boolean,
     zoom: number,
   ): void {
-    const ctx = this.drawCtx
-    const { grid } = this
+    const ctx = this.sceneCtx
+    const grid = this.activeGrid
     ctx.save()
     ctx.strokeStyle = major ? grid.majorColor : grid.color
     ctx.lineWidth = (major ? grid.majorLineWidth : grid.lineWidth) / zoom
@@ -208,13 +211,13 @@ export class Renderer {
   }
 
   private paintElements(snapshot: SceneSnapshot, viewport: Rect, editingId: string | null): void {
-    const ctx = this.drawCtx
+    const ctx = this.sceneCtx
     for (const id of snapshot.order) {
       const element = snapshot.elements[id]
       if (!element) continue
       const bounds = expand(elementBounds(element), element.style.strokeWidth)
       if (!intersects(bounds, viewport)) continue
-      paintElement(ctx, id === editingId ? withoutText(element) : element)
+      paintElement(ctx, id === editingId ? withoutText(element) : element, this.dark)
     }
   }
 }

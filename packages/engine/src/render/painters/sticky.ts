@@ -1,6 +1,5 @@
 import type { Element } from '../../model/types.js'
 import { getOutline, traceOutline } from '../../geometry/shape-outline.js'
-import { isInvertingContext, rawContext } from '../invert.js'
 import { dashPattern } from './dash.js'
 import { strokeOutline } from './sketch.js'
 import { paintLabel } from './text.js'
@@ -19,17 +18,15 @@ interface CanvasTransform {
   f: number
 }
 
-const BASE_SHADOW_LIGHT = 'rgba(15, 23, 42, 0.26)'
-const BASE_SHADOW_DARK = 'rgba(0, 0, 0, 0.55)'
+export const BASE_SHADOW_LIGHT = 'rgba(15, 23, 42, 0.26)'
+export const BASE_SHADOW_DARK = 'rgba(0, 0, 0, 0.55)'
 const BASE_BLUR = 10
 const BASE_OFFSET_Y = 7
 
-export function paintSticky(proxyCtx: CanvasRenderingContext2D, element: Element): void {
+export function paintSticky(ctx: CanvasRenderingContext2D, element: Element, dark: boolean): void {
   const outline = getOutline('roundRect', element, element.style.roundness)
   if (!outline) return
 
-  const dark = isInvertingContext(proxyCtx)
-  const ctx = rawContext(proxyCtx)
   const { style } = element
   ctx.save()
   ctx.globalAlpha = style.opacity
@@ -50,7 +47,7 @@ export function paintSticky(proxyCtx: CanvasRenderingContext2D, element: Element
   }
   ctx.restore()
 
-  paintLabel(ctx, element)
+  paintLabel(ctx, element, false)
 }
 
 function paintCurledShadow(

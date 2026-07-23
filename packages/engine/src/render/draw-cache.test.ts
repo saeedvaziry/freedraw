@@ -5,12 +5,15 @@ import { getOutline } from '../geometry/shape-outline.js'
 import { createFreedraw, createShape } from '../model/factory.js'
 import type { ShapeType } from '../model/types.js'
 import { hashSeed, roughOutlineDrawable } from './rough.js'
+import { invertColor } from './invert.js'
 import { paintShape } from './painters/shape.js'
 import { freedrawSize, paintFreedraw } from './painters/freedraw.js'
 import {
   clearDrawCaches,
+  colorCache,
   DrawableCache,
   drawableCache,
+  elementColors,
   StrokeCache,
   strokeCache,
   sweepDrawCaches,
@@ -136,7 +139,7 @@ describe('painter caches are position-independent (a pure MOVE is a hit)', () =>
     clearDrawCaches()
     const style = { sloppiness: 1 }
     const el = createShape({ id: 'shape', type: 'rect', x: 10, y: 20, width: 100, height: 60, style })
-    paintShape(fakeCtx(), el)
+    paintShape(fakeCtx(), el, false)
     expect(drawableCache.size).toBe(1)
 
     const key = `rect|${round(el.width)}|${round(el.height)}|${el.style.roundness}|${el.style.sloppiness}`
@@ -146,7 +149,7 @@ describe('painter caches are position-independent (a pure MOVE is a hit)', () =>
       }),
     ).not.toThrow()
 
-    paintShape(fakeCtx(), { ...el, x: 999, y: 555 })
+    paintShape(fakeCtx(), { ...el, x: 999, y: 555 }, false)
     expect(drawableCache.size).toBe(1)
     expect(() =>
       drawableCache.get('shape', key, () => {
@@ -163,7 +166,7 @@ describe('painter caches are position-independent (a pure MOVE is a hit)', () =>
       { x: 70, y: 20 },
     ]
     const fd = createFreedraw({ id: 'fd', points, style: { strokeWidth: 2 } })
-    paintFreedraw(fakeCtx(), fd)
+    paintFreedraw(fakeCtx(), fd, false)
     expect(strokeCache.size).toBe(1)
 
     const key = `${freedrawSize(fd.style.strokeWidth)}|${points.length}|${round(fd.width)}|${round(fd.height)}`
@@ -179,7 +182,7 @@ describe('painter caches are position-independent (a pure MOVE is a hit)', () =>
       points: points.map((p) => ({ x: p.x + delta, y: p.y + delta })),
       style: { strokeWidth: 2 },
     })
-    paintFreedraw(fakeCtx(), moved)
+    paintFreedraw(fakeCtx(), moved, false)
     expect(strokeCache.size).toBe(1)
     expect(() =>
       strokeCache.get('fd', key, () => {
@@ -192,8 +195,8 @@ describe('painter caches are position-independent (a pure MOVE is a hit)', () =>
     clearDrawCaches()
     const style = { sloppiness: 1 }
     const el = createShape({ id: 'shape', type: 'rect', x: 0, y: 0, width: 100, height: 60, style })
-    paintShape(fakeCtx(), el)
-    paintShape(fakeCtx(), { ...el, width: 200 })
+    paintShape(fakeCtx(), el, false)
+    paintShape(fakeCtx(), { ...el, width: 200 }, false)
     expect(drawableCache.size).toBe(1)
     const key = `rect|${round(200)}|${round(60)}|${el.style.roundness}|${el.style.sloppiness}`
     expect(() =>
@@ -206,10 +209,141 @@ describe('painter caches are position-independent (a pure MOVE is a hit)', () =>
   it('sweepDrawCaches drops entries for deleted ids', () => {
     clearDrawCaches()
     const style = { sloppiness: 1 }
-    paintShape(fakeCtx(), createShape({ id: 'a', type: 'rect', x: 0, y: 0, width: 40, height: 40, style }))
-    paintShape(fakeCtx(), createShape({ id: 'b', type: 'rect', x: 0, y: 0, width: 40, height: 40, style }))
+    paintShape(fakeCtx(), createShape({ id: 'a', type: 'rect', x: 0, y: 0, width: 40, height: 40, style }), false)
+    paintShape(fakeCtx(), createShape({ id: 'b', type: 'rect', x: 0, y: 0, width: 40, height: 40, style }), false)
     expect(drawableCache.size).toBe(2)
     sweepDrawCaches(new Set(['a']))
     expect(drawableCache.size).toBe(1)
+  })
+})
+
+describe('elementColors precompute', () => {
+  it('inverts stroke, fill, and text to match invertColor in dark mode', () => {
+    clearDrawCaches()
+    const el = createShape({
+      id: 'colors',
+      type: 'rect',
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      style: { stroke: '#454545', fill: '#ffffff', textColor: '#123456' },
+    })
+    expect(elementColors(el, true)).toEqual({
+      stroke: invertColor('#454545'),
+      fill: invertColor('#ffffff'),
+      textColor: invertColor('#123456'),
+    })
+  })
+
+  it('returns raw style colors when not dark', () => {
+    const el = createShape({
+      id: 'c2',
+      type: 'rect',
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      style: { stroke: '#111111', fill: '#222222', textColor: '#333333' },
+    })
+    expect(elementColors(el, false)).toEqual({
+      stroke: '#111111',
+      fill: '#222222',
+      textColor: '#333333',
+    })
+  })
+
+  it('caches by id and colors, independent of position, and clears', () => {
+    clearDrawCaches()
+    const el = createShape({
+      id: 'c3',
+      type: 'rect',
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      style: { stroke: '#454545', fill: '#ffffff', textColor: '#454545' },
+    })
+    const first = elementColors(el, true)
+    expect(colorCache.size).toBe(1)
+    expect(elementColors({ ...el, x: 500, y: 500 }, true)).toBe(first)
+    expect(colorCache.size).toBe(1)
+    clearDrawCaches()
+    expect(colorCache.size).toBe(0)
+  })
+
+  it('sweeps color entries for deleted ids', () => {
+    clearDrawCaches()
+    const style = { stroke: '#454545', fill: '#ffffff', textColor: '#454545' }
+    elementColors(createShape({ id: 'a', type: 'rect', x: 0, y: 0, width: 10, height: 10, style }), true)
+    elementColors(createShape({ id: 'b', type: 'rect', x: 0, y: 0, width: 10, height: 10, style }), true)
+    expect(colorCache.size).toBe(2)
+    sweepDrawCaches(new Set(['a']))
+    expect(colorCache.size).toBe(1)
+  })
+})
+
+class ColorRecordingContext {
+  fillStyle = ''
+  strokeStyle = ''
+  globalAlpha = 1
+  lineJoin: CanvasLineJoin = 'miter'
+  lineWidth = 1
+  readonly fills: string[] = []
+  readonly strokes: string[] = []
+  save(): void {}
+  restore(): void {}
+  beginPath(): void {}
+  moveTo(): void {}
+  lineTo(): void {}
+  arcTo(): void {}
+  ellipse(): void {}
+  quadraticCurveTo(): void {}
+  bezierCurveTo(): void {}
+  closePath(): void {}
+  setLineDash(): void {}
+  translate(): void {}
+  fill(): void {
+    this.fills.push(String(this.fillStyle))
+  }
+  stroke(): void {
+    this.strokes.push(String(this.strokeStyle))
+  }
+}
+
+describe('painters read precomputed colors on a raw context', () => {
+  it('applies raw style colors when not dark', () => {
+    clearDrawCaches()
+    const el = createShape({
+      id: 'raw-light',
+      type: 'rect',
+      x: 0,
+      y: 0,
+      width: 40,
+      height: 40,
+      style: { sloppiness: 0 },
+    })
+    const ctx = new ColorRecordingContext()
+    paintShape(ctx as unknown as CanvasRenderingContext2D, el, false)
+    expect(ctx.fills).toContain(el.style.fill)
+    expect(ctx.strokes).toContain(el.style.stroke)
+  })
+
+  it('applies precomputed inverted colors when dark', () => {
+    clearDrawCaches()
+    const el = createShape({
+      id: 'raw-dark',
+      type: 'rect',
+      x: 0,
+      y: 0,
+      width: 40,
+      height: 40,
+      style: { sloppiness: 0 },
+    })
+    const ctx = new ColorRecordingContext()
+    paintShape(ctx as unknown as CanvasRenderingContext2D, el, true)
+    expect(ctx.fills).toContain(invertColor(el.style.fill))
+    expect(ctx.strokes).toContain(invertColor(el.style.stroke))
+    expect(ctx.fills).not.toContain(el.style.fill)
   })
 })

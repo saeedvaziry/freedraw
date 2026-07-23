@@ -1,7 +1,7 @@
 import { contentBounds } from '../geometry/fit.js'
 import type { Rect } from '../geometry/rect.js'
 import type { Element, SceneSnapshot } from '../model/types.js'
-import { invertColor, invertingContext } from './invert.js'
+import { invertColor } from './invert.js'
 import { paintElement } from './painters/index.js'
 
 export type ExportFormat = 'png' | 'jpg'
@@ -64,11 +64,11 @@ export function renderSceneToCanvas(snapshot: SceneSnapshot, options: ExportOpti
     ctx.fillRect(0, 0, width, height)
   }
 
-  const paintCtx = options.dark ? invertingContext(ctx) : ctx
+  const dark = options.dark ?? false
   ctx.setTransform(scale, 0, 0, scale, (-bounds.x + padding) * scale, (-bounds.y + padding) * scale)
   for (const id of snapshot.order) {
     const element: Element | undefined = snapshot.elements[id]
-    if (element) paintElement(paintCtx, element)
+    if (element) paintElement(ctx, element, dark)
   }
   return canvas
 }

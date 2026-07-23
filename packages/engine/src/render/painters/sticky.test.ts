@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { defaultStyle } from '../../model/schema.js'
 import type { StickyElement } from '../../model/types.js'
-import { paintSticky } from './sticky.js'
+import { invertColor } from '../invert.js'
+import { BASE_SHADOW_DARK, BASE_SHADOW_LIGHT, paintSticky } from './sticky.js'
 
 interface FillOperation {
   fillStyle: string
   clipRule: CanvasFillRule | null
+  shadowColor: string
+}
+
+interface RecordingState {
+  clipRule: CanvasFillRule | null
+  shadowColor: string
 }
 
 class RecordingContext {
@@ -21,14 +28,17 @@ class RecordingContext {
   shadowOffsetY = 0
   strokeStyle: string | CanvasGradient | CanvasPattern = '#000'
   private activeClipRule: CanvasFillRule | null = null
-  private readonly stack: (CanvasFillRule | null)[] = []
+  private readonly stack: RecordingState[] = []
 
   save(): void {
-    this.stack.push(this.activeClipRule)
+    this.stack.push({ clipRule: this.activeClipRule, shadowColor: this.shadowColor })
   }
 
   restore(): void {
-    this.activeClipRule = this.stack.pop() ?? null
+    const state = this.stack.pop()
+    if (!state) return
+    this.activeClipRule = state.clipRule
+    this.shadowColor = state.shadowColor
   }
 
   beginPath(): void {}
@@ -51,6 +61,7 @@ class RecordingContext {
     this.fills.push({
       fillStyle: String(this.fillStyle),
       clipRule: this.activeClipRule,
+      shadowColor: String(this.shadowColor),
     })
   }
 }
@@ -76,12 +87,24 @@ describe('paintSticky', () => {
   it('clips the shadow caster out of transparent sticky notes', () => {
     const ctx = new RecordingContext()
 
-    paintSticky(ctx as unknown as CanvasRenderingContext2D, transparentSticky)
+    paintSticky(ctx as unknown as CanvasRenderingContext2D, transparentSticky, false)
 
     expect(ctx.clips).toContain('evenodd')
     expect(ctx.fills).toEqual([
-      { fillStyle: '#000', clipRule: 'evenodd' },
-      { fillStyle: transparentSticky.style.fill, clipRule: null },
+      { fillStyle: '#000', clipRule: 'evenodd', shadowColor: BASE_SHADOW_LIGHT },
+      { fillStyle: transparentSticky.style.fill, clipRule: null, shadowColor: 'transparent' },
     ])
+  })
+
+  it('keeps the fill uninverted and only swaps the shadow color in dark mode', () => {
+    const ctx = new RecordingContext()
+
+    paintSticky(ctx as unknown as CanvasRenderingContext2D, transparentSticky, true)
+
+    expect(ctx.fills).toEqual([
+      { fillStyle: '#000', clipRule: 'evenodd', shadowColor: BASE_SHADOW_DARK },
+      { fillStyle: transparentSticky.style.fill, clipRule: null, shadowColor: 'transparent' },
+    ])
+    expect(BASE_SHADOW_DARK).not.toBe(invertColor(BASE_SHADOW_LIGHT))
   })
 })
