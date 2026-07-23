@@ -79,9 +79,26 @@ function overlapsOnX(a: Rect, b: Rect): boolean {
   return a.x + a.width > b.x && a.x < b.x + b.width
 }
 
-function findEqualSpacingSnapX(moving: Rect, others: Rect[], threshold: number): EqualSpacingSnap | null {
+export interface AlignCandidateSource {
+  all(): Rect[]
+  rowBand(rect: Rect): Rect[]
+  columnBand(rect: Rect): Rect[]
+}
+
+export function arrayCandidateSource(others: Rect[]): AlignCandidateSource {
+  return {
+    all: () => others,
+    rowBand: (rect) => others.filter((o) => overlapsOnY(o, rect)),
+    columnBand: (rect) => others.filter((o) => overlapsOnX(o, rect)),
+  }
+}
+
+function findEqualSpacingSnapX(moving: Rect, source: AlignCandidateSource, threshold: number): EqualSpacingSnap | null {
   let best: EqualSpacingSnap | null = null
   const movingCenterY = moving.y + moving.height / 2
+  const others = source.all()
+  const anchors = source.rowBand(moving)
+  if (anchors.length === 0) return null
   for (let i = 0; i < others.length; i += 1) {
     const leftRef = others[i]!
     for (let j = 0; j < others.length; j += 1) {
@@ -90,8 +107,7 @@ function findEqualSpacingSnapX(moving: Rect, others: Rect[], threshold: number):
       if (!overlapsOnY(leftRef, rightRef)) continue
       const referenceGap = rightRef.x - (leftRef.x + leftRef.width)
       if (referenceGap <= 0) continue
-      for (const anchor of others) {
-        if (!overlapsOnY(anchor, moving)) continue
+      for (const anchor of anchors) {
         const candidateRight = anchor.x + anchor.width + referenceGap
         const deltaRight = candidateRight - moving.x
         if (Math.abs(deltaRight) < threshold && (!best || Math.abs(deltaRight) < Math.abs(best.delta))) {
@@ -114,9 +130,12 @@ function findEqualSpacingSnapX(moving: Rect, others: Rect[], threshold: number):
   return best
 }
 
-function findEqualSpacingSnapY(moving: Rect, others: Rect[], threshold: number): EqualSpacingSnap | null {
+function findEqualSpacingSnapY(moving: Rect, source: AlignCandidateSource, threshold: number): EqualSpacingSnap | null {
   let best: EqualSpacingSnap | null = null
   const movingCenterX = moving.x + moving.width / 2
+  const others = source.all()
+  const anchors = source.columnBand(moving)
+  if (anchors.length === 0) return null
   for (let i = 0; i < others.length; i += 1) {
     const topRef = others[i]!
     for (let j = 0; j < others.length; j += 1) {
@@ -125,8 +144,7 @@ function findEqualSpacingSnapY(moving: Rect, others: Rect[], threshold: number):
       if (!overlapsOnX(topRef, bottomRef)) continue
       const referenceGap = bottomRef.y - (topRef.y + topRef.height)
       if (referenceGap <= 0) continue
-      for (const anchor of others) {
-        if (!overlapsOnX(anchor, moving)) continue
+      for (const anchor of anchors) {
         const candidateBelow = anchor.y + anchor.height + referenceGap
         const deltaBelow = candidateBelow - moving.y
         if (Math.abs(deltaBelow) < threshold && (!best || Math.abs(deltaBelow) < Math.abs(best.delta))) {
@@ -230,12 +248,18 @@ function mergeLines(axis: 'x' | 'y', position: number, moving: Edges, candidates
   return { axis, position, start, end }
 }
 
-export function snapMove(moving: Rect, others: Rect[], threshold: number): MoveSnapResult {
+export function snapMove(
+  moving: Rect,
+  others: Rect[],
+  threshold: number,
+  source: AlignCandidateSource = arrayCandidateSource(others),
+): MoveSnapResult {
   const movingEdges = edgesOf(moving)
   const axisX = newAxis(threshold)
   const axisY = newAxis(threshold)
+  const candidates = source.all()
 
-  for (const other of others) {
+  for (const other of candidates) {
     const otherEdges = edgesOf(other)
     for (const myEdge of [movingEdges.left, movingEdges.centerX, movingEdges.right]) {
       for (const otherEdge of [otherEdges.left, otherEdges.centerX, otherEdges.right]) {
@@ -254,7 +278,7 @@ export function snapMove(moving: Rect, others: Rect[], threshold: number): MoveS
   let equalSpacingX: EqualSpacingSnap | null = null
   let equalSpacingY: EqualSpacingSnap | null = null
 
-  const equalX = findEqualSpacingSnapX(moving, others, threshold)
+  const equalX = findEqualSpacingSnapX(moving, source, threshold)
   if (equalX && Math.abs(equalX.delta) < axisX.best) {
     axisX.best = Math.abs(equalX.delta)
     snappedX = moving.x + equalX.delta
@@ -263,7 +287,7 @@ export function snapMove(moving: Rect, others: Rect[], threshold: number): MoveS
     equalSpacingX = equalX
   }
 
-  const equalY = findEqualSpacingSnapY(moving, others, threshold)
+  const equalY = findEqualSpacingSnapY(moving, source, threshold)
   if (equalY && Math.abs(equalY.delta) < axisY.best) {
     axisY.best = Math.abs(equalY.delta)
     snappedY = moving.y + equalY.delta
@@ -284,14 +308,20 @@ export function snapMove(moving: Rect, others: Rect[], threshold: number): MoveS
   }
 
   const snappedRect: Rect = { ...moving, x: snappedX, y: snappedY }
-  const distances = nearestGapIndicators(snappedRect, others, axisX.best < threshold, axisY.best < threshold)
+  const distances = nearestGapIndicators(snappedRect, candidates, axisX.best < threshold, axisY.best < threshold)
   if (equalSpacingX) distances.push(equalSpacingX.indicator)
   if (equalSpacingY) distances.push(equalSpacingY.indicator)
 
   return { dx: snappedX - moving.x, dy: snappedY - moving.y, lines, distances }
 }
 
-export function snapResizeBounds(bounds: Rect, edges: ResizeEdges, others: Rect[], threshold: number): ResizeSnapResult {
+export function snapResizeBounds(
+  bounds: Rect,
+  edges: ResizeEdges,
+  others: Rect[],
+  threshold: number,
+  source: AlignCandidateSource = arrayCandidateSource(others),
+): ResizeSnapResult {
   let { x, y, width, height } = bounds
   const left = x
   const right = x + width
@@ -303,7 +333,7 @@ export function snapResizeBounds(bounds: Rect, edges: ResizeEdges, others: Rect[
   const topAxis = newAxis(threshold)
   const bottomAxis = newAxis(threshold)
 
-  for (const other of others) {
+  for (const other of source.all()) {
     const otherEdges = edgesOf(other)
     for (const otherEdge of [otherEdges.left, otherEdges.centerX, otherEdges.right]) {
       if (edges.left) matchEdge(leftAxis, left, otherEdge, left, threshold, otherEdges)
