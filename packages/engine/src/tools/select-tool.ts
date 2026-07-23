@@ -10,7 +10,7 @@ import { resizeElements, resizedBounds, rotationFor } from '../geometry/transfor
 import { selectionFrameFor } from '../geometry/selection-frame.js'
 import { labelRect } from '../geometry/shape-outline.js'
 import { moveRouteSegment, routeSegmentAxis, simplifyRoute, snapRouteSegmentTarget } from '../geometry/arrow-geometry.js'
-import { planConnectedShape, spawnConnectedShape, type SpawnDirection } from '../connectors/spawn.js'
+import { planConnectedShape, type SpawnDirection } from '../connectors/spawn.js'
 import { createArrow, pointsBounds } from '../model/factory.js'
 import { isArrowElement } from '../model/guards.js'
 import { labelEditRequest } from '../text/label-edit.js'
@@ -183,11 +183,8 @@ export class SelectTool implements Tool {
     ctx: ToolContext,
   ): void {
     if (mode.arrowId) ctx.store.deleteElements([mode.arrowId])
-    const source = ctx.store.getSnapshot().elements[mode.sourceId]
-    if (!source || !mode.direction) return
-    const targetId = spawnConnectedShape(ctx.store, source, mode.direction)
-    const target = ctx.store.getSnapshot().elements[targetId]
-    if (target) this.beginLabelEdit(target, ctx)
+    if (!mode.direction) return
+    ctx.spawnChildAndEdit(mode.sourceId, mode.direction)
   }
 
   onDoubleClick(info: PointerInfo, ctx: ToolContext): ToolResult | void {
@@ -207,13 +204,17 @@ export class SelectTool implements Tool {
   }
 
   onContextMenu(info: PointerInfo, ctx: ToolContext): ToolResult | void {
-    const hit = this.portShapeAt(info, ctx)
-    if (!hit) return
-    const direction = portDirection(hit.shape, hit.port)
-    if (!direction) return
     this.spawnPreviewActive = false
     ctx.setSpawnPreview(null)
-    ctx.requestSpawnMenu({ screen: info.screen, sourceId: hit.shape.id, direction })
+    const hit = hitTest(info.world, ctx.store.getSnapshot())
+    const selected = ctx.store.getUiState().selectedIds
+    if (!hit) {
+      if (selected.size > 0) ctx.store.setUiState({ selectedIds: new Set() })
+    } else if (!selected.has(hit.id)) {
+      ctx.store.setUiState({ selectedIds: new Set([hit.id]) })
+    }
+    const sourceId = hit && !isArrowElement(hit) ? hit.id : null
+    ctx.requestContextMenu?.({ screen: info.screen, sourceId })
     return { overlay: true }
   }
 
@@ -257,7 +258,7 @@ export class SelectTool implements Tool {
     const source = ctx.store.getSnapshot().elements[selected[0]!]
     if (!source || isArrowElement(source)) return
     event.preventDefault()
-    spawnConnectedShape(ctx.store, source, direction)
+    ctx.spawnChildAndEdit(selected[0]!, direction)
     return { scene: true, overlay: true }
   }
 

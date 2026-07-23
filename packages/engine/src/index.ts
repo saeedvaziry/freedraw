@@ -37,7 +37,7 @@ export type { SerializeReport } from './diagram/serialize.js'
 export type { DiagramError, Direction } from './diagram/ast.js'
 
 export { EditorController } from './controller/editor-controller.js'
-export type { ExportImageOptions } from './controller/editor-controller.js'
+export type { ExportImageOptions, FlowContext } from './controller/editor-controller.js'
 export {
   renderSceneToCanvas,
   canvasToBlob,

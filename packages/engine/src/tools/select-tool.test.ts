@@ -1,15 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import { createBinding } from '../connectors/binding.js'
 import { arrowRoute } from '../connectors/resolve.js'
+import { spawnConnectedShape, type SpawnDirection } from '../connectors/spawn.js'
 import { Camera } from '../geometry/camera.js'
 import { createArrow, createShape } from '../model/factory.js'
-import type { ArrowElement, Element, Point } from '../model/types.js'
+import type { ArrowElement, Element, ElementId, Point, ShapeType } from '../model/types.js'
 import { SceneStore } from '../store/scene-store.js'
 import type { EditRequest } from '../text/edit.js'
 import type { PointerInfo, ToolContext } from './tool.js'
 import { SelectTool } from './select-tool.js'
 
 const camera = new Camera({ x: 0, y: 0, zoom: 1 })
+
+interface FlowCall {
+  sourceId: ElementId
+  direction: SpawnDirection
+  type?: ShapeType
+}
 
 function isArrow(element: Element): element is ArrowElement {
   return element.type === 'arrow'
@@ -27,7 +34,11 @@ function pointerAt(point: Point): PointerInfo {
   }
 }
 
-function setup(): { store: SceneStore; ctx: ToolContext } {
+function altArrow(key: string): KeyboardEvent {
+  return { key, altKey: true, preventDefault: () => {} } as unknown as KeyboardEvent
+}
+
+function setup(): { store: SceneStore; ctx: ToolContext; flowCalls: FlowCall[] } {
   const store = new SceneStore()
   const shape = createShape({
     id: 'shape-1',
@@ -40,8 +51,11 @@ function setup(): { store: SceneStore; ctx: ToolContext } {
 
   store.transact((api) => api.addElement(shape))
 
+  const flowCalls: FlowCall[] = []
+
   return {
     store,
+    flowCalls,
     ctx: {
       store,
       camera,
@@ -52,6 +66,11 @@ function setup(): { store: SceneStore; ctx: ToolContext } {
       setPortTarget: () => {},
       beginEdit: () => {},
       requestSpawnMenu: () => {},
+      spawnChildAndEdit: (sourceId, direction, type) => {
+        flowCalls.push({ sourceId, direction, type })
+        const source = store.getSnapshot().elements[sourceId]
+        if (source) spawnConnectedShape(store, source, direction, type)
+      },
     },
   }
 }
@@ -263,5 +282,43 @@ describe('SelectTool arrow labels', () => {
     expect(editRequest?.elementId).toBe('arrow-1')
     expect(editRequest?.target).toBe('label')
     expect(editRequest?.world.width).toBeGreaterThan(0)
+  })
+})
+
+describe('SelectTool flow spawn', () => {
+  it('routes an Alt+Arrow press through spawnChildAndEdit', () => {
+    const { store, ctx, flowCalls } = setup()
+    const tool = new SelectTool()
+    store.setUiState({ selectedIds: new Set(['shape-1']) })
+
+    const result = tool.onKeyDown(altArrow('ArrowRight'), ctx)
+
+    expect(flowCalls).toHaveLength(1)
+    expect(flowCalls[0]!.sourceId).toBe('shape-1')
+    expect(flowCalls[0]!.direction).toBe('right')
+    expect(result).toEqual({ scene: true, overlay: true })
+    expect(store.getSnapshot().order).toHaveLength(3)
+  })
+
+  it('ignores Alt+Arrow unless exactly one shape is selected', () => {
+    const { ctx, flowCalls } = setup()
+    const tool = new SelectTool()
+
+    tool.onKeyDown(altArrow('ArrowDown'), ctx)
+
+    expect(flowCalls).toHaveLength(0)
+  })
+
+  it('routes a port click spawn through spawnChildAndEdit', () => {
+    const { store, ctx, flowCalls } = setup()
+    const tool = new SelectTool()
+    store.setUiState({ selectedIds: new Set(['shape-1']) })
+
+    tool.onPointerDown(pointerAt({ x: 60, y: 100 }), ctx)
+    tool.onPointerUp(pointerAt({ x: 60, y: 100 }), ctx)
+
+    expect(flowCalls).toHaveLength(1)
+    expect(flowCalls[0]!.sourceId).toBe('shape-1')
+    expect(flowCalls[0]!.direction).toBe('down')
   })
 })

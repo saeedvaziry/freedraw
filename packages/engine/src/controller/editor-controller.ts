@@ -36,7 +36,7 @@ import { clearDrawCaches, sweepDrawCaches } from '../render/draw-cache.js'
 import { HANDWRITTEN_FONT_FAMILY } from '../text/measure.js'
 import type { SceneStore } from '../store/scene-store.js'
 import { ToolManager } from '../tools/tool-manager.js'
-import type { ToolContext, ToolResult } from '../tools/tool.js'
+import type { ContextMenuRequest, ToolContext, ToolResult } from '../tools/tool.js'
 
 const GROWABLE_TYPES = new Set<string>([
   'rect',
@@ -63,6 +63,13 @@ const WHEEL_COMMIT_DELAY = 150
 
 type Cleanup = () => void
 type SpawnMenuListener = (request: SpawnMenuRequest | null) => void
+type ContextMenuListener = (request: ContextMenuRequest | null) => void
+
+export interface FlowContext {
+  editingId: ElementId
+  parentId: ElementId
+  direction: SpawnDirection
+}
 
 export class EditorController {
   readonly camera: Camera
@@ -79,8 +86,10 @@ export class EditorController {
   private portTargetId: ElementId | null = null
   private editRequest: EditRequest | null = null
   private editFloor: { id: ElementId; rect: Rect } | null = null
+  private currentFlow: FlowContext | null = null
   private readonly editListeners = new Set<EditListener>()
   private readonly spawnMenuListeners = new Set<SpawnMenuListener>()
+  private readonly contextMenuListeners = new Set<ContextMenuListener>()
   private isSpaceDown = false
   private isSpacePanning = false
   private spacePanLast = { x: 0, y: 0 }
@@ -125,6 +134,10 @@ export class EditorController {
       },
       beginEdit: (request) => this.beginEdit(request),
       requestSpawnMenu: (request) => this.openSpawnMenu(request),
+      requestContextMenu: (request) => this.openContextMenu(request),
+      spawnChildAndEdit: (sourceId, direction, type) => {
+        this.spawnChildAndEdit(sourceId, direction, type)
+      },
     }
     this.tools = new ToolManager(this.toolContext)
     this.input = new InputManager(overlay, this.camera, {
@@ -152,6 +165,7 @@ export class EditorController {
     if (readOnly) {
       this.cancelEdit()
       this.closeSpawnMenu()
+      this.closeContextMenu()
       this.store.setUiState({ selectedIds: new Set() })
     }
     this.loop.markDirty()
@@ -260,13 +274,38 @@ export class EditorController {
     this.spawnMenuListeners.forEach((listener) => listener(null))
   }
 
+  subscribeContextMenu(listener: ContextMenuListener): () => void {
+    this.contextMenuListeners.add(listener)
+    return () => this.contextMenuListeners.delete(listener)
+  }
+
+  private openContextMenu(request: ContextMenuRequest): void {
+    this.contextMenuListeners.forEach((listener) => listener(request))
+  }
+
+  closeContextMenu(): void {
+    this.contextMenuListeners.forEach((listener) => listener(null))
+  }
+
   spawnShapeFromMenu(sourceId: ElementId, direction: SpawnDirection, type: ShapeType): void {
     this.closeSpawnMenu()
+    this.spawnChildAndEdit(sourceId, direction, type)
+  }
+
+  get flowContext(): FlowContext | null {
+    return this.currentFlow
+  }
+
+  spawnChildAndEdit(
+    sourceId: ElementId,
+    direction: SpawnDirection,
+    type?: ShapeType,
+  ): ElementId | null {
     const source = this.store.getSnapshot().elements[sourceId]
-    if (!source) return
+    if (!source || isArrowElement(source)) return null
     const targetId = spawnConnectedShape(this.store, source, direction, type)
     const target = this.store.getSnapshot().elements[targetId]
-    if (!target) return
+    if (!target) return null
     this.beginEdit({
       elementId: target.id,
       target: 'label',
@@ -276,6 +315,8 @@ export class EditorController {
       align: target.style.textAlign,
       verticalAlign: 'middle',
     })
+    this.currentFlow = { editingId: target.id, parentId: sourceId, direction }
+    return targetId
   }
 
   beginLabelEditFromText(elementId: ElementId, text: string): void {
@@ -435,6 +476,7 @@ export class EditorController {
   }
 
   private beginEdit(request: EditRequest): void {
+    this.currentFlow = null
     this.editRequest = request
     const element = this.store.getSnapshot().elements[request.elementId]
     this.editFloor =
@@ -502,6 +544,7 @@ export class EditorController {
     if (!this.editRequest) return
     this.editRequest = null
     this.editFloor = null
+    this.currentFlow = null
     this.loop.markDirty()
     this.editListeners.forEach((listener) => listener(null))
   }
