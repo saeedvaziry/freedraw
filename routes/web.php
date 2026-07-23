@@ -2,8 +2,10 @@
 
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\Organizations\OrganizationInvitationController;
+use App\Http\Controllers\PageAssetController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\PageShareController;
+use App\Http\Controllers\PublicPageAssetController;
 use App\Http\Controllers\PublicPageController;
 use App\Http\Controllers\SocialLoginController;
 use Illuminate\Support\Facades\File;
@@ -33,6 +35,7 @@ Route::get('/docs/SKILL.md', fn () => response(File::get(base_path('skills/freed
 
 // Public share links (open to anyone, read-only).
 Route::get('s/{slug}', [PublicPageController::class, 'show'])->name('share.show');
+Route::get('s/{slug}/assets/{assetId}', [PublicPageAssetController::class, 'show'])->name('share.assets.show');
 
 // Social Login (GitHub, Google)
 Route::middleware('guest')->group(function () {
@@ -50,6 +53,9 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('pages/{page}', [PageController::class, 'update'])->name('pages.update');
     Route::patch('pages/{page}/share', [PageShareController::class, 'update'])->name('pages.share');
     Route::delete('pages/{page}', [PageController::class, 'destroy'])->name('pages.destroy');
+
+    Route::post('pages/{page}/assets', [PageAssetController::class, 'store'])->name('pages.assets.store');
+    Route::get('pages/{page}/assets/{assetId}', [PageAssetController::class, 'show'])->name('pages.assets.show');
 
     Route::get('invitations/{invitation}/accept', [OrganizationInvitationController::class, 'accept'])->name('invitations.accept');
     Route::delete('invitations/{invitation}', [OrganizationInvitationController::class, 'decline'])->name('invitations.decline');
