@@ -14,6 +14,7 @@ import { BoardPagesBar } from './board-pages-bar.js'
 import { BoardSidebar } from './board-sidebar.js'
 import { BottomBar } from './bottom-bar.js'
 import { CanvasHost } from './canvas-host.js'
+import { CommandPaletteHost } from './command-palette/command-palette-host.js'
 import { ContextMenuHost } from './context-menu/context-menu-host.js'
 import { DiagramPanelHost } from './diagram-panel-host.js'
 import { EmptyState } from './empty-state.js'
@@ -214,6 +215,7 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
         <CanvasHost sceneRef={sceneRef} overlayRef={overlayRef} controller={controller} />
         <ContextMenuHost />
         <EmptyState />
+        <CommandPaletteHost />
 
         <div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-3 sm:hidden">
           <BoardMobileMenu />
