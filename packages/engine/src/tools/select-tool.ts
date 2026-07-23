@@ -251,6 +251,15 @@ export class SelectTool implements Tool {
   }
 
   onKeyDown(event: KeyboardEvent, ctx: ToolContext): ToolResult | void {
+    if (event.key === 'Tab' && !event.altKey && !event.metaKey && !event.ctrlKey) {
+      const selected = [...ctx.store.getUiState().selectedIds]
+      if (selected.length !== 1) return
+      const source = ctx.store.getSnapshot().elements[selected[0]!]
+      if (!source || isArrowElement(source)) return
+      event.preventDefault()
+      ctx.spawnChildAndEdit(selected[0]!, 'right')
+      return { scene: true, overlay: true }
+    }
     if (!event.altKey) return
     const direction = arrowKeyDirection(event.key)
     if (!direction) return
