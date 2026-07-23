@@ -1,19 +1,29 @@
+export interface RenderDirty {
+  scene: boolean
+  overlay: boolean
+}
+
 export interface RenderLoopHandle {
   start(): void
   stop(): void
   markDirty(): void
+  markSceneDirty(): void
+  markOverlayDirty(): void
 }
 
-export function createRenderLoop(onRender: () => void): RenderLoopHandle {
-  let needsRender = false
+export function createRenderLoop(onRender: (dirty: RenderDirty) => void): RenderLoopHandle {
+  let sceneDirty = false
+  let overlayDirty = false
   let running = false
   let frameId = 0
 
   const tick = (): void => {
     if (!running) return
-    if (needsRender) {
-      needsRender = false
-      onRender()
+    if (sceneDirty || overlayDirty) {
+      const dirty: RenderDirty = { scene: sceneDirty, overlay: overlayDirty }
+      sceneDirty = false
+      overlayDirty = false
+      onRender(dirty)
     }
     frameId = requestAnimationFrame(tick)
   }
@@ -26,8 +36,9 @@ export function createRenderLoop(onRender: () => void): RenderLoopHandle {
       // resize() has just cleared to transparent) shows the scene before the
       // browser's next paint — otherwise the canvas flashes blank for one frame
       // on mount and when swapping boards.
-      needsRender = false
-      onRender()
+      sceneDirty = false
+      overlayDirty = false
+      onRender({ scene: true, overlay: true })
       frameId = requestAnimationFrame(tick)
     },
     stop(): void {
@@ -35,7 +46,14 @@ export function createRenderLoop(onRender: () => void): RenderLoopHandle {
       cancelAnimationFrame(frameId)
     },
     markDirty(): void {
-      needsRender = true
+      sceneDirty = true
+      overlayDirty = true
+    },
+    markSceneDirty(): void {
+      sceneDirty = true
+    },
+    markOverlayDirty(): void {
+      overlayDirty = true
     },
   }
 }

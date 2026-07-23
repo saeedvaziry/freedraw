@@ -22,7 +22,7 @@ import { measureTextBox, type TextSize } from '../text/size.js'
 import { fitShapeToLabel } from '../text/label-size.js'
 import { elementBounds } from '../geometry/hit-test.js'
 import type { Style } from '../model/types.js'
-import { createRenderLoop, type RenderLoopHandle } from '../render/loop.js'
+import { createRenderLoop, type RenderDirty, type RenderLoopHandle } from '../render/loop.js'
 import { Renderer, type OverlayState, type SpawnPreview } from '../render/renderer.js'
 import {
   canvasToBlob,
@@ -102,7 +102,7 @@ export class EditorController {
     })
     setImageCache(this.imageCache)
     this.renderer = new Renderer(scene, overlay)
-    this.loop = createRenderLoop(() => this.paint())
+    this.loop = createRenderLoop((dirty) => this.paint(dirty))
     this.toolContext = {
       store,
       camera: this.camera,
@@ -167,7 +167,7 @@ export class EditorController {
     this.cleanups.push(
       this.store.subscribeUi(() => {
         this.syncTool()
-        this.loop.markDirty()
+        this.loop.markOverlayDirty()
       }),
     )
     this.syncTool()
@@ -493,7 +493,8 @@ export class EditorController {
 
   private applyResult(result: ToolResult | void): void {
     if (!result) return
-    if (result.scene || result.overlay) this.loop.markDirty()
+    if (result.scene) this.loop.markSceneDirty()
+    if (result.overlay) this.loop.markOverlayDirty()
   }
 
   private resize(): void {
@@ -501,11 +502,15 @@ export class EditorController {
     this.loop.markDirty()
   }
 
-  private paint(): void {
+  private paint(dirty: RenderDirty): void {
     const snapshot = this.store.getSnapshot()
-    const editingId = this.editRequest?.elementId ?? null
-    this.renderer.renderScene(snapshot, this.camera, editingId)
-    this.renderer.renderOverlay(this.camera, this.buildOverlay())
+    if (dirty.scene) {
+      const editingId = this.editRequest?.elementId ?? null
+      this.renderer.renderScene(snapshot, this.camera, editingId)
+    }
+    if (dirty.overlay) {
+      this.renderer.renderOverlay(this.camera, this.buildOverlay())
+    }
   }
 
   private buildOverlay(): OverlayState {
