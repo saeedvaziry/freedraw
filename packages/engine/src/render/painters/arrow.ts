@@ -1,9 +1,11 @@
+import type { Drawable } from 'roughjs/bin/core.js'
 import type { ArrowElement, Arrowhead, Element, Point } from '../../model/types.js'
 import { arrowRoute } from '../../connectors/resolve.js'
 import { polylineMidpoint } from '../../text/arrow-label.js'
-import { elementColors } from '../draw-cache.js'
+import { arrowCache, type ArrowDrawables, elementColors } from '../draw-cache.js'
+import { paintDrawable } from '../rough.js'
 import { dashPattern } from './dash.js'
-import { isSloppy, strokeSloppyPath, strokeSloppyPathData, strokeSloppyPolygon } from './sketch.js'
+import { isSloppy, sloppyPathDataDrawable, sloppyPolygonDrawable, sloppyPolylineDrawable } from './sketch.js'
 import { paintArrowLabel } from './text.js'
 
 const ARROWHEAD_LENGTH = 12
@@ -22,6 +24,8 @@ export function paintArrow(ctx: CanvasRenderingContext2D, element: Element, dark
   const startTrim = headTrim(arrow.startArrowhead, scale)
   const endTrim = headTrim(arrow.endArrowhead, scale)
   const shaftPoints = trimmedShaftPoints(points, startTrim, endTrim)
+  const origin = isSloppy(arrow) ? pointsMin(shaftPoints) : null
+  const drawables = origin ? arrowDrawables(arrow, shaftPoints, origin, scale) : null
 
   ctx.save()
   ctx.globalAlpha = style.opacity
@@ -32,8 +36,11 @@ export function paintArrow(ctx: CanvasRenderingContext2D, element: Element, dark
   ctx.lineCap = style.roundness > 0 ? 'round' : 'butt'
 
   ctx.setLineDash(dashPattern(style.strokeStyle))
-  if (isSloppy(arrow)) {
-    strokeSloppyPathData(ctx, roundedShaftPathData(shaftPoints), arrow)
+  if (drawables && origin) {
+    ctx.save()
+    ctx.translate(origin.x, origin.y)
+    if (drawables.shaft) paintDrawable(ctx, drawables.shaft)
+    ctx.restore()
   } else {
     ctx.beginPath()
     traceRoundedShaft(ctx, shaftPoints)
@@ -45,11 +52,64 @@ export function paintArrow(ctx: CanvasRenderingContext2D, element: Element, dark
   const second = points[1]
   const last = points[points.length - 1]
   const beforeLast = points[points.length - 2]
-  if (first && second) paintHead(ctx, arrow.startArrowhead, first, second, arrow, 1)
-  if (last && beforeLast) paintHead(ctx, arrow.endArrowhead, last, beforeLast, arrow, 2)
+  if (first && second) paintHead(ctx, arrow.startArrowhead, first, second, arrow, drawables?.startHead ?? null)
+  if (last && beforeLast) paintHead(ctx, arrow.endArrowhead, last, beforeLast, arrow, drawables?.endHead ?? null)
   ctx.restore()
 
   paintArrowLabel(ctx, arrow, polylineMidpoint(points), dark)
+}
+
+function arrowDrawables(
+  arrow: ArrowElement,
+  shaftPoints: Point[],
+  origin: Point,
+  scale: number,
+): ArrowDrawables {
+  const local = shaftPoints.map((point) => ({ x: point.x - origin.x, y: point.y - origin.y }))
+  const shaftData = roundedShaftPathData(local)
+  const { style } = arrow
+  const key = `${shaftData}|${style.roundness}|${style.sloppiness}|${scale}|${arrow.startArrowhead}|${arrow.endArrowhead}`
+  return arrowCache.get(arrow.id, key, () => ({
+    shaft: sloppyPathDataDrawable(shaftData, arrow),
+    startHead: headDrawable(arrow.startArrowhead, scale, arrow, 1),
+    endHead: headDrawable(arrow.endArrowhead, scale, arrow, 2),
+  }))
+}
+
+function headDrawable(
+  head: Arrowhead,
+  scale: number,
+  arrow: ArrowElement,
+  seedOffset: number,
+): Drawable | null {
+  if (head === 'triangle') return sloppyPolygonDrawable(triangleVertices(scale), arrow, seedOffset)
+  if (head === 'bar') return sloppyPolylineDrawable(barPoints(scale), arrow)
+  return null
+}
+
+function triangleVertices(scale: number): Point[] {
+  return [
+    { x: 0, y: 0 },
+    { x: -ARROWHEAD_LENGTH * scale, y: -ARROWHEAD_WIDTH * scale * 0.5 },
+    { x: -ARROWHEAD_LENGTH * scale, y: ARROWHEAD_WIDTH * scale * 0.5 },
+  ]
+}
+
+function barPoints(scale: number): Point[] {
+  return [
+    { x: 0, y: -BAR_HALF * scale },
+    { x: 0, y: BAR_HALF * scale },
+  ]
+}
+
+function pointsMin(points: Point[]): Point {
+  let x = Infinity
+  let y = Infinity
+  for (const point of points) {
+    if (point.x < x) x = point.x
+    if (point.y < y) y = point.y
+  }
+  return { x, y }
 }
 
 export function trimmedShaftPoints(points: Point[], startTrim: number, endTrim: number): Point[] {
@@ -155,7 +215,7 @@ function paintHead(
   tip: Point,
   from: Point,
   arrow: ArrowElement,
-  seedOffset: number,
+  sloppyDrawable: Drawable | null,
 ): void {
   if (head === 'none') return
   const { strokeWidth, roundness } = arrow.style
@@ -164,19 +224,14 @@ function paintHead(
   ctx.translate(tip.x, tip.y)
   ctx.rotate(angle)
   const scale = headScale(strokeWidth)
-  const sloppy = isSloppy(arrow)
 
   if (head === 'triangle') {
-    const vertices = [
-      { x: 0, y: 0 },
-      { x: -ARROWHEAD_LENGTH * scale, y: -ARROWHEAD_WIDTH * scale * 0.5 },
-      { x: -ARROWHEAD_LENGTH * scale, y: ARROWHEAD_WIDTH * scale * 0.5 },
-    ]
-    if (sloppy) {
-      strokeSloppyPolygon(ctx, vertices, arrow, seedOffset)
+    if (sloppyDrawable) {
+      paintDrawable(ctx, sloppyDrawable)
       ctx.restore()
       return
     }
+    const vertices = triangleVertices(scale)
     ctx.beginPath()
     vertices.forEach((point, index) =>
       index === 0 ? ctx.moveTo(point.x, point.y) : ctx.lineTo(point.x, point.y),
@@ -198,15 +253,12 @@ function paintHead(
     ctx.restore()
     return
   }
-  const bar = [
-    { x: 0, y: -BAR_HALF * scale },
-    { x: 0, y: BAR_HALF * scale },
-  ]
-  if (sloppy) {
-    strokeSloppyPath(ctx, bar, arrow)
+  if (sloppyDrawable) {
+    paintDrawable(ctx, sloppyDrawable)
     ctx.restore()
     return
   }
+  const bar = barPoints(scale)
   ctx.lineWidth = strokeWidth
   ctx.beginPath()
   ctx.moveTo(bar[0]!.x, bar[0]!.y)

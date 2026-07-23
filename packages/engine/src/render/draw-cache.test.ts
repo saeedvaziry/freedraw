@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest'
 import type { Op } from 'roughjs/bin/core.js'
 import { getStroke } from 'perfect-freehand'
 import { getOutline } from '../geometry/shape-outline.js'
-import { createFreedraw, createShape } from '../model/factory.js'
+import { createArrow, createFreedraw, createShape } from '../model/factory.js'
 import type { ShapeType } from '../model/types.js'
 import { hashSeed, roughOutlineDrawable } from './rough.js'
 import { invertColor } from './invert.js'
+import { paintArrow, roundedShaftPathData } from './painters/arrow.js'
 import { paintShape } from './painters/shape.js'
 import { freedrawSize, paintFreedraw } from './painters/freedraw.js'
 import {
+  arrowCache,
   clearDrawCaches,
   colorCache,
   DrawableCache,
@@ -214,6 +216,79 @@ describe('painter caches are position-independent (a pure MOVE is a hit)', () =>
     expect(drawableCache.size).toBe(2)
     sweepDrawCaches(new Set(['a']))
     expect(drawableCache.size).toBe(1)
+  })
+})
+
+describe('arrow rough cache is position-independent (a pure MOVE is a hit)', () => {
+  const pts = [
+    { x: 40, y: 30 },
+    { x: 120, y: 30 },
+    { x: 120, y: 90 },
+  ]
+
+  const arrowKey = (arrow: ReturnType<typeof createArrow>, points: { x: number; y: number }[]): string => {
+    const scale = 1 + arrow.style.strokeWidth / 6
+    const minX = Math.min(...points.map((p) => p.x))
+    const minY = Math.min(...points.map((p) => p.y))
+    const local = points.map((p) => ({ x: p.x - minX, y: p.y - minY }))
+    return `${roundedShaftPathData(local)}|${arrow.style.roundness}|${arrow.style.sloppiness}|${scale}|${arrow.startArrowhead}|${arrow.endArrowhead}`
+  }
+
+  it('caches the shaft + heads and reuses them after a move', () => {
+    clearDrawCaches()
+    const arrow = createArrow({ id: 'arrow', points: pts, startArrowhead: 'bar', endArrowhead: 'bar' })
+    paintArrow(fakeCtx(), arrow, false)
+    expect(arrowCache.size).toBe(1)
+
+    const key = arrowKey(arrow, pts)
+    expect(() =>
+      arrowCache.get('arrow', key, () => {
+        throw new Error('regenerated')
+      }),
+    ).not.toThrow()
+
+    const delta = 250
+    const moved = createArrow({
+      id: 'arrow',
+      points: pts.map((p) => ({ x: p.x + delta, y: p.y + delta })),
+      startArrowhead: 'bar',
+      endArrowhead: 'bar',
+    })
+    paintArrow(fakeCtx(), moved, false)
+    expect(arrowCache.size).toBe(1)
+    expect(() =>
+      arrowCache.get('arrow', key, () => {
+        throw new Error('regenerated')
+      }),
+    ).not.toThrow()
+  })
+
+  it('regenerates when the route geometry changes', () => {
+    clearDrawCaches()
+    paintArrow(fakeCtx(), createArrow({ id: 'arrow', points: pts, startArrowhead: 'bar', endArrowhead: 'bar' }), false)
+    const reshaped = createArrow({
+      id: 'arrow',
+      points: [pts[0]!, { x: 200, y: 30 }, pts[2]!],
+      startArrowhead: 'bar',
+      endArrowhead: 'bar',
+    })
+    paintArrow(fakeCtx(), reshaped, false)
+    expect(arrowCache.size).toBe(1)
+    const key = arrowKey(reshaped, reshaped.points)
+    expect(() =>
+      arrowCache.get('arrow', key, () => {
+        throw new Error('regenerated')
+      }),
+    ).not.toThrow()
+  })
+
+  it('sweepDrawCaches drops arrow entries for deleted ids', () => {
+    clearDrawCaches()
+    paintArrow(fakeCtx(), createArrow({ id: 'a', points: pts, endArrowhead: 'triangle' }), false)
+    paintArrow(fakeCtx(), createArrow({ id: 'b', points: pts, endArrowhead: 'triangle' }), false)
+    expect(arrowCache.size).toBe(2)
+    sweepDrawCaches(new Set(['a']))
+    expect(arrowCache.size).toBe(1)
   })
 })
 

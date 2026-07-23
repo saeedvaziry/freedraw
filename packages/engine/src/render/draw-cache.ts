@@ -38,11 +38,19 @@ export interface ElementColors {
   textColor: string
 }
 
+export interface ArrowDrawables {
+  shaft: Drawable | null
+  startHead: Drawable | null
+  endHead: Drawable | null
+}
+
 export class DrawableCache extends KeyedCache<Drawable> {}
+export class ArrowCache extends KeyedCache<ArrowDrawables> {}
 export class StrokeCache extends KeyedCache<number[][]> {}
 export class ColorCache extends KeyedCache<ElementColors> {}
 
 export const drawableCache = new DrawableCache()
+export const arrowCache = new ArrowCache()
 export const strokeCache = new StrokeCache()
 export const colorCache = new ColorCache()
 
@@ -58,12 +66,14 @@ export function elementColors(element: Element, dark: boolean): ElementColors {
 
 export function sweepDrawCaches(live: ReadonlySet<string>): void {
   drawableCache.sweep(live)
+  arrowCache.sweep(live)
   strokeCache.sweep(live)
   colorCache.sweep(live)
 }
 
 export function clearDrawCaches(): void {
   drawableCache.clear()
+  arrowCache.clear()
   strokeCache.clear()
   colorCache.clear()
 }
