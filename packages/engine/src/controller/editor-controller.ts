@@ -10,7 +10,7 @@ import type { Rect } from '../geometry/rect.js'
 import type { SnapGuide } from '../geometry/snap.js'
 import { InputManager } from '../input/input-manager.js'
 import type { PinchDelta } from '../input/pinch.js'
-import type { Element, ElementId, Label, Point, ShapeType } from '../model/types.js'
+import type { CameraState, Element, ElementId, Label, Point, ShapeType } from '../model/types.js'
 import { isArrowElement } from '../model/guards.js'
 import {
   spawnConnectedShape,
@@ -299,6 +299,15 @@ export class EditorController {
   get viewportCenter(): Point {
     const { width, height } = this.viewportSize
     return this.camera.screenToWorld({ x: width / 2, y: height / 2 })
+  }
+
+  getViewport(): CameraState {
+    return this.camera.state
+  }
+
+  focusViewport(state: CameraState): void {
+    this.camera.setState(state)
+    this.commitCamera()
   }
 
   zoomToFit(): void {

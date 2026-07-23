@@ -1,3 +1,4 @@
+import * as Y from 'yjs'
 import { describe, expect, it } from 'vitest'
 import { createArrow, createShape } from '../model/factory.js'
 import type { Binding, ElementId } from '../model/types.js'
@@ -130,5 +131,78 @@ describe('bulk delete', () => {
     store.undo()
 
     expect(store.getSnapshot().order).toEqual(ids)
+  })
+})
+
+describe('local app state', () => {
+  it('keeps camera out of the synced doc', () => {
+    const store = new SceneStore()
+
+    store.commitCamera({ x: 10, y: 20, zoom: 1.5 })
+
+    expect(store.getSnapshot().appState.camera).toEqual({ x: 10, y: 20, zoom: 1.5 })
+    expect(store.getLocalAppState().camera).toEqual({ x: 10, y: 20, zoom: 1.5 })
+    expect(store.doc.getMap('appState').get('camera')).toBeUndefined()
+    expect(store.canUndo).toBe(false)
+  })
+
+  it('keeps lastUsedStyle and snapGuides out of the synced doc', () => {
+    const store = new SceneStore()
+
+    store.updateLastUsedStyle({ stroke: '#abcdef' })
+    store.setSnapGuidesEnabled(false)
+
+    expect(store.getLastUsedStyle().stroke).toBe('#abcdef')
+    expect(store.getSnapshot().appState.snapGuidesEnabled).toBe(false)
+    expect(store.doc.getMap('appState').get('lastUsedStyle')).toBeUndefined()
+    expect(store.doc.getMap('appState').get('snapGuidesEnabled')).toBeUndefined()
+  })
+
+  it('seeds local state from an existing document', () => {
+    const doc = new Y.Doc()
+    doc.getMap('appState').set('camera', { x: 5, y: 6, zoom: 2 })
+    doc.getMap('appState').set('snapGuidesEnabled', false)
+
+    const store = new SceneStore(doc)
+
+    expect(store.getSnapshot().appState.camera).toEqual({ x: 5, y: 6, zoom: 2 })
+    expect(store.getLocalAppState().snapGuidesEnabled).toBe(false)
+  })
+
+  it('hydrates local state and reflects it in the snapshot', () => {
+    const store = new SceneStore()
+
+    store.hydrateLocalAppState({ camera: { x: 3, y: 4, zoom: 0.5 }, snapGuidesEnabled: false })
+
+    expect(store.getSnapshot().appState.camera).toEqual({ x: 3, y: 4, zoom: 0.5 })
+    expect(store.getSnapshot().appState.snapGuidesEnabled).toBe(false)
+  })
+
+  it('notifies local-state subscribers only for local changes', () => {
+    const store = new SceneStore()
+    let localCalls = 0
+    store.subscribeLocalState(() => {
+      localCalls += 1
+    })
+
+    store.transact((api) => api.addElement(shapeAt('a', 0)))
+    expect(localCalls).toBe(0)
+
+    store.commitCamera({ x: 1, y: 2, zoom: 1 })
+    store.updateLastUsedStyle({ stroke: '#111111' })
+    store.setSnapGuidesEnabled(false)
+    expect(localCalls).toBe(3)
+  })
+
+  it('still notifies scene subscribers so chrome re-renders on camera commit', () => {
+    const store = new SceneStore()
+    let sceneCalls = 0
+    store.subscribe(() => {
+      sceneCalls += 1
+    })
+
+    store.commitCamera({ x: 1, y: 2, zoom: 1 })
+
+    expect(sceneCalls).toBeGreaterThan(0)
   })
 })

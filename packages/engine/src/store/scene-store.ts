@@ -41,7 +41,6 @@ function pasteOffsetForTarget(payload: SceneClipboardPayload, target: Point): Po
 }
 
 export const TRANSACTION_ORIGIN = 'freedraw'
-export const CAMERA_ORIGIN = 'freedraw:camera'
 
 export interface TransactionApi {
   addElement(element: Element): void
@@ -76,7 +75,24 @@ export interface UiState {
   clipboardElementCount: number
 }
 
+export interface LocalAppState {
+  camera: CameraState
+  lastUsedStyle: Style
+  snapGuidesEnabled: boolean
+}
+
 type Subscriber = () => void
+
+function readLocalAppState(yAppState: Y.Map<unknown>): LocalAppState {
+  const fallback = defaultAppState()
+  const json = yAppState.toJSON() as Partial<AppState>
+  return {
+    camera: json.camera ?? fallback.camera,
+    lastUsedStyle: json.lastUsedStyle ?? fallback.lastUsedStyle,
+    snapGuidesEnabled:
+      typeof json.snapGuidesEnabled === 'boolean' ? json.snapGuidesEnabled : fallback.snapGuidesEnabled,
+  }
+}
 
 function toYElement(element: Element): Y.Map<unknown> {
   const map = new Y.Map<unknown>()
@@ -110,6 +126,9 @@ export class SceneStore {
     clipboardElementCount: 0,
   }
 
+  private readonly localSubscribers = new Set<Subscriber>()
+  private localState: LocalAppState
+
   private readonly arrowsByShape = new Map<ElementId, Set<ElementId>>()
   private readonly arrowBindings = new Map<ElementId, ElementId[]>()
   private readonly routeCache = new RouteCache()
@@ -127,6 +146,7 @@ export class SceneStore {
     this.yElements = doc.getMap('elements')
     this.yOrder = doc.getArray('elementOrder')
     this.yAppState = doc.getMap('appState')
+    this.localState = readLocalAppState(this.yAppState)
 
     this.snapshot = this.buildSnapshot()
     this.rebuildBindingIndex()
@@ -177,11 +197,31 @@ export class SceneStore {
   }
 
   commitCamera(camera: CameraState): void {
-    this.doc.transact(() => this.yAppState.set('camera', camera), CAMERA_ORIGIN)
+    this.setLocalState({ camera })
   }
 
   setSnapGuidesEnabled(enabled: boolean): void {
-    this.doc.transact(() => this.yAppState.set('snapGuidesEnabled', enabled), CAMERA_ORIGIN)
+    this.setLocalState({ snapGuidesEnabled: enabled })
+  }
+
+  getLocalAppState(): LocalAppState {
+    return this.localState
+  }
+
+  subscribeLocalState(cb: Subscriber): () => void {
+    this.localSubscribers.add(cb)
+    return () => this.localSubscribers.delete(cb)
+  }
+
+  hydrateLocalAppState(patch: Partial<LocalAppState>): void {
+    this.setLocalState(patch)
+  }
+
+  private setLocalState(patch: Partial<LocalAppState>): void {
+    this.localState = { ...this.localState, ...patch }
+    this.snapshot = { ...this.snapshot, appState: this.readAppState() }
+    this.localSubscribers.forEach((cb) => cb())
+    this.invalidate()
   }
 
   deleteElements(ids: Iterable<ElementId>): void {
@@ -306,8 +346,7 @@ export class SceneStore {
   }
 
   updateLastUsedStyle(patch: Partial<Style>): void {
-    const next = { ...this.snapshot.appState.lastUsedStyle, ...patch }
-    this.doc.transact(() => this.yAppState.set('lastUsedStyle', next), CAMERA_ORIGIN)
+    this.setLocalState({ lastUsedStyle: { ...this.localState.lastUsedStyle, ...patch } })
   }
 
   getSelectionStyle(): SelectionStyle {
@@ -384,6 +423,7 @@ export class SceneStore {
     this.yAppState.unobserve(this.onAppStateChanged)
     this.subscribers.clear()
     this.uiSubscribers.clear()
+    this.localSubscribers.clear()
     this.historySubscribers.clear()
   }
 
@@ -437,15 +477,12 @@ export class SceneStore {
 
   private readAppState(): AppState {
     const fallback = defaultAppState()
-    const json = this.yAppState.toJSON() as Partial<AppState>
+    const version = this.yAppState.get('schemaVersion')
     return {
-      schemaVersion: json.schemaVersion ?? fallback.schemaVersion,
-      camera: json.camera ?? fallback.camera,
-      lastUsedStyle: json.lastUsedStyle ?? fallback.lastUsedStyle,
-      snapGuidesEnabled:
-        typeof json.snapGuidesEnabled === 'boolean'
-          ? json.snapGuidesEnabled
-          : fallback.snapGuidesEnabled,
+      schemaVersion: typeof version === 'number' ? version : fallback.schemaVersion,
+      camera: this.localState.camera,
+      lastUsedStyle: this.localState.lastUsedStyle,
+      snapGuidesEnabled: this.localState.snapGuidesEnabled,
     }
   }
 

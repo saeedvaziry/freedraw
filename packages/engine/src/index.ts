@@ -7,8 +7,14 @@ export type { RenderLoopHandle } from './render/loop.js'
 export { Camera, clampZoom, MIN_ZOOM, MAX_ZOOM } from './geometry/camera.js'
 export type { CameraState as CameraStateGeom } from './geometry/camera.js'
 
-export { SceneStore, TRANSACTION_ORIGIN, CAMERA_ORIGIN } from './store/scene-store.js'
-export type { TransactionApi, UiState, ToolId, PasteElementsOptions } from './store/scene-store.js'
+export { SceneStore, TRANSACTION_ORIGIN } from './store/scene-store.js'
+export type {
+  TransactionApi,
+  UiState,
+  LocalAppState,
+  ToolId,
+  PasteElementsOptions,
+} from './store/scene-store.js'
 export {
   SCENE_CLIPBOARD_VERSION,
   clipboardCenter,

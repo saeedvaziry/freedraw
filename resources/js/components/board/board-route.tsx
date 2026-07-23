@@ -2,7 +2,12 @@ import { router, usePage } from '@inertiajs/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { EditorController, type SceneStore } from '@freedraw/engine'
 import { BoardProvider, type BoardContextValue } from './board-context.js'
-import { gcOrphanedPageStores, type AssetSource, type PageSync } from '@/lib/persistence'
+import {
+  attachViewportPersistence,
+  gcOrphanedPageStores,
+  type AssetSource,
+  type PageSync,
+} from '@/lib/persistence'
 import { useImageInsert } from '@/hooks/board/use-image-insert.js'
 import { BoardMobileMenu } from './board-mobile-menu.js'
 import { BoardPagesBar } from './board-pages-bar.js'
@@ -151,6 +156,8 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
   const imageInsert = useImageInsert(controller, store, assetSource)
   useKeyboard(store, controller, imageInsert.openPicker, boardExport)
   useBoardClipboard(store, controller)
+
+  useEffect(() => attachViewportPersistence(store, assetSource), [store, assetSource])
 
   useEffect(() => {
     const scene = sceneRef.current
