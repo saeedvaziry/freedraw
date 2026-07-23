@@ -1,6 +1,6 @@
 import { router, usePage } from '@inertiajs/react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useToast } from '@/components/board/ui-kit'
+import { boardToast } from '@/lib/board-toast'
 import {
   createRemotePage,
   deleteRemotePage,
@@ -46,7 +46,6 @@ export interface UsePagesResult {
  */
 export function usePages(onNavigate?: () => void): UsePagesResult {
   const page = usePage()
-  const { toast } = useToast()
   const currentBoardPage = page.props.boardPage ?? null
   const propBoardPages = page.props.boardPages ?? EMPTY_BOARD_PAGES
 
@@ -82,9 +81,9 @@ export function usePages(onNavigate?: () => void): UsePagesResult {
         onNavigate?.()
         router.visit(created.url)
       })
-      .catch((error) => toast(failureMessage(error, 'Could not create the page. Try again.'), 'error'))
+      .catch((error) => boardToast(failureMessage(error, 'Could not create the page. Try again.'), 'error'))
       .finally(() => setCreating(false))
-  }, [creating, onNavigate, toast])
+  }, [creating, onNavigate])
 
   const beginRename = useCallback((boardPage: BoardPage) => {
     setEditing({ id: boardPage.publicId, mode: 'rename' })
@@ -115,10 +114,10 @@ export function usePages(onNavigate?: () => void): UsePagesResult {
           )
           resetEditing()
         })
-        .catch((error) => toast(failureMessage(error, 'Could not rename the page. Try again.'), 'error'))
+        .catch((error) => boardToast(failureMessage(error, 'Could not rename the page. Try again.'), 'error'))
         .finally(() => setBusy(false))
     },
-    [busy, renameDraft, resetEditing, toast],
+    [busy, renameDraft, resetEditing],
   )
 
   const confirmDelete = useCallback(
@@ -137,10 +136,10 @@ export function usePages(onNavigate?: () => void): UsePagesResult {
           )
           resetEditing()
         })
-        .catch((error) => toast(failureMessage(error, 'Could not delete the page. Try again.'), 'error'))
+        .catch((error) => boardToast(failureMessage(error, 'Could not delete the page. Try again.'), 'error'))
         .finally(() => setBusy(false))
     },
-    [activePage?.publicId, busy, onNavigate, resetEditing, toast],
+    [activePage?.publicId, busy, onNavigate, resetEditing],
   )
 
   return {

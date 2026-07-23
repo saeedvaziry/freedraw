@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip.js'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 export function FieldLabel({ children }: { children: React.ReactNode }) {
   return <span className="text-xs font-medium text-muted-foreground">{children}</span>

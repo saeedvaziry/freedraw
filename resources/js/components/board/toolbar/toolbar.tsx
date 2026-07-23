@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import type { ShapeType, StickyColor, ToolId } from '@freedraw/engine'
 import { cn } from '@/lib/utils'
-import { TooltipProvider } from '../ui/tooltip.js'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { ToolButton } from './tool-button.js'
 import { ShapesPopover } from './shapes-popover.js'
 import { StickyPopover } from './sticky-popover.js'

@@ -1,7 +1,7 @@
 import { Pipette } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FieldLabel } from './controls.js'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip.js'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 const SWATCHES = [
   'transparent',

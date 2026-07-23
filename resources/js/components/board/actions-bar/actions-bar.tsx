@@ -10,7 +10,7 @@ import {
   Undo2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip.js'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ExportMenu, type ExportFormat } from '../export-menu/export-menu.js'
 
 export interface ActionsBarProps {

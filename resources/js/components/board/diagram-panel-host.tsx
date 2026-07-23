@@ -1,6 +1,7 @@
 import { useMemo, useState, useSyncExternalStore } from 'react'
 import { importDiagram, serializeDiagram } from '@freedraw/engine'
-import { DiagramPanel, useToast } from '@/components/board/ui-kit'
+import { DiagramPanel } from '@/components/board/ui-kit'
+import { boardToast } from '@/lib/board-toast'
 import { useBoardContext } from './board-context.js'
 
 const DOCS_HREF = '/docs/diagram.html'
@@ -13,7 +14,6 @@ export function DiagramPanelHost({ onClose }: DiagramPanelHostProps) {
   const { store, controller } = useBoardContext()
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const { toast } = useToast()
 
   const doc = useMemo(() => store.select((s) => s.getSnapshot(), { channels: ['doc'] }), [store])
   const snapshot = useSyncExternalStore(doc.subscribe, doc.getSnapshot)
@@ -34,10 +34,10 @@ export function DiagramPanelHost({ onClose }: DiagramPanelHostProps) {
     if (report.text.length === 0) return
     try {
       await navigator.clipboard.writeText(report.text)
-      toast('Copied to clipboard')
+      boardToast('Copied to clipboard')
     } catch (cause) {
       console.error('Diagram code copy failed', cause)
-      toast('Copy failed', 'error')
+      boardToast('Copy failed', 'error')
     }
   }
 

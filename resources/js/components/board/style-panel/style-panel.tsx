@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { ArrowControls } from './arrow-controls.js'
 import { FontControls } from './font-controls.js'
 import { StrokeControls } from './stroke-controls.js'
-import { TooltipProvider } from '../ui/tooltip.js'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import type { ArrowPanelPatch, ArrowPanelState, PanelStyle, PanelStylePatch } from './types.js'
 
 export interface StylePanelSelection {

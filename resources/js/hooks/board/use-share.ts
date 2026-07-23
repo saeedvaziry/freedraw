@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useToast } from '@/components/board/ui-kit'
+import { boardToast } from '@/lib/board-toast'
 import { isCsrfExpired, updateRemoteShare } from '@/lib/persistence'
 import type { BoardPage, PagePermission, PageVisibility } from '@/types'
 
@@ -28,7 +28,6 @@ export interface UseShareResult {
  * which would tear down and rebuild the board canvas behind the dialog.
  */
 export function useShare(boardPage: BoardPage): UseShareResult {
-  const { toast } = useToast()
   const [visibility, setVisibilityState] = useState<PageVisibility>(boardPage.visibility)
   const [permission, setPermissionState] = useState<PagePermission>(boardPage.permission)
   const [shareUrl, setShareUrl] = useState<string | null>(boardPage.shareUrl)
@@ -62,11 +61,11 @@ export function useShare(boardPage: BoardPage): UseShareResult {
           setVisibilityState(previous.visibility)
           setPermissionState(previous.permission)
           setShareUrl(previous.shareUrl)
-          toast(failureMessage(error, 'Could not update sharing. Try again.'), 'error')
+          boardToast(failureMessage(error, 'Could not update sharing. Try again.'), 'error')
         })
         .finally(() => setBusy(false))
     },
-    [boardPage.publicId, permission, shareUrl, toast, visibility],
+    [boardPage.publicId, permission, shareUrl, visibility],
   )
 
   const setVisibility = useCallback(
@@ -93,8 +92,8 @@ export function useShare(boardPage: BoardPage): UseShareResult {
         setCopied(true)
         window.setTimeout(() => setCopied(false), 2000)
       })
-      .catch(() => toast('Could not copy the link.', 'error'))
-  }, [shareUrl, toast])
+      .catch(() => boardToast('Could not copy the link.', 'error'))
+  }, [shareUrl])
 
   return {
     visibility,

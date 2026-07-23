@@ -1,7 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { useEffect } from 'react';
 import { BoardRoute } from '@/components/board/board-route';
-import { ToastProvider } from '@/components/board/ui-kit';
 
 export default function Board() {
     useEffect(() => {
@@ -13,9 +12,7 @@ export default function Board() {
     return (
         <>
             <Head title="Home" />
-            <ToastProvider>
-                <BoardRoute />
-            </ToastProvider>
+            <BoardRoute />
         </>
     );
 }

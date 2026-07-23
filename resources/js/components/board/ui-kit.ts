@@ -12,7 +12,7 @@ export {
   TooltipTrigger,
   TooltipContent,
   TooltipProvider,
-} from './ui/tooltip.js'
+} from '@/components/ui/tooltip'
 export { FloatingPanel } from './ui/floating-panel.js'
 export type { FloatingPanelProps, FloatingPanelOrientation } from './ui/floating-panel.js'
 export { IconButton } from './ui/icon-button.js'
@@ -30,8 +30,6 @@ export { ActionsBar } from './actions-bar/actions-bar.js'
 export type { ActionsBarProps } from './actions-bar/actions-bar.js'
 export { ExportMenu } from './export-menu/export-menu.js'
 export type { ExportMenuProps, ExportFormat } from './export-menu/export-menu.js'
-export { ToastProvider, useToast } from './toast/toast-provider.js'
-export type { ToastVariant } from './toast/toast-provider.js'
 
 export { StylePanel } from './style-panel/style-panel.js'
 export type { StylePanelProps, StylePanelSelection } from './style-panel/style-panel.js'

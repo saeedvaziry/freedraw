@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import type { EditorController, ExportImageOptions } from '@freedraw/engine'
-import { useToast } from '@/components/board/ui-kit'
+import { boardToast } from '@/lib/board-toast'
 
 type ExportFormat = ExportImageOptions['format']
 
@@ -12,25 +12,23 @@ export interface BoardExport {
 }
 
 export function useExport(controller: EditorController | null): BoardExport {
-  const { toast } = useToast()
-
   const exportImage = useCallback(
     async (format: ExportFormat, transparent: boolean, dark: boolean): Promise<void> => {
       if (!controller) return
       try {
         const blob = await controller.exportImage({ format, transparent, dark })
         if (!blob) {
-          toast('Nothing to export', 'error')
+          boardToast('Nothing to export', 'error')
           return
         }
         downloadBlob(blob, `freedraw.${EXTENSION[format]}`)
-        toast(`Exported as ${format.toUpperCase()}`)
+        boardToast(`Exported as ${format.toUpperCase()}`)
       } catch (error) {
         console.error('Export failed', error)
-        toast('Export failed', 'error')
+        boardToast('Export failed', 'error')
       }
     },
-    [controller, toast],
+    [controller],
   )
 
   const copyImage = useCallback(async (): Promise<void> => {
@@ -38,15 +36,15 @@ export function useExport(controller: EditorController | null): BoardExport {
     try {
       const copied = await controller.copyImageToClipboard()
       if (!copied) {
-        toast('Clipboard not supported', 'error')
+        boardToast('Clipboard not supported', 'error')
         return
       }
-      toast('Copied to clipboard')
+      boardToast('Copied to clipboard')
     } catch (error) {
       console.error('Clipboard copy failed', error)
-      toast('Copy failed', 'error')
+      boardToast('Copy failed', 'error')
     }
-  }, [controller, toast])
+  }, [controller])
 
   return useMemo(() => ({ exportImage, copyImage }), [exportImage, copyImage])
 }

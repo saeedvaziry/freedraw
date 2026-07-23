@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ClipboardCopy, Download, ImageDown, Moon, Sun } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover.js'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip.js'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 export type ExportFormat = 'png' | 'jpg'
