@@ -1,8 +1,11 @@
 import * as Y from 'yjs'
 import { describe, expect, it } from 'vitest'
 import { createArrow, createShape } from '../model/factory.js'
+import { isArrowElement } from '../model/guards.js'
+import { selectionBounds } from '../geometry/hit-test.js'
 import type { Binding, ElementId } from '../model/types.js'
 import { SceneStore, shallowEqual } from './scene-store.js'
+import { buildStencil } from './stencil.js'
 
 const shapeAt = (id: string, x: number): ReturnType<typeof createShape> =>
   createShape({ id, type: 'rect', x, y: 0, width: 40, height: 40 })
@@ -506,5 +509,104 @@ describe('align and distribute', () => {
     const gapAB = elements.b!.x - (elements.a!.x + elements.a!.width)
     const gapBC = elements.c!.x - (elements.b!.x + elements.b!.width)
     expect(gapAB).toBeCloseTo(gapBC)
+  })
+})
+
+describe('insertStencil', () => {
+  const buildBoundSource = (): SceneStore => {
+    const store = new SceneStore()
+    store.transact((api) => {
+      api.addElement(shapeAt('a', 0))
+      api.addElement(shapeAt('b', 200))
+      api.addElement(
+        createArrow({
+          id: 'arrow',
+          points: [
+            { x: 40, y: 20 },
+            { x: 200, y: 20 },
+          ],
+          start: bindingTo('a'),
+          end: bindingTo('b'),
+        }),
+      )
+    })
+    return store
+  }
+
+  const buildShapesSource = (): SceneStore => {
+    const store = new SceneStore()
+    store.transact((api) => {
+      api.addElement(shapeAt('a', 0))
+      api.addElement(shapeAt('b', 200))
+    })
+    return store
+  }
+
+  it('remaps ids and selects the inserted elements', () => {
+    const stencil = buildStencil(buildBoundSource().getSnapshot(), ['a', 'b', 'arrow'])
+    expect(stencil).not.toBeNull()
+
+    const store = new SceneStore()
+    const ids = store.insertStencil(stencil!, { x: 0, y: 0 })
+
+    expect(ids).toHaveLength(3)
+    for (const id of ids) {
+      expect(['a', 'b', 'arrow']).not.toContain(id)
+      expect(store.getSnapshot().elements[id]).toBeDefined()
+    }
+    expect(store.getUiState().selectedIds).toEqual(new Set(ids))
+  })
+
+  it('rebinds arrows within the stencil to the cloned shape ids', () => {
+    const stencil = buildStencil(buildBoundSource().getSnapshot(), ['a', 'b', 'arrow'])!
+
+    const store = new SceneStore()
+    const ids = store.insertStencil(stencil, { x: 0, y: 0 })
+    const inserted = new Set(ids)
+    const arrow = ids.map((id) => store.getSnapshot().elements[id]!).find(isArrowElement)
+
+    expect(arrow).toBeDefined()
+    expect(arrow!.start?.elementId).not.toBe('a')
+    expect(arrow!.end?.elementId).not.toBe('b')
+    expect(inserted.has(arrow!.start!.elementId)).toBe(true)
+    expect(inserted.has(arrow!.end!.elementId)).toBe(true)
+  })
+
+  it('centers the stencil on a target point', () => {
+    const stencil = buildStencil(buildShapesSource().getSnapshot(), ['a', 'b'])!
+
+    const store = new SceneStore()
+    const ids = store.insertStencil(stencil, { x: 500, y: 300 })
+    const bounds = selectionBounds(ids.map((id) => store.getSnapshot().elements[id]!))
+
+    expect(bounds).not.toBeNull()
+    expect(bounds!.x + bounds!.width / 2).toBeCloseTo(500)
+    expect(bounds!.y + bounds!.height / 2).toBeCloseTo(300)
+  })
+
+  it('centers the stencil on a target rect center', () => {
+    const stencil = buildStencil(buildShapesSource().getSnapshot(), ['a', 'b'])!
+
+    const store = new SceneStore()
+    const ids = store.insertStencil(stencil, { x: 100, y: 100, width: 200, height: 60 })
+    const bounds = selectionBounds(ids.map((id) => store.getSnapshot().elements[id]!))
+
+    expect(bounds!.x + bounds!.width / 2).toBeCloseTo(200)
+    expect(bounds!.y + bounds!.height / 2).toBeCloseTo(130)
+  })
+
+  it('inserts as a single undo step', () => {
+    const stencil = buildStencil(buildBoundSource().getSnapshot(), ['a', 'b', 'arrow'])!
+
+    const store = new SceneStore()
+    const ids = store.insertStencil(stencil, { x: 0, y: 0 })
+    expect(store.getSnapshot().order).toHaveLength(3)
+
+    store.undo()
+
+    for (const id of ids) {
+      expect(store.getSnapshot().elements[id]).toBeUndefined()
+    }
+    expect(store.getSnapshot().order).toHaveLength(0)
   })
 })

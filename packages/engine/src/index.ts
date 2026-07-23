@@ -27,6 +27,8 @@ export {
   isSceneClipboardPayload,
 } from './store/clipboard.js'
 export type { SceneClipboardPayload, SceneClipboardClone } from './store/clipboard.js'
+export { buildStencil, STENCIL_VERSION } from './store/stencil.js'
+export type { Stencil, Template, StencilKind, BuildStencilOptions } from './store/stencil.js'
 export { deriveSelectionStyle, MIXED } from './store/selection-style.js'
 export type { SelectionStyle, StyleValue } from './store/selection-style.js'
 

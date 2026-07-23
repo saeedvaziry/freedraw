@@ -3,6 +3,7 @@ import { createId, DEFAULT_STICKY_COLOR, pointsBounds, type StickyColor } from '
 import { isArrowElement } from '../model/guards.js'
 import { defaultAppState } from '../model/schema.js'
 import { rotatedBounds } from '../geometry/rotate.js'
+import type { Rect } from '../geometry/rect.js'
 import {
   alignDeltas,
   distributeDeltas,
@@ -29,6 +30,7 @@ import {
   createSceneClipboard,
   type SceneClipboardPayload,
 } from './clipboard.js'
+import type { Stencil } from './stencil.js'
 import { HoverStore } from './hover-store.js'
 import { RouteCache } from './route-cache.js'
 import { deriveSelectionStyle, type SelectionStyle } from './selection-style.js'
@@ -48,6 +50,12 @@ function shallowEqualStyle(a: SelectionStyle, b: SelectionStyle): boolean {
 function pasteOffsetForTarget(payload: SceneClipboardPayload, target: Point): Point {
   const center = clipboardCenter(payload)
   return { x: target.x - center.x, y: target.y - center.y }
+}
+
+function stencilTargetPoint(target: Point | Rect): Point {
+  return 'width' in target
+    ? { x: target.x + target.width / 2, y: target.y + target.height / 2 }
+    : target
 }
 
 export const TRANSACTION_ORIGIN = 'freedraw'
@@ -550,6 +558,17 @@ export class SceneStore {
       activeTool: 'select',
       clipboardElementCount: payload.elements.length,
     })
+    return cloneIds
+  }
+
+  insertStencil(stencil: Stencil, target: Point | Rect): ElementId[] {
+    const offset = pasteOffsetForTarget(stencil.payload, stencilTargetPoint(target))
+    const { elements: clones, ids: cloneIds } = cloneSceneClipboard(stencil.payload, offset)
+    if (clones.length === 0) return []
+    this.stopCapturing()
+    this.transact((api) => clones.forEach((clone) => api.addElement(clone)))
+    this.stopCapturing()
+    this.setUiState({ selectedIds: new Set(cloneIds), activeTool: 'select' })
     return cloneIds
   }
 
