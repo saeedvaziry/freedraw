@@ -38,6 +38,9 @@ export type { DiagramError, Direction } from './diagram/ast.js'
 
 export { EditorController } from './controller/editor-controller.js'
 export type { ExportImageOptions, FlowContext } from './controller/editor-controller.js'
+export type { CursorListener, CameraListener } from './controller/editor-controller.js'
+export { paintPresence } from './render/overlay/presence.js'
+export type { PresenceOverlay, PresenceCursor, PresenceHalo } from './render/overlay/presence.js'
 export {
   renderSceneToCanvas,
   canvasToBlob,

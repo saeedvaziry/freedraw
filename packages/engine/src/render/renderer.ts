@@ -16,6 +16,7 @@ import { paintHover, paintMarquee, paintSelection } from './overlay/selection.js
 import { paintPorts, paintTargetHighlight } from './overlay/ports.js'
 import { paintArrowHandles } from './overlay/arrow-handles.js'
 import { paintGuides } from './overlay/guides.js'
+import { paintPresence, type PresenceOverlay } from './overlay/presence.js'
 
 export interface SpawnPreview {
   target: Element
@@ -32,6 +33,7 @@ export interface OverlayState {
   targetHighlight?: Element | null
   guides?: SnapGuide[]
   marquee?: Rect | null
+  presence?: PresenceOverlay | null
 }
 
 export interface GridStyle extends GridConfig {
@@ -167,6 +169,7 @@ export class Renderer {
     if (overlay.targetHighlight) paintTargetHighlight(ctx, overlay.targetHighlight, camera)
     if (overlay.guides) paintGuides(ctx, overlay.guides, camera)
     if (overlay.marquee) paintMarquee(ctx, overlay.marquee, camera)
+    if (overlay.presence) paintPresence(ctx, overlay.presence, camera)
   }
 
   private paintGrid(viewport: Rect, zoom: number): void {

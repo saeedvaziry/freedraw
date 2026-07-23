@@ -24,6 +24,7 @@ import { elementBounds } from '../geometry/hit-test.js'
 import type { Style } from '../model/types.js'
 import { createRenderLoop, type RenderDirty, type RenderLoopHandle } from '../render/loop.js'
 import { Renderer, type OverlayState, type SpawnPreview } from '../render/renderer.js'
+import type { PresenceOverlay } from '../render/overlay/presence.js'
 import {
   canvasToBlob,
   exportImageAssetIds,
@@ -64,6 +65,8 @@ const WHEEL_COMMIT_DELAY = 150
 type Cleanup = () => void
 type SpawnMenuListener = (request: SpawnMenuRequest | null) => void
 type ContextMenuListener = (request: ContextMenuRequest | null) => void
+export type CursorListener = (point: Point | null) => void
+export type CameraListener = (camera: CameraState) => void
 
 export interface FlowContext {
   editingId: ElementId
@@ -90,6 +93,10 @@ export class EditorController {
   private readonly editListeners = new Set<EditListener>()
   private readonly spawnMenuListeners = new Set<SpawnMenuListener>()
   private readonly contextMenuListeners = new Set<ContextMenuListener>()
+  private readonly cursorListeners = new Set<CursorListener>()
+  private readonly cameraInputListeners = new Set<CameraListener>()
+  private readonly cameraFrameListeners = new Set<CameraListener>()
+  private presenceOverlay: PresenceOverlay | null = null
   private isSpaceDown = false
   private isSpacePanning = false
   private spacePanLast = { x: 0, y: 0 }
@@ -149,7 +156,9 @@ export class EditorController {
       onGestureEnd: () => this.commitCamera(),
       onPointerInfo: (info) => {
         this.lastPointerScreen = info.screen
+        this.emitCursor(info.world)
       },
+      onPointerLeave: () => this.emitCursor(null),
       isReadOnly: () => this.readOnly,
     })
   }
@@ -349,6 +358,37 @@ export class EditorController {
   focusViewport(state: CameraState): void {
     this.camera.setState(state)
     this.commitCamera()
+  }
+
+  subscribeCursor(listener: CursorListener): () => void {
+    this.cursorListeners.add(listener)
+    return () => this.cursorListeners.delete(listener)
+  }
+
+  subscribeCameraInput(listener: CameraListener): () => void {
+    this.cameraInputListeners.add(listener)
+    return () => this.cameraInputListeners.delete(listener)
+  }
+
+  subscribeCamera(listener: CameraListener): () => void {
+    this.cameraFrameListeners.add(listener)
+    return () => this.cameraFrameListeners.delete(listener)
+  }
+
+  setPresenceOverlay(presence: PresenceOverlay | null): void {
+    this.presenceOverlay = presence
+    this.loop.markOverlayDirty()
+  }
+
+  private emitCursor(point: Point | null): void {
+    if (this.cursorListeners.size === 0) return
+    this.cursorListeners.forEach((listener) => listener(point))
+  }
+
+  private emitCameraInput(): void {
+    if (this.cameraInputListeners.size === 0) return
+    const state = this.camera.state
+    this.cameraInputListeners.forEach((listener) => listener(state))
   }
 
   zoomToFit(): void {
@@ -578,6 +618,10 @@ export class EditorController {
     if (dirty.overlay) {
       this.renderer.renderOverlay(this.camera, this.buildOverlay())
     }
+    if (this.cameraFrameListeners.size > 0) {
+      const state = this.camera.state
+      this.cameraFrameListeners.forEach((listener) => listener(state))
+    }
   }
 
   private buildOverlay(): OverlayState {
@@ -605,6 +649,7 @@ export class EditorController {
       targetHighlight,
       guides: snapshot.appState.snapGuidesEnabled ? this.guides : [],
       marquee: this.marquee,
+      presence: this.presenceOverlay,
     }
   }
 
@@ -648,6 +693,7 @@ export class EditorController {
       this.camera.panByScreen(-event.deltaX, -event.deltaY)
     }
     this.loop.markDirty()
+    this.emitCameraInput()
     this.scheduleCameraCommit()
   }
 
@@ -658,6 +704,7 @@ export class EditorController {
       this.camera.zoomToScreenPoint(this.camera.zoom * delta.scale, delta.center)
     }
     this.loop.markDirty()
+    this.emitCameraInput()
   }
 
   private scheduleCameraCommit(): void {
@@ -699,6 +746,7 @@ export class EditorController {
       this.spacePanLast = { x: event.clientX, y: event.clientY }
       this.lastPointerScreen = this.localPoint(event.clientX, event.clientY)
       this.loop.markDirty()
+      this.emitCameraInput()
     }
     const onUp = (event: PointerEvent): void => {
       if (!this.isSpacePanning) return

@@ -11,6 +11,7 @@ export interface InputHandlers {
   onGesture(delta: PinchDelta): void
   onGestureEnd(): void
   onPointerInfo?(info: PointerInfo): void
+  onPointerLeave?(): void
   /**
    * When true, tool interactions (create/select/move/edit) are suppressed while
    * navigation (pan/zoom via wheel and pinch) keeps working. Read each time so
@@ -128,15 +129,21 @@ export class InputManager {
       if (this.readOnly || !tool.onPointerUp) return
       this.handlers.onResult(tool.onPointerUp(info, this.handlers.context))
     }
+    const onLeave = (): void => {
+      if (this.capturing || this.gesturePointers) return
+      this.handlers.onPointerLeave?.()
+    }
     this.overlay.addEventListener('pointerdown', onDown)
     this.overlay.addEventListener('pointermove', onMove)
     this.overlay.addEventListener('pointerup', onUp)
     this.overlay.addEventListener('pointercancel', onUp)
+    this.overlay.addEventListener('pointerleave', onLeave)
     this.cleanups.push(() => {
       this.overlay.removeEventListener('pointerdown', onDown)
       this.overlay.removeEventListener('pointermove', onMove)
       this.overlay.removeEventListener('pointerup', onUp)
       this.overlay.removeEventListener('pointercancel', onUp)
+      this.overlay.removeEventListener('pointerleave', onLeave)
     })
   }
 
