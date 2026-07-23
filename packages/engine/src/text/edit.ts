@@ -5,6 +5,7 @@ export type EditTarget = 'text' | 'label'
 export interface EditRequest {
   elementId: ElementId
   target: EditTarget
+  labelKind?: 'shape' | 'arrow'
   text: string
   world: { x: number; y: number; width: number; height: number }
   style: Style

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { createArrow } from '../model/factory.js'
 import { defaultAppState, defaultStyle } from '../model/schema.js'
 import type { Element, SceneSnapshot } from '../model/types.js'
-import { nearestShape } from './hit-test.js'
+import { hitTest, nearestShape } from './hit-test.js'
 
 function snapshotOf(...elements: Element[]): SceneSnapshot {
   return {
@@ -60,5 +61,26 @@ describe('nearestShape', () => {
       routing: 'straight',
     }
     expect(nearestShape({ x: 50, y: 0 }, snapshotOf(arrow), 32)).toBeNull()
+  })
+})
+
+describe('hitTest', () => {
+  it('matches the visible label area of an arrow', () => {
+    const arrow: Element = {
+      ...createArrow({
+        id: 'a1',
+        points: [
+          { x: 0, y: 160 },
+          { x: 240, y: 160 },
+        ],
+      }),
+      label: {
+        text: 'relationship label',
+        align: 'center',
+        verticalAlign: 'middle',
+      },
+    }
+
+    expect(hitTest({ x: 120, y: 140 }, snapshotOf(arrow))?.id).toBe('a1')
   })
 })

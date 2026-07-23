@@ -13,7 +13,7 @@ import { moveRouteSegment, routeSegmentAxis, simplifyRoute, snapRouteSegmentTarg
 import { planConnectedShape, spawnConnectedShape, type SpawnDirection } from '../connectors/spawn.js'
 import { createArrow, pointsBounds } from '../model/factory.js'
 import { isArrowElement } from '../model/guards.js'
-import { polylineMidpoint } from '../text/arrow-label.js'
+import { labelEditRequest } from '../text/label-edit.js'
 import { arrowRoute } from '../connectors/resolve.js'
 import { arrowHandleAtScreen, type ArrowHandle } from '../render/overlay/arrow-handles.js'
 import { portAtScreen, portHoverAtScreen, shapePortsWorld } from '../render/overlay/ports.js'
@@ -244,17 +244,8 @@ export class SelectTool implements Tool {
   }
 
   private beginArrowLabelEdit(arrow: ArrowElement, ctx: ToolContext): void {
-    const mid = polylineMidpoint(arrowRoute(arrow))
     const label = arrow.label
-    ctx.beginEdit({
-      elementId: arrow.id,
-      target: 'label',
-      text: label?.text ?? '',
-      world: { x: mid.x, y: mid.y, width: 0, height: arrow.style.fontSize },
-      style: arrow.style,
-      align: 'center',
-      verticalAlign: 'middle',
-    })
+    ctx.beginEdit(labelEditRequest(arrow, label?.text ?? '', { selectAll: true }))
   }
 
   onKeyDown(event: KeyboardEvent, ctx: ToolContext): ToolResult | void {

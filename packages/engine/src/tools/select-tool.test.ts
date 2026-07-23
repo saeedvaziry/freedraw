@@ -5,6 +5,7 @@ import { Camera } from '../geometry/camera.js'
 import { createArrow, createShape } from '../model/factory.js'
 import type { ArrowElement, Element, Point } from '../model/types.js'
 import { SceneStore } from '../store/scene-store.js'
+import type { EditRequest } from '../text/edit.js'
 import type { PointerInfo, ToolContext } from './tool.js'
 import { SelectTool } from './select-tool.js'
 
@@ -229,5 +230,38 @@ describe('SelectTool ports', () => {
     expect(adjusted.end?.anchor.nx).toBeCloseTo(0.5)
     expect(route).toHaveLength(2)
     expect(route.every((point) => point.x === 60)).toBe(true)
+  })
+})
+
+describe('SelectTool arrow labels', () => {
+  it('starts editing when double-clicking an existing arrow label', () => {
+    const { store, ctx } = setup()
+    const tool = new SelectTool()
+    const arrow: ArrowElement = {
+      ...createArrow({
+        id: 'arrow-1',
+        points: [
+          { x: 0, y: 160 },
+          { x: 240, y: 160 },
+        ],
+      }),
+      label: {
+        text: 'relationship label',
+        align: 'center',
+        verticalAlign: 'middle',
+      },
+    }
+    const editRequests: EditRequest[] = []
+    ctx.beginEdit = (request) => {
+      editRequests.push(request)
+    }
+
+    store.transact((api) => api.addElement(arrow))
+    tool.onDoubleClick(pointerAt({ x: 120, y: 140 }), ctx)
+
+    const editRequest = editRequests[0]
+    expect(editRequest?.elementId).toBe('arrow-1')
+    expect(editRequest?.target).toBe('label')
+    expect(editRequest?.world.width).toBeGreaterThan(0)
   })
 })

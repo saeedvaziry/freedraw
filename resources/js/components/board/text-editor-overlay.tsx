@@ -146,15 +146,31 @@ function editorStyle(
     }
   }
 
+  if (target === 'label' && request.labelKind === 'arrow') {
+    const screen = controller.worldToScreen({ x: world.x, y: world.y })
+    return {
+      ...baseStyle(style, zoom, controller.isDark),
+      left: `${screen.x}px`,
+      top: `${screen.y}px`,
+      width: `${world.width * zoom}px`,
+      height: `${world.height * zoom}px`,
+      textAlign: 'center',
+      background: themed(ARROW_LABEL_BACKGROUND, controller.isDark),
+      whiteSpace: 'pre',
+    }
+  }
+
   if (target === 'label' && world.width === 0) {
-    const width = 120 * zoom
+    const size = controller.measureTextSize(value, style)
+    const width = Math.max(120, size.width) * zoom
+    const height = Math.max(lineHeight, size.height) * zoom
     const screen = controller.worldToScreen({ x: world.x, y: world.y })
     return {
       ...baseStyle(style, zoom, controller.isDark),
       left: `${screen.x - width / 2}px`,
-      top: `${screen.y - (lineHeight * zoom) / 2}px`,
+      top: `${screen.y - height / 2}px`,
       width: `${width}px`,
-      height: `${lineHeight * zoom}px`,
+      height: `${height}px`,
       textAlign: 'center',
       background: themed(ARROW_LABEL_BACKGROUND, controller.isDark),
       whiteSpace: 'pre-wrap',

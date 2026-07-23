@@ -2,7 +2,7 @@ import { arrowRoute } from '../connectors/resolve.js'
 import { labelRect } from '../geometry/shape-outline.js'
 import { isArrowElement } from '../model/guards.js'
 import type { Element } from '../model/types.js'
-import { polylineMidpoint } from './arrow-label.js'
+import { arrowLabelEditRect } from './arrow-label.js'
 import type { EditRequest } from './edit.js'
 
 interface LabelEditOptions {
@@ -28,12 +28,12 @@ export function labelEditRequest(
   }
 
   if (isArrowElement(element)) {
-    const mid = polylineMidpoint(arrowRoute(element))
     return {
       elementId: element.id,
       target: 'label',
+      labelKind: 'arrow',
       text,
-      world: { x: mid.x, y: mid.y, width: 0, height: element.style.fontSize },
+      world: arrowLabelEditRect(arrowRoute(element), text, element.style),
       style: element.style,
       align: 'center',
       verticalAlign: 'middle',

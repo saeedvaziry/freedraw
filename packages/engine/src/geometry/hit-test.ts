@@ -4,6 +4,7 @@ import { isArrowElement } from '../model/guards.js'
 import { expand, intersects, type Rect } from './rect.js'
 import { rotatePoint, rotatedBounds } from './rotate.js'
 import { getOutline, pointInPolygon } from './shape-outline.js'
+import { arrowLabelHitRect } from '../text/arrow-label.js'
 
 const HIT_TOLERANCE = 6
 
@@ -77,7 +78,7 @@ function hitShape(local: Point, element: Element): boolean {
 
 export function hitTestElement(point: Point, element: Element): boolean {
   if (isArrowElement(element)) {
-    return hitPolyline(point, arrowRoute(element as ArrowElement), element)
+    return hitPolyline(point, arrowRoute(element as ArrowElement), element) || hitArrowLabel(point, element)
   }
   const local = toLocalPoint(point, element)
   if (element.type === 'freedraw') return hitPolyline(local, element.points, element)
@@ -93,11 +94,32 @@ export function hitTest(point: Point, snapshot: SceneSnapshot): Element | null {
     if (!id) continue
     const element = snapshot.elements[id]
     if (!element) continue
-    const broad = expand(rotatedBounds(element), element.style.strokeWidth / 2 + HIT_TOLERANCE)
+    const broad = expand(hitBounds(element), element.style.strokeWidth / 2 + HIT_TOLERANCE)
     if (!pointInRect(point, broad, 0)) continue
     if (hitTestElement(point, element)) return element
   }
   return null
+}
+
+function hitBounds(element: Element): Rect {
+  const bounds = rotatedBounds(element)
+  if (!isArrowElement(element) || !element.label?.text) return bounds
+
+  return unionRect(bounds, arrowLabelHitRect(arrowRoute(element), element.label.text, element.style))
+}
+
+function hitArrowLabel(point: Point, element: ArrowElement): boolean {
+  if (!element.label?.text) return false
+  return pointInRect(point, arrowLabelHitRect(arrowRoute(element), element.label.text, element.style), 0)
+}
+
+function unionRect(a: Rect, b: Rect): Rect {
+  const minX = Math.min(a.x, b.x)
+  const minY = Math.min(a.y, b.y)
+  const maxX = Math.max(a.x + a.width, b.x + b.width)
+  const maxY = Math.max(a.y + a.height, b.y + b.height)
+
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
 }
 
 export function nearestShape(point: Point, snapshot: SceneSnapshot, margin: number): Element | null {

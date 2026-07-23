@@ -4,6 +4,8 @@ import { contentBounds, fitCamera } from '../geometry/fit.js'
 import { selectionFrameFor } from '../geometry/selection-frame.js'
 import { labelRect } from '../geometry/shape-outline.js'
 import { labelEditRequest } from '../text/label-edit.js'
+import { arrowRoute } from '../connectors/resolve.js'
+import { arrowLabelEditRect } from '../text/arrow-label.js'
 import type { Rect } from '../geometry/rect.js'
 import type { SnapGuide } from '../geometry/snap.js'
 import { InputManager } from '../input/input-manager.js'
@@ -357,6 +359,10 @@ export class EditorController {
 
   resizeShapeForLabel(elementId: ElementId, text: string): void {
     const element = this.store.getSnapshot().elements[elementId]
+    if (element && isArrowElement(element)) {
+      this.resizeArrowLabelWhileEditing(element, text)
+      return
+    }
     if (!element || !canGrowForLabel(element)) return
     const next = this.sizeForLabel(element, text)
     if (
@@ -372,6 +378,22 @@ export class EditorController {
     if (request && request.elementId === elementId) {
       this.editRequest = { ...request, world: labelRect(element.type, next) }
     }
+  }
+
+  private resizeArrowLabelWhileEditing(element: Element, text: string): void {
+    if (!isArrowElement(element)) return
+    const request = this.editRequest
+    if (!request || request.elementId !== element.id || request.target !== 'label') return
+    const world = arrowLabelEditRect(arrowRoute(element), text, element.style)
+    if (
+      world.x === request.world.x &&
+      world.y === request.world.y &&
+      world.width === request.world.width &&
+      world.height === request.world.height
+    ) {
+      return
+    }
+    this.editRequest = { ...request, labelKind: 'arrow', world }
   }
 
   private floorFor(element: Element): Rect {

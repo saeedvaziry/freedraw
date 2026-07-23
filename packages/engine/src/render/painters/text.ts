@@ -3,6 +3,7 @@ import { canvasMeasureContext, fontString } from '../../text/measure.js'
 import type { TextAlign, TextLayout, VerticalAlign } from '../../text/layout.js'
 import { labelRect } from '../../geometry/shape-outline.js'
 import type { Element, Style, TextElement } from '../../model/types.js'
+import { ARROW_LABEL_PADDING_X, ARROW_LABEL_PADDING_Y } from '../../text/arrow-label.js'
 
 const layoutCache = new LayoutCache()
 
@@ -11,8 +12,6 @@ export function clearTextLayoutCache(): void {
 }
 
 export const TEXT_PADDING = 6
-export const ARROW_LABEL_PADDING_X = 6
-export const ARROW_LABEL_PADDING_Y = 2
 const ARROW_LABEL_BACKGROUND = '#fafafa'
 
 interface TextBlock {
