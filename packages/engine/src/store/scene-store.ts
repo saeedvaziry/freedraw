@@ -47,6 +47,7 @@ export interface TransactionApi {
   addElement(element: Element): void
   updateElement(id: ElementId, patch: Partial<Element>): void
   removeElement(id: ElementId): void
+  removeElements(ids: ElementId[]): void
   reorder(order: ElementId[]): void
 }
 
@@ -110,6 +111,7 @@ export class SceneStore {
   }
 
   private readonly arrowsByShape = new Map<ElementId, Set<ElementId>>()
+  private readonly arrowBindings = new Map<ElementId, ElementId[]>()
   private readonly routeCache = new RouteCache()
   private selectionStyle: SelectionStyle | null = null
   private clipboard: SceneClipboardPayload | null = null
@@ -185,7 +187,7 @@ export class SceneStore {
   deleteElements(ids: Iterable<ElementId>): void {
     const removal = this.removalIdsFor(ids)
     if (removal.length === 0) return
-    this.transact((api) => removal.forEach((id) => api.removeElement(id)))
+    this.transact((api) => api.removeElements(removal))
     this.deselect(removal)
   }
 
@@ -221,7 +223,7 @@ export class SceneStore {
     this.clipboard = payload
     this.clipboardPasteCount = 0
     this.stopCapturing()
-    this.transact((api) => removal.forEach((id) => api.removeElement(id)))
+    this.transact((api) => api.removeElements(removal))
     this.stopCapturing()
     this.deselect(removal)
     this.setUiState({ clipboardElementCount: payload.elements.length, activeTool: 'select' })
@@ -403,6 +405,14 @@ export class SceneStore {
       const index = this.yOrder.toArray().indexOf(id)
       if (index >= 0) this.yOrder.delete(index, 1)
     },
+    removeElements: (ids) => {
+      if (ids.length === 0) return
+      const remove = new Set(ids)
+      for (const id of remove) this.yElements.delete(id)
+      const remaining = this.yOrder.toArray().filter((id) => !remove.has(id))
+      this.yOrder.delete(0, this.yOrder.length)
+      this.yOrder.push(remaining)
+    },
     reorder: (order) => {
       this.yOrder.delete(0, this.yOrder.length)
       this.yOrder.push(order)
@@ -466,7 +476,7 @@ export class SceneStore {
     const next = { ...this.snapshot, elements }
     this.routeCache.invalidateForChanges(previous, next, changedIds)
     this.snapshot = this.routeCache.overlay(next)
-    this.rebuildBindingIndex()
+    this.updateBindingIndex(changedIds)
     this.invalidate()
   }
 
@@ -482,15 +492,42 @@ export class SceneStore {
 
   private rebuildBindingIndex(): void {
     this.arrowsByShape.clear()
+    this.arrowBindings.clear()
     for (const element of Object.values(this.snapshot.elements)) {
-      if (!isArrowElement(element)) continue
-      for (const binding of [element.start, element.end]) {
-        if (!binding) continue
-        const set = this.arrowsByShape.get(binding.elementId) ?? new Set()
-        set.add(element.id)
-        this.arrowsByShape.set(binding.elementId, set)
-      }
+      if (isArrowElement(element)) this.indexArrow(element)
     }
+  }
+
+  private updateBindingIndex(changedIds: Set<ElementId>): void {
+    for (const id of changedIds) {
+      this.unindexArrow(id)
+      const element = this.snapshot.elements[id]
+      if (element && isArrowElement(element)) this.indexArrow(element)
+    }
+  }
+
+  private indexArrow(arrow: ArrowElement): void {
+    const shapeIds: ElementId[] = []
+    for (const binding of [arrow.start, arrow.end]) {
+      if (!binding) continue
+      shapeIds.push(binding.elementId)
+      const set = this.arrowsByShape.get(binding.elementId) ?? new Set()
+      set.add(arrow.id)
+      this.arrowsByShape.set(binding.elementId, set)
+    }
+    if (shapeIds.length > 0) this.arrowBindings.set(arrow.id, shapeIds)
+  }
+
+  private unindexArrow(arrowId: ElementId): void {
+    const shapeIds = this.arrowBindings.get(arrowId)
+    if (!shapeIds) return
+    for (const shapeId of shapeIds) {
+      const set = this.arrowsByShape.get(shapeId)
+      if (!set) continue
+      set.delete(arrowId)
+      if (set.size === 0) this.arrowsByShape.delete(shapeId)
+    }
+    this.arrowBindings.delete(arrowId)
   }
 
   private invalidate(): void {
