@@ -24,7 +24,7 @@ import { ZoomIndicator } from './zoom-indicator.js'
 import { createBoard, type Board as CreatedBoard } from './create-board.js'
 import { useBoardClipboard } from '@/hooks/board/use-board-clipboard.js'
 import { useExport } from '@/hooks/board/use-export.js'
-import { useKeyboard } from '@/hooks/board/use-keyboard.js'
+import { useBoardActions } from '@/hooks/board/use-board-actions.js'
 import { useAppearance } from '@/hooks/use-appearance'
 import type { BoardPage } from '@/types'
 
@@ -154,7 +154,13 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
   const { resolvedAppearance: theme } = useAppearance()
   const boardExport = useExport(controller)
   const imageInsert = useImageInsert(controller, store, assetSource)
-  useKeyboard(store, controller, imageInsert.openPicker, boardExport)
+  useBoardActions({
+    store,
+    controller,
+    boardExport,
+    theme,
+    openImagePicker: imageInsert.openPicker,
+  })
   useBoardClipboard(store, controller)
 
   useEffect(() => attachViewportPersistence(store, assetSource), [store, assetSource])

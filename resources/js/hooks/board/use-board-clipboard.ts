@@ -5,14 +5,14 @@ import {
   stringifySceneClipboard,
   type SceneStore,
 } from '@freedraw/engine'
-import { isEditableTarget } from './use-keyboard.js'
+import { resolveActionScope } from '@/components/board/board-actions.js'
 
 export const BOARD_CLIPBOARD_MIME = 'application/x-freedraw-scene'
 
 export function useBoardClipboard(store: SceneStore, controller: EditorController | null): void {
   useEffect(() => {
     const onCopy = (event: ClipboardEvent): void => {
-      if (isEditableTarget(event.target)) return
+      if (resolveActionScope(event.target) !== 'canvas') return
       const payload = store.copyElements(store.getUiState().selectedIds)
       if (!payload) return
       event.preventDefault()
@@ -21,7 +21,7 @@ export function useBoardClipboard(store: SceneStore, controller: EditorControlle
     }
 
     const onCut = (event: ClipboardEvent): void => {
-      if (isEditableTarget(event.target)) return
+      if (resolveActionScope(event.target) !== 'canvas') return
       const payload = store.cutElements(store.getUiState().selectedIds)
       if (!payload) return
       event.preventDefault()
@@ -30,7 +30,7 @@ export function useBoardClipboard(store: SceneStore, controller: EditorControlle
     }
 
     const onPaste = (event: ClipboardEvent): void => {
-      if (isEditableTarget(event.target)) return
+      if (resolveActionScope(event.target) !== 'canvas') return
       const target = controller?.cursorWorldPoint
       const clipboardData = event.clipboardData
       const raw = clipboardData?.getData(BOARD_CLIPBOARD_MIME)
