@@ -20,6 +20,7 @@ import {
   createSceneClipboard,
   type SceneClipboardPayload,
 } from './clipboard.js'
+import { HoverStore } from './hover-store.js'
 import { RouteCache } from './route-cache.js'
 import { deriveSelectionStyle, type SelectionStyle } from './selection-style.js'
 import { measureTextBox } from '../text/size.js'
@@ -68,11 +69,38 @@ export type ToolId =
 
 export interface UiState {
   selectedIds: Set<ElementId>
-  hoveredId: ElementId | null
   activeTool: ToolId
   activeShapeType: ShapeType
   activeStickyColor: StickyColor
   clipboardElementCount: number
+}
+
+export type StoreChannel = 'doc' | 'selection' | 'chrome' | 'hover' | 'local' | 'history'
+
+export interface StoreSelector<T> {
+  subscribe(cb: () => void): () => void
+  getSnapshot(): T
+}
+
+export interface SelectOptions<T> {
+  equals?: (a: T, b: T) => boolean
+  channels?: readonly StoreChannel[]
+}
+
+const DEFAULT_SELECT_CHANNELS: readonly StoreChannel[] = ['doc', 'selection', 'chrome', 'local', 'history']
+
+export function shallowEqual(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true
+  if (typeof a !== 'object' || a === null || typeof b !== 'object' || b === null) return false
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  if (aKeys.length !== bKeys.length) return false
+  const bRecord = b as Record<string, unknown>
+  for (const key of aKeys) {
+    if (!Object.hasOwn(bRecord, key)) return false
+    if (!Object.is((a as Record<string, unknown>)[key], bRecord[key])) return false
+  }
+  return true
 }
 
 export interface LocalAppState {
@@ -117,9 +145,11 @@ export class SceneStore {
   private readonly subscribers = new Set<Subscriber>()
 
   private readonly uiSubscribers = new Set<Subscriber>()
+  private readonly selectionSubscribers = new Set<Subscriber>()
+  private readonly chromeSubscribers = new Set<Subscriber>()
+  private readonly hover = new HoverStore()
   private uiState: UiState = {
     selectedIds: new Set(),
-    hoveredId: null,
     activeTool: 'select',
     activeShapeType: 'rect',
     activeStickyColor: DEFAULT_STICKY_COLOR,
@@ -181,9 +211,76 @@ export class SceneStore {
     return () => this.uiSubscribers.delete(cb)
   }
 
-  setUiState(patch: Partial<UiState>): void {
-    this.uiState = { ...this.uiState, ...patch }
+  subscribeSelection(cb: Subscriber): () => void {
+    this.selectionSubscribers.add(cb)
+    return () => this.selectionSubscribers.delete(cb)
+  }
+
+  subscribeChrome(cb: Subscriber): () => void {
+    this.chromeSubscribers.add(cb)
+    return () => this.chromeSubscribers.delete(cb)
+  }
+
+  getHoveredId(): ElementId | null {
+    return this.hover.get()
+  }
+
+  setHoveredId(id: ElementId | null): void {
+    this.hover.set(id)
+  }
+
+  subscribeHover(cb: Subscriber): () => void {
+    return this.hover.subscribe(cb)
+  }
+
+  setUiState(patch: Partial<UiState> & { hoveredId?: ElementId | null }): void {
+    const { hoveredId, ...uiPatch } = patch
+    if (Object.hasOwn(patch, 'hoveredId')) this.setHoveredId(hoveredId ?? null)
+    const touchesSelection = Object.hasOwn(uiPatch, 'selectedIds')
+    const touchesChrome =
+      Object.hasOwn(uiPatch, 'activeTool') ||
+      Object.hasOwn(uiPatch, 'activeShapeType') ||
+      Object.hasOwn(uiPatch, 'activeStickyColor') ||
+      Object.hasOwn(uiPatch, 'clipboardElementCount')
+    if (!touchesSelection && !touchesChrome) return
+    this.uiState = { ...this.uiState, ...uiPatch }
     this.uiSubscribers.forEach((cb) => cb())
+    if (touchesSelection) this.selectionSubscribers.forEach((cb) => cb())
+    if (touchesChrome) this.chromeSubscribers.forEach((cb) => cb())
+  }
+
+  select<T>(selector: (store: SceneStore) => T, options: SelectOptions<T> = {}): StoreSelector<T> {
+    const equals = options.equals ?? Object.is
+    const channels = options.channels ?? DEFAULT_SELECT_CHANNELS
+    let cache: { value: T } | null = null
+    const getSnapshot = (): T => {
+      const next = selector(this)
+      if (cache && equals(cache.value, next)) return cache.value
+      cache = { value: next }
+      return next
+    }
+    const subscribe = (cb: Subscriber): (() => void) => {
+      const unsubscribers = channels.map((channel) => this.subscribeChannel(channel, cb))
+      return () => unsubscribers.forEach((unsubscribe) => unsubscribe())
+    }
+    return { subscribe, getSnapshot }
+  }
+
+  private subscribeChannel(channel: StoreChannel, cb: Subscriber): () => void {
+    switch (channel) {
+      case 'doc':
+        return this.subscribe(cb)
+      case 'selection':
+        return this.subscribeSelection(cb)
+      case 'chrome':
+        return this.subscribeChrome(cb)
+      case 'hover':
+        return this.subscribeHover(cb)
+      case 'local':
+        return this.subscribeLocalState(cb)
+      case 'history':
+        return this.subscribeHistory(cb)
+    }
   }
 
   arrowsForShape(shapeId: ElementId): ReadonlySet<ElementId> {
@@ -423,6 +520,9 @@ export class SceneStore {
     this.yAppState.unobserve(this.onAppStateChanged)
     this.subscribers.clear()
     this.uiSubscribers.clear()
+    this.selectionSubscribers.clear()
+    this.chromeSubscribers.clear()
+    this.hover.clear()
     this.localSubscribers.clear()
     this.historySubscribers.clear()
   }

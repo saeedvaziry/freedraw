@@ -63,14 +63,14 @@ describe('SelectTool ports', () => {
 
     tool.onPointerMove(pointerAt({ x: 140, y: 40 }), ctx)
 
-    expect(store.getUiState().hoveredId).toBeNull()
+    expect(store.getHoveredId()).toBeNull()
   })
 
   it('does not start a port drag from an unselected hovered shape', () => {
     const { store, ctx } = setup()
     const tool = new SelectTool()
 
-    store.setUiState({ hoveredId: 'shape-1' })
+    store.setHoveredId('shape-1')
     tool.onPointerDown(pointerAt({ x: 140, y: 40 }), ctx)
 
     expect(store.getSnapshot().order).toEqual(['shape-1'])

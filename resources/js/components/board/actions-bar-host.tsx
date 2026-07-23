@@ -1,6 +1,6 @@
 import { usePage } from '@inertiajs/react'
-import { useSyncExternalStore } from 'react'
-import type { EditorController, SceneStore } from '@freedraw/engine'
+import { useMemo, useSyncExternalStore } from 'react'
+import { shallowEqual, type EditorController, type SceneStore } from '@freedraw/engine'
 import { ActionsBar } from '@/components/board/ui-kit'
 import { BoardUserMenu } from './board-user-menu.js'
 import type { BoardExport } from '@/hooks/board/use-export.js'
@@ -20,18 +20,26 @@ export function ActionsBarHost({
   theme,
   compact,
 }: ActionsBarHostProps) {
-  const history = useSyncExternalStore(
-    (cb) => store.subscribeHistory(cb),
-    () => historySnapshot(store),
+  const view = useMemo(
+    () =>
+      store.select(
+        (s) => {
+          const ui = s.getUiState()
+          const snapshot = s.getSnapshot()
+          return {
+            canUndo: s.canUndo,
+            canRedo: s.canRedo,
+            hasSelection: ui.selectedIds.size > 0,
+            hasClipboard: ui.clipboardElementCount > 0,
+            canExport: snapshot.order.length > 0,
+            snapGuidesEnabled: snapshot.appState.snapGuidesEnabled,
+          }
+        },
+        { equals: shallowEqual, channels: ['doc', 'selection', 'chrome', 'history'] },
+      ),
+    [store],
   )
-  const ui = useSyncExternalStore(
-    (cb) => store.subscribeUi(cb),
-    () => store.getUiState(),
-  )
-  const snapshot = useSyncExternalStore(
-    (cb) => store.subscribe(cb),
-    () => store.getSnapshot(),
-  )
+  const state = useSyncExternalStore(view.subscribe, view.getSnapshot)
   const { exportImage, copyImage } = boardExport
 
   // Signed-in users get the full sidebar (org / settings / logout), so the
@@ -40,11 +48,11 @@ export function ActionsBarHost({
 
   return (
     <ActionsBar
-      canUndo={history.canUndo}
-      canRedo={history.canRedo}
-      hasSelection={ui.selectedIds.size > 0}
-      hasClipboard={ui.clipboardElementCount > 0}
-      canExport={snapshot.order.length > 0}
+      canUndo={state.canUndo}
+      canRedo={state.canRedo}
+      hasSelection={state.hasSelection}
+      hasClipboard={state.hasClipboard}
+      canExport={state.canExport}
       onUndo={() => store.undo()}
       onRedo={() => store.redo()}
       onDelete={() => store.deleteElements(store.getUiState().selectedIds)}
@@ -55,22 +63,10 @@ export function ActionsBarHost({
       onExport={(format, transparent, dark) => void exportImage(format, transparent, dark)}
       onCopyToClipboard={() => void copyImage()}
       theme={theme}
-      snapGuidesEnabled={snapshot.appState.snapGuidesEnabled}
+      snapGuidesEnabled={state.snapGuidesEnabled}
       onToggleSnapGuides={() => store.setSnapGuidesEnabled(!store.getSnapshot().appState.snapGuidesEnabled)}
       compact={compact}
       userMenu={compact || isAuthenticated ? undefined : <BoardUserMenu />}
     />
   )
-}
-
-const cache = new WeakMap<SceneStore, { canUndo: boolean; canRedo: boolean }>()
-
-function historySnapshot(store: SceneStore): { canUndo: boolean; canRedo: boolean } {
-  const previous = cache.get(store)
-  if (previous && previous.canUndo === store.canUndo && previous.canRedo === store.canRedo) {
-    return previous
-  }
-  const next = { canUndo: store.canUndo, canRedo: store.canRedo }
-  cache.set(store, next)
-  return next
 }

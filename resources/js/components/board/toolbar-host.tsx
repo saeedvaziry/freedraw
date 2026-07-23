@@ -1,5 +1,5 @@
-import { useSyncExternalStore, type ReactNode } from 'react'
-import type { SceneStore, ShapeType, StickyColor, ToolId } from '@freedraw/engine'
+import { useMemo, useSyncExternalStore, type ReactNode } from 'react'
+import { shallowEqual, type SceneStore, type ShapeType, type StickyColor, type ToolId } from '@freedraw/engine'
 import { Toolbar, type ToolbarLayout } from '@/components/board/ui-kit'
 
 interface ToolbarHostProps {
@@ -11,10 +11,22 @@ interface ToolbarHostProps {
 }
 
 export function ToolbarHost({ store, layout, diagramOpen, trailing, onToggleDiagram }: ToolbarHostProps) {
-  const ui = useSyncExternalStore(
-    (cb) => store.subscribeUi(cb),
-    () => store.getUiState(),
+  const chrome = useMemo(
+    () =>
+      store.select(
+        (s) => {
+          const state = s.getUiState()
+          return {
+            activeTool: state.activeTool,
+            activeShapeType: state.activeShapeType,
+            activeStickyColor: state.activeStickyColor,
+          }
+        },
+        { equals: shallowEqual, channels: ['chrome'] },
+      ),
+    [store],
   )
+  const ui = useSyncExternalStore(chrome.subscribe, chrome.getSnapshot)
 
   const selectTool = (tool: ToolId): void => {
     store.setUiState({ activeTool: tool })

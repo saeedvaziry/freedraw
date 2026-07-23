@@ -540,13 +540,14 @@ export class EditorController {
   private buildOverlay(): OverlayState {
     const snapshot = this.store.getSnapshot()
     const ui = this.store.getUiState()
+    const hoveredId = this.store.getHoveredId()
     const selected = elementsFor(ui.selectedIds, snapshot.elements)
     const shapes = selected.filter((element) => !isArrowElement(element))
     const selectedArrows = selected.filter(isArrowElement)
     const selection = selectionFrameFor(shapes)
     const hovered =
-      ui.hoveredId && !ui.selectedIds.has(ui.hoveredId)
-        ? snapshot.elements[ui.hoveredId] ?? null
+      hoveredId && !ui.selectedIds.has(hoveredId)
+        ? snapshot.elements[hoveredId] ?? null
         : null
     const hover = hovered && isArrowElement(hovered) ? hovered : null
     const ports = shapes

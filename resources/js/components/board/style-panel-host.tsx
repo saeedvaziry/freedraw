@@ -1,6 +1,6 @@
 import { PanelRightClose, SlidersHorizontal } from 'lucide-react'
-import { useCallback, useLayoutEffect, useState, useSyncExternalStore } from 'react'
-import type { ArrowElement, Element, SceneStore, SelectionStyle } from '@freedraw/engine'
+import { useCallback, useLayoutEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import type { ArrowElement, Element, SceneStore } from '@freedraw/engine'
 import { useBoardContext } from './board-context.js'
 import {
   StylePanel,
@@ -48,10 +48,11 @@ const DEFAULT_SELECTION: StylePanelSelection = {
 
 export function StylePanelHost({ collapsible = false }: StylePanelHostProps) {
   const { store } = useBoardContext()
-  const snapshot = useSyncExternalStore(
-    (cb) => store.subscribeStyle(cb),
-    () => readSnapshot(store),
+  const panel = useMemo(
+    () => store.select(readSnapshot, { equals: panelEquals, channels: ['doc', 'selection'] }),
+    [store],
   )
+  const snapshot = useSyncExternalStore(panel.subscribe, panel.getSnapshot)
 
   // Collapsed-to-icon state, persisted like the left sidebar and read
   // synchronously on mount so it never flickers open on reload.
@@ -129,8 +130,6 @@ function PanelHeader({ onCollapse }: { onCollapse(): void }) {
   )
 }
 
-const cache = new WeakMap<SceneStore, { key: string; value: PanelSnapshot }>()
-
 function readSnapshot(store: SceneStore): PanelSnapshot {
   const ui = store.getUiState()
   const selectionStyle = store.getSelectionStyle()
@@ -140,18 +139,16 @@ function readSnapshot(store: SceneStore): PanelSnapshot {
 
   const selection = selected.length === 0 ? DEFAULT_SELECTION : deriveSelection(selected)
   const arrow = deriveArrow(selected)
-  const key = snapshotKey(selectionStyle, selection, arrow)
 
-  const previous = cache.get(store)
-  if (previous && previous.key === key) return previous.value
-
-  const value: PanelSnapshot = {
+  return {
     selection,
     style: selectionStyle as PanelStyle,
     arrow,
   }
-  cache.set(store, { key, value })
-  return value
+}
+
+function panelEquals(a: PanelSnapshot, b: PanelSnapshot): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
 }
 
 function deriveSelection(selected: Element[]): StylePanelSelection {
@@ -195,12 +192,4 @@ function sharedArrowhead(
   if (arrows.length === 0) return 'none'
   const first = arrows[0]![key]
   return arrows.every((arrow) => arrow[key] === first) ? first : '__mixed__'
-}
-
-function snapshotKey(
-  style: SelectionStyle,
-  selection: StylePanelSelection,
-  arrow: ArrowPanelState,
-): string {
-  return JSON.stringify([style, selection, arrow])
 }

@@ -2,7 +2,7 @@ import * as Y from 'yjs'
 import { describe, expect, it } from 'vitest'
 import { createArrow, createShape } from '../model/factory.js'
 import type { Binding, ElementId } from '../model/types.js'
-import { SceneStore } from './scene-store.js'
+import { SceneStore, shallowEqual } from './scene-store.js'
 
 const shapeAt = (id: string, x: number): ReturnType<typeof createShape> =>
   createShape({ id, type: 'rect', x, y: 0, width: 40, height: 40 })
@@ -204,5 +204,126 @@ describe('local app state', () => {
     store.commitCamera({ x: 1, y: 2, zoom: 1 })
 
     expect(sceneCalls).toBeGreaterThan(0)
+  })
+})
+
+describe('store selectors', () => {
+  it('surfaces a new snapshot only when the selected slice changes', () => {
+    const store = new SceneStore()
+    const handle = store.select((s) => s.getUiState().selectedIds.size, {
+      channels: ['selection', 'chrome'],
+    })
+    let last = handle.getSnapshot()
+    let renders = 0
+    handle.subscribe(() => {
+      const next = handle.getSnapshot()
+      if (!Object.is(next, last)) {
+        renders += 1
+        last = next
+      }
+    })
+
+    store.setUiState({ activeTool: 'hand' })
+    expect(renders).toBe(0)
+
+    store.setUiState({ selectedIds: new Set(['a']) })
+    expect(renders).toBe(1)
+    expect(handle.getSnapshot()).toBe(1)
+  })
+
+  it('returns a stable snapshot reference while the selected slice is unchanged', () => {
+    const store = new SceneStore()
+    const handle = store.select((s) => ({ tool: s.getUiState().activeTool }), {
+      equals: shallowEqual,
+      channels: ['chrome'],
+    })
+    const first = handle.getSnapshot()
+
+    store.setUiState({ clipboardElementCount: 1 })
+    expect(handle.getSnapshot()).toBe(first)
+
+    store.setUiState({ activeTool: 'hand' })
+    expect(handle.getSnapshot()).not.toBe(first)
+    expect(handle.getSnapshot().tool).toBe('hand')
+  })
+})
+
+describe('store channels', () => {
+  it('isolates hover changes from doc, selection, and chrome subscribers', () => {
+    const store = new SceneStore()
+    let doc = 0
+    let selection = 0
+    let chrome = 0
+    let hover = 0
+    store.subscribe(() => {
+      doc += 1
+    })
+    store.subscribeSelection(() => {
+      selection += 1
+    })
+    store.subscribeChrome(() => {
+      chrome += 1
+    })
+    store.subscribeHover(() => {
+      hover += 1
+    })
+
+    store.setHoveredId('shape-1')
+
+    expect(hover).toBe(1)
+    expect(doc).toBe(0)
+    expect(selection).toBe(0)
+    expect(chrome).toBe(0)
+  })
+
+  it('keeps selection changes off the hover and doc channels', () => {
+    const store = new SceneStore()
+    let doc = 0
+    let hover = 0
+    let selection = 0
+    store.subscribe(() => {
+      doc += 1
+    })
+    store.subscribeHover(() => {
+      hover += 1
+    })
+    store.subscribeSelection(() => {
+      selection += 1
+    })
+
+    store.setUiState({ selectedIds: new Set(['a']) })
+
+    expect(selection).toBe(1)
+    expect(hover).toBe(0)
+    expect(doc).toBe(0)
+  })
+
+  it('routes setUiState hoveredId through the hover channel only', () => {
+    const store = new SceneStore()
+    let ui = 0
+    let hover = 0
+    store.subscribeUi(() => {
+      ui += 1
+    })
+    store.subscribeHover(() => {
+      hover += 1
+    })
+
+    store.setUiState({ hoveredId: 'shape-1' })
+
+    expect(hover).toBe(1)
+    expect(ui).toBe(0)
+    expect(store.getHoveredId()).toBe('shape-1')
+  })
+
+  it('keeps hoveredId out of the shared ui-state snapshot', () => {
+    const store = new SceneStore()
+    const before = store.getUiState()
+
+    store.setHoveredId('shape-1')
+
+    expect(Object.hasOwn(store.getUiState(), 'hoveredId')).toBe(false)
+    expect(store.getUiState()).toBe(before)
+    expect(store.getHoveredId()).toBe('shape-1')
   })
 })

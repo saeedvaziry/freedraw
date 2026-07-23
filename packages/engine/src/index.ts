@@ -15,6 +15,8 @@ export type {
   ToolId,
   PasteElementsOptions,
 } from './store/scene-store.js'
+export { shallowEqual } from './store/scene-store.js'
+export type { StoreChannel, StoreSelector, SelectOptions } from './store/scene-store.js'
 export {
   SCENE_CLIPBOARD_VERSION,
   clipboardCenter,

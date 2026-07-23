@@ -500,8 +500,8 @@ export class SelectTool implements Tool {
     const hit = hitTest(info.world, snapshot)
     const portHover = portHit ?? (hit ? null : this.portHoverShapeAt(info, ctx))
     const nextId = portHover?.shape.id ?? hit?.id ?? null
-    if (nextId === ctx.store.getUiState().hoveredId) return spawned ? { overlay: true } : {}
-    ctx.store.setUiState({ hoveredId: nextId })
+    if (nextId === ctx.store.getHoveredId()) return spawned ? { overlay: true } : {}
+    ctx.store.setHoveredId(nextId)
     return { overlay: true }
   }
 

@@ -15,10 +15,8 @@ export function DiagramPanelHost({ onClose }: DiagramPanelHostProps) {
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
 
-  const snapshot = useSyncExternalStore(
-    (cb) => store.subscribe(cb),
-    () => store.getSnapshot(),
-  )
+  const doc = useMemo(() => store.select((s) => s.getSnapshot(), { channels: ['doc'] }), [store])
+  const snapshot = useSyncExternalStore(doc.subscribe, doc.getSnapshot)
   const report = useMemo(() => serializeDiagram(snapshot), [snapshot])
 
   const generate = (): void => {
