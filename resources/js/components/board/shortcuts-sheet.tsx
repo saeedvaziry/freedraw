@@ -5,6 +5,7 @@ import {
   type BoardAction,
   type BoardActionGroup,
 } from './board-actions.js'
+import { useBoardContext } from './board-context.js'
 import {
   Sheet,
   SheetContent,
@@ -57,22 +58,31 @@ function splitShortcut(shortcut: string): string[] {
   return keys
 }
 
-function buildShortcutGroups(): ShortcutGroup[] {
+function buildShortcutGroups(readOnly: boolean): ShortcutGroup[] {
   return GROUP_ORDER.map((group) => ({
     group,
     label: GROUP_LABELS[group],
-    actions: BOARD_ACTIONS.filter((action) => action.group === group && action.shortcut != null),
+    actions: BOARD_ACTIONS.filter(
+      (action) =>
+        action.group === group &&
+        action.shortcut != null &&
+        !(readOnly && action.requiresEdit === true),
+    ),
   })).filter((entry) => entry.actions.length > 0)
 }
 
-const SHORTCUT_GROUPS = buildShortcutGroups()
+const SHORTCUT_GROUPS = buildShortcutGroups(false)
+const READ_ONLY_SHORTCUT_GROUPS = buildShortcutGroups(true)
 
 interface ShortcutsSheetProps {
   open: boolean
   onOpenChange(open: boolean): void
+  readOnly?: boolean
 }
 
-export function ShortcutsSheet({ open, onOpenChange }: ShortcutsSheetProps) {
+export function ShortcutsSheet({ open, onOpenChange, readOnly = false }: ShortcutsSheetProps) {
+  const groups = readOnly ? READ_ONLY_SHORTCUT_GROUPS : SHORTCUT_GROUPS
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-md">
@@ -82,7 +92,7 @@ export function ShortcutsSheet({ open, onOpenChange }: ShortcutsSheetProps) {
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-2 py-3 sm:px-3">
-          {SHORTCUT_GROUPS.map((entry) => (
+          {groups.map((entry) => (
             <section key={entry.group} className="mb-4 last:mb-0">
               <h3 className="px-2 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 {entry.label}
@@ -120,6 +130,7 @@ export function ShortcutsSheet({ open, onOpenChange }: ShortcutsSheetProps) {
 }
 
 export function ShortcutsSheetHost() {
+  const { readOnly } = useBoardContext()
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
@@ -140,5 +151,5 @@ export function ShortcutsSheetHost() {
     }
   }, [])
 
-  return <ShortcutsSheet open={open} onOpenChange={setOpen} />
+  return <ShortcutsSheet open={open} onOpenChange={setOpen} readOnly={readOnly} />
 }
