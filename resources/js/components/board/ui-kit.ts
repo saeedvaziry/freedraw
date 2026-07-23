@@ -13,6 +13,10 @@ export {
   TooltipContent,
   TooltipProvider,
 } from './ui/tooltip.js'
+export { FloatingPanel } from './ui/floating-panel.js'
+export type { FloatingPanelProps, FloatingPanelOrientation } from './ui/floating-panel.js'
+export { IconButton } from './ui/icon-button.js'
+export type { IconButtonProps } from './ui/icon-button.js'
 
 export { Toolbar } from './toolbar/toolbar.js'
 export type { ToolbarProps, ToolbarLayout } from './toolbar/toolbar.js'

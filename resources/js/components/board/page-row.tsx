@@ -2,9 +2,12 @@ import { Link } from '@inertiajs/react'
 import { Check, FileText, Pencil, Trash2, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Input } from '@/components/ui/input'
-import { cn } from '@/components/board/ui-kit'
+import { cn, IconButton } from '@/components/board/ui-kit'
 import type { PageEditMode } from '@/hooks/board/use-pages'
 import type { BoardPage } from '@/types'
+
+const ROW_ACTION_CLASS =
+  'size-7 coarse:size-7 rounded-md text-foreground/70 hover:bg-background hover:text-foreground'
 
 export interface PageRowProps {
   boardPage: BoardPage
@@ -60,10 +63,22 @@ export function PageRow({
           }}
           className="h-7 min-w-0 flex-1 border-0 bg-background px-2 text-sm shadow-none focus-visible:ring-1"
         />
-        <IconButton label="Save name" disabled={busy} onClick={() => onSaveRename(boardPage)}>
+        <IconButton
+          aria-label="Save name"
+          title="Save name"
+          disabled={busy}
+          className={ROW_ACTION_CLASS}
+          onClick={() => onSaveRename(boardPage)}
+        >
           <Check />
         </IconButton>
-        <IconButton label="Cancel" disabled={busy} onClick={onCancel}>
+        <IconButton
+          aria-label="Cancel"
+          title="Cancel"
+          disabled={busy}
+          className={ROW_ACTION_CLASS}
+          onClick={onCancel}
+        >
           <X />
         </IconButton>
       </EditRow>
@@ -135,12 +150,18 @@ export function PageRow({
               : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
           )}
         >
-          <IconButton label="Rename page" onClick={() => onBeginRename(boardPage)}>
+          <IconButton
+            aria-label="Rename page"
+            title="Rename page"
+            className={ROW_ACTION_CLASS}
+            onClick={() => onBeginRename(boardPage)}
+          >
             <Pencil />
           </IconButton>
           <IconButton
-            label="Delete page"
-            className="text-destructive hover:text-destructive"
+            aria-label="Delete page"
+            title="Delete page"
+            className={cn(ROW_ACTION_CLASS, 'text-destructive hover:text-destructive')}
             onClick={() => onBeginDelete(boardPage)}
           >
             <Trash2 />
@@ -165,31 +186,5 @@ function EditRow({ children }: { children: ReactNode }) {
     >
       {children}
     </div>
-  )
-}
-
-export function IconButton({
-  label,
-  children,
-  className,
-  ...props
-}: {
-  label: string
-  children: ReactNode
-  className?: string
-} & React.ComponentProps<'button'>) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      className={cn(
-        'flex size-7 shrink-0 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-background hover:text-foreground disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4',
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </button>
   )
 }
