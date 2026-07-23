@@ -80,7 +80,7 @@ export type { EditRequest, EditTarget, EditListener } from './text/edit.js'
 
 export { snapEndpoint, snapToShapes, shapeAnchors, SNAP_DISTANCE } from './geometry/snap.js'
 export type { SnapGuide, SnapResult } from './geometry/snap.js'
-export type { Tool, ToolContext, ToolResult, PointerInfo } from './tools/tool.js'
+export type { Tool, ToolContext, ToolResult, PointerInfo, ContextMenuRequest } from './tools/tool.js'
 export { InputManager } from './input/input-manager.js'
 export { pinchSample, pinchDelta } from './input/pinch.js'
 export type { PinchSample, PinchDelta } from './input/pinch.js'

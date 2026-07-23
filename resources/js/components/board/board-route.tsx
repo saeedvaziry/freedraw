@@ -14,6 +14,7 @@ import { BoardPagesBar } from './board-pages-bar.js'
 import { BoardSidebar } from './board-sidebar.js'
 import { BottomBar } from './bottom-bar.js'
 import { CanvasHost } from './canvas-host.js'
+import { ContextMenuHost } from './context-menu/context-menu-host.js'
 import { DiagramPanelHost } from './diagram-panel-host.js'
 import { EmptyState } from './empty-state.js'
 import { LinksBar } from './links-bar.js'
@@ -211,6 +212,7 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
         onDrop={imageInsert.onDrop}
       >
         <CanvasHost sceneRef={sceneRef} overlayRef={overlayRef} controller={controller} />
+        <ContextMenuHost />
         <EmptyState />
 
         <div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-3 sm:hidden">
