@@ -21,6 +21,7 @@ import type {
   Point,
   SceneSnapshot,
   ShapeType,
+  Slide,
   Style,
   TextElement,
 } from '../model/types.js'
@@ -138,6 +139,45 @@ function readLocalAppState(yAppState: Y.Map<unknown>): LocalAppState {
     snapGuidesEnabled:
       typeof json.snapGuidesEnabled === 'boolean' ? json.snapGuidesEnabled : fallback.snapGuidesEnabled,
   }
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+function toSlide(value: unknown): Slide | null {
+  if (typeof value !== 'object' || value === null) return null
+  const slide = value as Record<string, unknown>
+  const rect = slide.rect
+  if (typeof rect !== 'object' || rect === null) return null
+  const bounds = rect as Record<string, unknown>
+  if (
+    typeof slide.id !== 'string' ||
+    typeof slide.name !== 'string' ||
+    !isFiniteNumber(slide.order) ||
+    !isFiniteNumber(bounds.x) ||
+    !isFiniteNumber(bounds.y) ||
+    !isFiniteNumber(bounds.width) ||
+    !isFiniteNumber(bounds.height)
+  ) {
+    return null
+  }
+  return {
+    id: slide.id,
+    name: slide.name,
+    rect: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height },
+    order: slide.order,
+  }
+}
+
+function toSlides(value: unknown): Slide[] {
+  if (!Array.isArray(value)) return []
+  const slides: Slide[] = []
+  for (const item of value) {
+    const slide = toSlide(item)
+    if (slide) slides.push(slide)
+  }
+  return slides
 }
 
 function toYElement(element: Element): Y.Map<unknown> {
@@ -387,6 +427,58 @@ export class SceneStore {
     this.snapshot = { ...this.snapshot, appState: this.readAppState() }
     this.localSubscribers.forEach((cb) => cb())
     this.invalidate()
+  }
+
+  getSlides(): Slide[] {
+    return this.snapshot.appState.slides
+  }
+
+  addSlide(rect: { x: number; y: number; width: number; height: number }, name?: string): ElementId {
+    const slides = this.readSlides()
+    const id = createId()
+    const slide: Slide = {
+      id,
+      name: name ?? `Slide ${slides.length + 1}`,
+      rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+      order: slides.length,
+    }
+    this.writeSlides([...slides, slide])
+    return id
+  }
+
+  renameSlide(id: ElementId, name: string): void {
+    const slides = this.readSlides()
+    if (!slides.some((slide) => slide.id === id)) return
+    this.writeSlides(slides.map((slide) => (slide.id === id ? { ...slide, name } : slide)))
+  }
+
+  deleteSlide(id: ElementId): void {
+    const slides = this.readSlides()
+    if (!slides.some((slide) => slide.id === id)) return
+    const next = slides
+      .filter((slide) => slide.id !== id)
+      .map((slide, index) => ({ ...slide, order: index }))
+    this.writeSlides(next)
+  }
+
+  reorderSlides(orderedIds: ElementId[]): void {
+    const slides = this.readSlides()
+    const byId = new Map(slides.map((slide) => [slide.id, slide]))
+    const next: Slide[] = []
+    for (const slideId of orderedIds) {
+      const slide = byId.get(slideId)
+      if (slide) {
+        next.push({ ...slide, order: next.length })
+        byId.delete(slideId)
+      }
+    }
+    for (const slide of slides) {
+      if (byId.has(slide.id)) {
+        next.push({ ...slide, order: next.length })
+        byId.delete(slide.id)
+      }
+    }
+    this.writeSlides(next)
   }
 
   deleteElements(ids: Iterable<ElementId>): void {
@@ -766,7 +858,16 @@ export class SceneStore {
       camera: this.localState.camera,
       lastUsedStyle: this.localState.lastUsedStyle,
       snapGuidesEnabled: this.localState.snapGuidesEnabled,
+      slides: this.readSlides(),
     }
+  }
+
+  private readSlides(): Slide[] {
+    return toSlides(this.yAppState.get('slides'))
+  }
+
+  private writeSlides(next: Slide[]): void {
+    this.doc.transact(() => this.yAppState.set('slides', next), TRANSACTION_ORIGIN)
   }
 
   private readonly onElementsChanged = (events: Y.YEvent<Y.Map<unknown>>[]): void => {

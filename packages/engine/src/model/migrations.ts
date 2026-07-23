@@ -60,7 +60,9 @@ const migrateArrowsToIntent: Migration = (doc) => {
 
 const addGrouping: Migration = () => {}
 
-export const migrations: Migration[] = [noop, addSloppiness, migrateArrowsToIntent, addGrouping]
+const addSlides: Migration = () => {}
+
+export const migrations: Migration[] = [noop, addSloppiness, migrateArrowsToIntent, addGrouping, addSlides]
 
 export function readSchemaVersion(doc: Y.Doc): number {
   const version = doc.getMap('appState').get('schemaVersion')
@@ -128,4 +130,5 @@ export function seedAppState(doc: Y.Doc): void {
   if (appState.get('snapGuidesEnabled') === undefined) {
     appState.set('snapGuidesEnabled', defaults.snapGuidesEnabled)
   }
+  if (appState.get('slides') === undefined) appState.set('slides', defaults.slides)
 }

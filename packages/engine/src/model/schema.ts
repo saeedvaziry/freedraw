@@ -1,6 +1,6 @@
 import type { AppState, CameraState, Style } from './types.js'
 
-export const SCHEMA_VERSION = 4
+export const SCHEMA_VERSION = 5
 
 export const defaultStyle: Style = {
   stroke: '#454545',
@@ -24,5 +24,6 @@ export function defaultAppState(): AppState {
     camera: { ...defaultCamera },
     lastUsedStyle: { ...defaultStyle },
     snapGuidesEnabled: true,
+    slides: [],
   }
 }

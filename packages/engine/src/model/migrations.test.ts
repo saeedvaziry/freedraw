@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import * as Y from 'yjs'
 import { migrateDoc } from './migrations.js'
 import { defaultStyle, SCHEMA_VERSION } from './schema.js'
+import { SceneStore } from '../store/scene-store.js'
 
 describe('migrateDoc', () => {
   it('migrates v2 arrows to v3 intent-only data', () => {
@@ -77,5 +78,26 @@ describe('migrateDoc', () => {
     expect(shape.get('locked')).toBeUndefined()
     expect(shape.get('type')).toBe('rect')
     expect(shape.get('width')).toBe(100)
+  })
+
+  it('migrates a v4 doc to the slides schema with an empty slide list', () => {
+    const doc = new Y.Doc()
+    doc.getMap('appState').set('schemaVersion', 4)
+
+    migrateDoc(doc)
+
+    expect(doc.getMap('appState').get('schemaVersion')).toBe(SCHEMA_VERSION)
+    expect(new SceneStore(doc).getSnapshot().appState.slides).toEqual([])
+  })
+
+  it('is idempotent when run twice on a v4 doc', () => {
+    const doc = new Y.Doc()
+    doc.getMap('appState').set('schemaVersion', 4)
+
+    migrateDoc(doc)
+    migrateDoc(doc)
+
+    expect(doc.getMap('appState').get('schemaVersion')).toBe(SCHEMA_VERSION)
+    expect(new SceneStore(doc).getSnapshot().appState.slides).toEqual([])
   })
 })

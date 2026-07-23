@@ -114,11 +114,19 @@ export interface CameraState {
   zoom: number
 }
 
+export interface Slide {
+  id: ElementId
+  name: string
+  rect: { x: number; y: number; width: number; height: number }
+  order: number
+}
+
 export interface AppState {
   schemaVersion: number
   camera: CameraState
   lastUsedStyle: Style
   snapGuidesEnabled: boolean
+  slides: Slide[]
 }
 
 export interface SceneSnapshot {

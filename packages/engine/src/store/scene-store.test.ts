@@ -610,3 +610,85 @@ describe('insertStencil', () => {
     expect(store.getSnapshot().order).toHaveLength(0)
   })
 })
+
+describe('slides', () => {
+  const rect = { x: 0, y: 0, width: 1280, height: 720 }
+
+  it('adds a slide to the synced app state and surfaces it', () => {
+    const store = new SceneStore()
+
+    const id = store.addSlide(rect)
+
+    const slides = store.getSnapshot().appState.slides
+    expect(slides).toHaveLength(1)
+    expect(slides[0]).toEqual({ id, name: 'Slide 1', rect, order: 0 })
+    expect(store.getSlides()).toEqual(slides)
+    expect(store.doc.getMap('appState').get('slides')).toHaveLength(1)
+  })
+
+  it('uses a provided name and appends with incrementing order', () => {
+    const store = new SceneStore()
+
+    store.addSlide(rect, 'Intro')
+    store.addSlide({ x: 100, y: 0, width: 640, height: 360 })
+
+    const slides = store.getSlides()
+    expect(slides.map((slide) => slide.name)).toEqual(['Intro', 'Slide 2'])
+    expect(slides.map((slide) => slide.order)).toEqual([0, 1])
+  })
+
+  it('renames a slide by id', () => {
+    const store = new SceneStore()
+    const id = store.addSlide(rect)
+
+    store.renameSlide(id, 'Overview')
+
+    expect(store.getSlides()[0]?.name).toBe('Overview')
+  })
+
+  it('deletes a slide and re-sequences the remaining order', () => {
+    const store = new SceneStore()
+    const a = store.addSlide(rect, 'A')
+    const b = store.addSlide(rect, 'B')
+    const c = store.addSlide(rect, 'C')
+
+    store.deleteSlide(b)
+
+    const slides = store.getSlides()
+    expect(slides.map((slide) => slide.id)).toEqual([a, c])
+    expect(slides.map((slide) => slide.order)).toEqual([0, 1])
+  })
+
+  it('reorders slides to match the given sequence', () => {
+    const store = new SceneStore()
+    const a = store.addSlide(rect, 'A')
+    const b = store.addSlide(rect, 'B')
+    const c = store.addSlide(rect, 'C')
+
+    store.reorderSlides([c, a, b])
+
+    const slides = store.getSlides()
+    expect(slides.map((slide) => slide.id)).toEqual([c, a, b])
+    expect(slides.map((slide) => slide.order)).toEqual([0, 1, 2])
+  })
+
+  it('reverts an added slide on undo', () => {
+    const store = new SceneStore()
+    store.addSlide(rect)
+    expect(store.getSlides()).toHaveLength(1)
+
+    store.undo()
+
+    expect(store.getSlides()).toHaveLength(0)
+  })
+
+  it('round-trips slides through a fresh store over the same doc', () => {
+    const doc = new Y.Doc()
+    const store = new SceneStore(doc)
+    const id = store.addSlide(rect, 'Kept')
+
+    const reopened = new SceneStore(doc)
+
+    expect(reopened.getSlides()).toEqual([{ id, name: 'Kept', rect, order: 0 }])
+  })
+})

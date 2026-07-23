@@ -203,6 +203,7 @@ export type {
   Binding,
   Label,
   AppState,
+  Slide,
   CameraState,
   SceneSnapshot,
   Point,
