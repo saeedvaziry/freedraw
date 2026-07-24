@@ -93,7 +93,7 @@ export function SharePageModal({ boardPage, open, onOpenChange }: Props) {
                   <span className="block text-sm font-medium">{option.label}</span>
                   <span className="block text-xs text-muted-foreground">{option.description}</span>
                 </span>
-                {selected ? <Check className="mt-0.5 size-4 shrink-0 text-primary" /> : null}
+                {selected ? <Check className="mt-0.5 size-4 shrink-0 text-accent-foreground" /> : null}
               </button>
             )
           })}
