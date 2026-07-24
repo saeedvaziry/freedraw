@@ -706,3 +706,32 @@ describe('slides', () => {
     expect(reopened.getSlides()).toEqual([{ id, name: 'Kept', rect, order: 0 }])
   })
 })
+
+describe('remote update isolation', () => {
+  it('does not add remote-origin updates to the undo stack', () => {
+    const store = new SceneStore()
+
+    const remote = new SceneStore(new Y.Doc())
+    remote.transact((api) => api.addElement(shapeAt('remote', 0)))
+    Y.applyUpdate(store.doc, Y.encodeStateAsUpdate(remote.doc), 'remote-peer')
+
+    expect(store.getSnapshot().order).toEqual(['remote'])
+    expect(store.canUndo).toBe(false)
+  })
+
+  it('undoes only the local edit, leaving remote updates intact', () => {
+    const store = new SceneStore()
+
+    const remote = new SceneStore(new Y.Doc())
+    remote.transact((api) => api.addElement(shapeAt('remote', 0)))
+    Y.applyUpdate(store.doc, Y.encodeStateAsUpdate(remote.doc), 'remote-peer')
+
+    store.transact((api) => api.addElement(shapeAt('local', 60)))
+    expect(store.canUndo).toBe(true)
+
+    store.undo()
+
+    expect(store.getSnapshot().order).toEqual(['remote'])
+    expect(store.canUndo).toBe(false)
+  })
+})

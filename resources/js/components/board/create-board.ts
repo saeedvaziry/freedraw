@@ -4,12 +4,14 @@ import {
   applyBase64Update,
   assetRepo,
   collectAssetIds,
+  createCollabSync,
   createDocumentPersistence,
   createPageSync,
   createRemotePage,
   DOCUMENT_DB_NAME,
   documentHasContent,
   encodeDocAsBase64,
+  readCollabConfig,
   uploadPageAsset,
   type AssetSource,
   type DocumentPersistence,
@@ -36,6 +38,30 @@ function shareSlugFor(page: BoardPage): string | null {
   }
   const match = typeof window !== 'undefined' ? window.location.pathname.match(/\/s\/([^/]+)/) : null
   return match ? match[1]! : null
+}
+
+function startPageSync(doc: Y.Doc, page: BoardPage): PageSync {
+  const collab = readCollabConfig()
+  if (collab.enabled) {
+    return createCollabSync({
+      doc,
+      room: page.publicId,
+      url: collab.url,
+      tokenUrl: `/pages/${encodeURIComponent(page.publicId)}/realtime-token`,
+    })
+  }
+  return createPageSync(doc, page.publicId, page.document)
+}
+
+function startPublicSync(doc: Y.Doc, page: BoardPage, slug: string | null): PageSync | undefined {
+  const collab = readCollabConfig()
+  if (!collab.enabled || !slug) return undefined
+  return createCollabSync({
+    doc,
+    room: page.publicId,
+    url: collab.url,
+    tokenUrl: `/s/${encodeURIComponent(slug)}/realtime-token`,
+  })
 }
 
 export interface BoardContext {
@@ -133,6 +159,7 @@ async function createPublicBoard(page: BoardPage): Promise<Board> {
   return {
     store: new SceneStore(doc),
     persistence: createEphemeralPersistence(doc),
+    sync: startPublicSync(doc, page, slug),
     page,
     assetSource,
   }
@@ -299,7 +326,7 @@ async function createPageBoard(page: BoardPage): Promise<Board> {
 
     const fresh = createDocumentPersistence(freshDoc, `${DOCUMENT_DB_NAME}:page:${page.publicId}`)
     await fresh.whenSynced
-    const sync = createPageSync(fresh.doc, page.publicId, page.document)
+    const sync = startPageSync(fresh.doc, page)
 
     return {
       store: new SceneStore(fresh.doc),
@@ -312,7 +339,7 @@ async function createPageBoard(page: BoardPage): Promise<Board> {
 
   seedAppState(persistence.doc)
 
-  const sync = createPageSync(persistence.doc, page.publicId, page.document)
+  const sync = startPageSync(persistence.doc, page)
 
   return {
     store: new SceneStore(persistence.doc),

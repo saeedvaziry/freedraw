@@ -90,6 +90,16 @@ export async function deleteRemotePage(publicId: string): Promise<DeletePageResu
   })
 }
 
+export interface RealtimeTokenResponse {
+  token: string
+  expiresAt: string
+}
+
+export async function fetchRealtimeToken(tokenUrl: string): Promise<string> {
+  const { token } = await requestJson<RealtimeTokenResponse>(tokenUrl, { method: 'POST' })
+  return token
+}
+
 export async function updateRemoteShare(
   publicId: string,
   payload: SharePagePayload,
