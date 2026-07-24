@@ -16,6 +16,7 @@ declare module '@inertiajs/core' {
             auth: Auth;
             boardPage: BoardPage | null;
             boardPages: BoardPage[];
+            livePageIds: string[];
             boardAccess: BoardAccess | null;
             sidebarOpen: boolean;
             currentOrganization: Organization | null;

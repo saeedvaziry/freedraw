@@ -40,7 +40,7 @@ function destroyBoard(board: CreatedBoard): void {
 }
 
 export function BoardRoute() {
-  const { auth, boardPage, boardPages, currentOrganization, boardAccess } = usePage().props
+  const { auth, boardPage, livePageIds, currentOrganization, boardAccess } = usePage().props
   const publicView = boardAccess?.isPublic ?? false
   const [board, setBoard] = useState<{
     store: SceneStore
@@ -123,8 +123,8 @@ export function BoardRoute() {
   // whenever the page list changes (e.g. after a page is deleted).
   useEffect(() => {
     if (publicView || !auth?.user) return
-    void gcOrphanedStorage(boardPages.map((page) => page.publicId))
-  }, [publicView, auth?.user, boardPages])
+    void gcOrphanedStorage(livePageIds)
+  }, [publicView, auth?.user, livePageIds])
 
   if (!board) return <BoardLoading />
   return (

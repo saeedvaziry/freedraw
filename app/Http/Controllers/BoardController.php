@@ -71,6 +71,7 @@ class BoardController extends Controller
         return [
             'boardPage' => $page ? PageResource::make($page, $user)->resolve($request) : null,
             'boardPages' => $pages?->map(fn (Page $page) => PageResource::make($page, $user, includeDocument: false)->resolve($request))->values() ?? [],
+            'livePageIds' => $user ? Page::query()->visibleTo($user)->pluck('public_id')->all() : [],
         ];
     }
 }
