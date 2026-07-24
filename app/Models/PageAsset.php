@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property string $content_hash
  * @property string $mime
  * @property int $size
+ * @property Carbon|null $referenced_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Page $page
@@ -48,6 +49,7 @@ class PageAsset extends Model
     {
         return [
             'size' => 'integer',
+            'referenced_at' => 'datetime',
         ];
     }
 }

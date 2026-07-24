@@ -29,4 +29,11 @@ class PageAssetFactory extends Factory
             'size' => fake()->numberBetween(1024, 1024 * 512),
         ];
     }
+
+    public function referenced(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'referenced_at' => now(),
+        ]);
+    }
 }

@@ -5,7 +5,9 @@ use App\Enums\PagePermission;
 use App\Models\Page;
 use App\Models\PageAsset;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -224,4 +226,20 @@ test('private pages do not serve assets over the public route', function () {
     $this
         ->get(route('share.assets.show', ['slug' => 'secretslug', 'assetId' => $asset->asset_id]))
         ->assertNotFound();
+});
+
+test('the page_assets table has a referenced_at column', function () {
+    expect(Schema::hasColumn('page_assets', 'referenced_at'))->toBeTrue();
+});
+
+test('a freshly created asset has a null referenced_at', function () {
+    $asset = PageAsset::factory()->create();
+
+    expect($asset->referenced_at)->toBeNull();
+});
+
+test('referenced_at is read back as a Carbon instance', function () {
+    $asset = PageAsset::factory()->referenced()->create();
+
+    expect($asset->fresh()->referenced_at)->toBeInstanceOf(CarbonInterface::class);
 });
