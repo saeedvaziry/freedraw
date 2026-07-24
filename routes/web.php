@@ -5,6 +5,7 @@ use App\Http\Controllers\Organizations\OrganizationInvitationController;
 use App\Http\Controllers\PageAssetController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\PageShareController;
+use App\Http\Controllers\PageVersionController;
 use App\Http\Controllers\PublicPageAssetController;
 use App\Http\Controllers\PublicPageController;
 use App\Http\Controllers\PublicRealtimeTokenController;
@@ -65,6 +66,10 @@ Route::middleware(['auth'])->group(function () {
 
     Route::post('pages/{page}/assets', [PageAssetController::class, 'store'])->name('pages.assets.store');
     Route::get('pages/{page}/assets/{assetId}', [PageAssetController::class, 'show'])->name('pages.assets.show');
+
+    Route::get('pages/{page}/versions', [PageVersionController::class, 'index'])->name('pages.versions.index');
+    Route::post('pages/{page}/versions', [PageVersionController::class, 'store'])->name('pages.versions.store');
+    Route::post('pages/{page}/versions/restore', [PageVersionController::class, 'restore'])->name('pages.versions.restore');
 
     Route::get('invitations/{invitation}/accept', [OrganizationInvitationController::class, 'accept'])->name('invitations.accept');
     Route::delete('invitations/{invitation}', [OrganizationInvitationController::class, 'decline'])->name('invitations.decline');
