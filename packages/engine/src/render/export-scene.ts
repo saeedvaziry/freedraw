@@ -1,6 +1,7 @@
 import { contentBounds } from '../geometry/fit.js'
 import type { Rect } from '../geometry/rect.js'
 import type { Element, ElementId, SceneSnapshot } from '../model/types.js'
+import { CanvasDrawTarget, SvgDrawTarget } from './draw-target.js'
 import { invertColor } from './invert.js'
 import { paintElement } from './painters/index.js'
 
@@ -118,11 +119,44 @@ export function renderSceneExport(snapshot: SceneSnapshot, options: ExportOption
 
   const dark = options.dark ?? false
   ctx.setTransform(scale, 0, 0, scale, (-bounds.x + padding) * scale, (-bounds.y + padding) * scale)
+  const target = new CanvasDrawTarget(ctx)
   for (const id of scene.order) {
     const element: Element | undefined = scene.elements[id]
-    if (element) paintElement(ctx, element, dark)
+    if (element) paintElement(target, element, dark)
   }
   return { ok: true, canvas, size }
+}
+
+export interface ExportSvgRenderOptions {
+  padding?: number
+  scale?: number
+  background?: string | null
+  dark?: boolean
+  elementIds?: readonly ElementId[]
+}
+
+export type SvgRenderResult = { ok: true; svg: string } | { ok: false; reason: 'empty' }
+
+export function renderSceneSvg(snapshot: SceneSnapshot, options: ExportSvgRenderOptions): SvgRenderResult {
+  const scene = exportSubset(snapshot, options.elementIds)
+  const bounds = contentBounds(scene)
+  if (!bounds || bounds.width <= 0 || bounds.height <= 0) return { ok: false, reason: 'empty' }
+
+  const padding = options.padding ?? EXPORT_DEFAULT_PADDING
+  const scale = options.scale ?? 1
+  const dark = options.dark ?? false
+  const background = options.background
+    ? dark
+      ? invertColor(options.background)
+      : options.background
+    : null
+
+  const target = new SvgDrawTarget({ bounds, padding, scale, background })
+  for (const id of scene.order) {
+    const element: Element | undefined = scene.elements[id]
+    if (element) paintElement(target, element, dark)
+  }
+  return { ok: true, svg: target.toSvg() }
 }
 
 function canvasHoldsPixels(

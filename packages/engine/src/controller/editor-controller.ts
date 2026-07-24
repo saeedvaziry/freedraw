@@ -31,8 +31,10 @@ import {
   exportImageAssetIds,
   exportTooLarge,
   renderSceneExport,
+  renderSceneSvg,
   type ExportFailure,
   type ExportFormat,
+  type SvgRenderResult,
 } from '../render/export-scene.js'
 import { setImageCache } from '../render/painters/image.js'
 import { clearTextLayoutCache } from '../render/painters/text.js'
@@ -510,6 +512,19 @@ export class EditorController {
     return result
   }
 
+  async exportSvg(options: ExportSvgOptions = {}): Promise<ExportSvgResult> {
+    const snapshot = this.store.getSnapshot()
+    const elementIds = options.selectionOnly ? [...this.store.getUiState().selectedIds] : undefined
+    await this.imageCache.ensureBitmaps(exportImageAssetIds(snapshot))
+    return renderSceneSvg(snapshot, {
+      padding: options.padding,
+      scale: options.scale,
+      background: options.transparent ? null : EXPORT_BASE_BACKGROUND,
+      dark: options.dark,
+      elementIds,
+    })
+  }
+
   measureTextSize(text: string, style: Style): TextSize {
     return measureTextBox(text, style)
   }
@@ -707,14 +722,16 @@ export class EditorController {
     const ui = this.store.getUiState()
     const hoveredId = this.store.getHoveredId()
     const selected = elementsFor(ui.selectedIds, snapshot.elements)
-    const shapes = selected.filter((element) => !isArrowElement(element))
+    const shapes = selected.filter((element) => !isArrowElement(element) && !element.locked)
+    const lockedSelected = selected.find((element) => element.locked) ?? null
     const selectedArrows = selected.filter(isArrowElement)
     const selection = selectionFrameFor(shapes)
     const hovered =
       hoveredId && !ui.selectedIds.has(hoveredId)
         ? snapshot.elements[hoveredId] ?? null
         : null
-    const hover = hovered && isArrowElement(hovered) ? hovered : null
+    const hover =
+      (hovered && (isArrowElement(hovered) || hovered.locked) ? hovered : null) ?? lockedSelected
     const ports = shapes
     const targetHighlight = this.portTargetId ? snapshot.elements[this.portTargetId] ?? null : null
     return {
@@ -867,6 +884,16 @@ export interface ExportImageOptions {
 }
 
 export type ExportImageResult = { ok: true; blob: Blob } | ExportFailure
+
+export interface ExportSvgOptions {
+  transparent?: boolean
+  dark?: boolean
+  padding?: number
+  scale?: number
+  selectionOnly?: boolean
+}
+
+export type ExportSvgResult = SvgRenderResult
 
 const EXPORT_BASE_BACKGROUND = '#ffffff'
 

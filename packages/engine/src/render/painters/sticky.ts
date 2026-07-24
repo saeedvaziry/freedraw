@@ -1,5 +1,6 @@
 import type { Element } from '../../model/types.js'
 import { getOutline, traceOutline } from '../../geometry/shape-outline.js'
+import type { DrawTarget } from '../draw-target.js'
 import { dashPattern } from './dash.js'
 import { strokeOutline } from './sketch.js'
 import { paintLabel } from './text.js'
@@ -23,7 +24,7 @@ export const BASE_SHADOW_DARK = 'rgba(0, 0, 0, 0.55)'
 const BASE_BLUR = 10
 const BASE_OFFSET_Y = 7
 
-export function paintSticky(ctx: CanvasRenderingContext2D, element: Element, dark: boolean): void {
+export function paintSticky(ctx: DrawTarget, element: Element, dark: boolean): void {
   const outline = getOutline('roundRect', element, element.style.roundness)
   if (!outline) return
 
@@ -51,7 +52,7 @@ export function paintSticky(ctx: CanvasRenderingContext2D, element: Element, dar
 }
 
 function paintCurledShadow(
-  ctx: CanvasRenderingContext2D,
+  ctx: DrawTarget,
   outline: ReturnType<typeof getOutline>,
   dark: boolean,
 ): void {
@@ -71,7 +72,7 @@ function paintCurledShadow(
   ctx.restore()
 }
 
-function traceCanvasBounds(ctx: CanvasRenderingContext2D): void {
+function traceCanvasBounds(ctx: DrawTarget): void {
   const { width, height } = ctx.canvas
   const transform = ctx.getTransform()
   const topLeft = transformCanvasPoint(transform, 0, 0)

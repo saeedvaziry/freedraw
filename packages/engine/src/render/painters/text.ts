@@ -1,11 +1,17 @@
 import { LayoutCache } from '../../text/cache.js'
-import { canvasMeasureContext, fontString } from '../../text/measure.js'
+import { fontString, type MeasureContext } from '../../text/measure.js'
 import type { TextAlign, TextLayout, VerticalAlign } from '../../text/layout.js'
 import { labelRect } from '../../geometry/shape-outline.js'
 import type { Element, Style, TextElement } from '../../model/types.js'
 import { ARROW_LABEL_PADDING_X, ARROW_LABEL_PADDING_Y } from '../../text/arrow-label.js'
+import type { DrawTarget } from '../draw-target.js'
 import { elementColors } from '../draw-cache.js'
 import { invertColor } from '../invert.js'
+
+function measureContextFor(ctx: DrawTarget, fontSize: number, fontFamily: string): MeasureContext {
+  ctx.font = fontString(fontSize, fontFamily)
+  return { measureWidth: (text) => ctx.measureText(text).width }
+}
 
 const layoutCache = new LayoutCache()
 
@@ -28,13 +34,13 @@ interface TextBlock {
 }
 
 function measure(
-  ctx: CanvasRenderingContext2D,
+  ctx: DrawTarget,
   id: string,
   text: string,
   width: number,
   style: Style,
 ): TextLayout {
-  const measureCtx = canvasMeasureContext(ctx, style.fontSize, style.fontFamily)
+  const measureCtx = measureContextFor(ctx, style.fontSize, style.fontFamily)
   return layoutCache.get(
     id,
     { text, width, fontSize: style.fontSize, fontFamily: style.fontFamily },
@@ -42,7 +48,7 @@ function measure(
   )
 }
 
-export function paintText(ctx: CanvasRenderingContext2D, element: Element, dark: boolean): void {
+export function paintText(ctx: DrawTarget, element: Element, dark: boolean): void {
   const text = element as TextElement
   if (!text.text) return
   paintTextBlock(
@@ -63,7 +69,7 @@ export function paintText(ctx: CanvasRenderingContext2D, element: Element, dark:
   )
 }
 
-export function paintLabel(ctx: CanvasRenderingContext2D, element: Element, dark: boolean): void {
+export function paintLabel(ctx: DrawTarget, element: Element, dark: boolean): void {
   const label = element.label
   if (!label || !label.text) return
   const rect = labelRect(element.type, element)
@@ -85,7 +91,7 @@ export function paintLabel(ctx: CanvasRenderingContext2D, element: Element, dark
 }
 
 export function paintArrowLabel(
-  ctx: CanvasRenderingContext2D,
+  ctx: DrawTarget,
   element: Element,
   midpoint: { x: number; y: number },
   dark: boolean,
@@ -117,7 +123,7 @@ export function paintArrowLabel(
 }
 
 function paintTextBlock(
-  ctx: CanvasRenderingContext2D,
+  ctx: DrawTarget,
   id: string,
   text: string,
   block: TextBlock,
@@ -147,7 +153,7 @@ function verticalOffset(block: TextBlock, contentHeight: number): number {
 }
 
 function paintLayout(
-  ctx: CanvasRenderingContext2D,
+  ctx: DrawTarget,
   layout: TextLayout,
   style: Style,
   box: { x: number; y: number; width: number; align: TextAlign },

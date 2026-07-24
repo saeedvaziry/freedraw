@@ -1,4 +1,5 @@
 import type { Element, ShapeType } from '../../model/types.js'
+import type { DrawTarget } from '../draw-target.js'
 import { paintArrow } from './arrow.js'
 import { paintFreedraw } from './freedraw.js'
 import { paintImage } from './image.js'
@@ -6,7 +7,7 @@ import { paintShape } from './shape.js'
 import { paintSticky } from './sticky.js'
 import { paintText } from './text.js'
 
-export type Painter = (ctx: CanvasRenderingContext2D, element: Element, dark: boolean) => void
+export type Painter = (ctx: DrawTarget, element: Element, dark: boolean) => void
 
 const shapeTypes: ShapeType[] = [
   'rect',
@@ -38,7 +39,7 @@ export function getPainter(type: string): Painter | undefined {
 }
 
 export function paintElement(
-  ctx: CanvasRenderingContext2D,
+  ctx: DrawTarget,
   element: Element,
   dark: boolean,
 ): void {

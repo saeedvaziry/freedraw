@@ -1,5 +1,6 @@
 import { getStroke } from 'perfect-freehand'
 import type { Element, FreedrawElement } from '../../model/types.js'
+import type { DrawTarget } from '../draw-target.js'
 import { elementColors, strokeCache } from '../draw-cache.js'
 
 const STROKE_SIZE_FACTOR = 4
@@ -11,7 +12,7 @@ export function freedrawSize(strokeWidth: number): number {
   return Math.max(1, strokeWidth) * STROKE_SIZE_FACTOR
 }
 
-export function paintFreedraw(ctx: CanvasRenderingContext2D, element: Element, dark: boolean): void {
+export function paintFreedraw(ctx: DrawTarget, element: Element, dark: boolean): void {
   const freedraw = element as FreedrawElement
   const { points, style } = freedraw
   if (points.length === 0) return

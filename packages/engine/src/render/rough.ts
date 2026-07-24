@@ -4,6 +4,7 @@ import type { Drawable, Op, OpSet, Options } from 'roughjs/bin/core.js'
 import type { Outline } from '../geometry/shape-outline.js'
 import { outlinePathD } from '../geometry/shape-outline.js'
 import type { Point } from '../model/types.js'
+import type { DrawTarget } from './draw-target.js'
 
 const MAX_ROUGHNESS = 2.5
 
@@ -59,7 +60,7 @@ export function roughOutlineDrawable(outline: Outline, sloppiness: number, seed:
 }
 
 export function strokeRoughOutline(
-  ctx: CanvasRenderingContext2D,
+  ctx: DrawTarget,
   outline: Outline,
   sloppiness: number,
   seed: number,
@@ -67,7 +68,7 @@ export function strokeRoughOutline(
   paintDrawable(ctx, roughOutlineDrawable(outline, sloppiness, seed))
 }
 
-export function paintDrawable(ctx: CanvasRenderingContext2D, drawable: Drawable): void {
+export function paintDrawable(ctx: DrawTarget, drawable: Drawable): void {
   for (const set of drawable.sets) {
     if (set.type !== 'path') continue
     ctx.beginPath()
@@ -76,11 +77,11 @@ export function paintDrawable(ctx: CanvasRenderingContext2D, drawable: Drawable)
   }
 }
 
-function applyOpSet(ctx: CanvasRenderingContext2D, set: OpSet): void {
+function applyOpSet(ctx: DrawTarget, set: OpSet): void {
   for (const op of set.ops) applyOp(ctx, op)
 }
 
-function applyOp(ctx: CanvasRenderingContext2D, op: Op): void {
+function applyOp(ctx: DrawTarget, op: Op): void {
   const d = op.data
   if (op.op === 'move') {
     ctx.moveTo(d[0]!, d[1]!)

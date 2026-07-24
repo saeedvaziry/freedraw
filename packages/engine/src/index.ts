@@ -51,7 +51,13 @@ export type { SerializeReport } from './diagram/serialize.js'
 export type { DiagramError, Direction } from './diagram/ast.js'
 
 export { EditorController } from './controller/editor-controller.js'
-export type { ExportImageOptions, ExportImageResult, FlowContext } from './controller/editor-controller.js'
+export type {
+  ExportImageOptions,
+  ExportImageResult,
+  ExportSvgOptions,
+  ExportSvgResult,
+  FlowContext,
+} from './controller/editor-controller.js'
 export type {
   CursorListener,
   CameraListener,
@@ -61,6 +67,7 @@ export { paintPresence } from './render/overlay/presence.js'
 export type { PresenceOverlay, PresenceCursor, PresenceHalo } from './render/overlay/presence.js'
 export {
   renderSceneExport,
+  renderSceneSvg,
   canvasToBlob,
   exportImageAssetIds,
   exportTooLarge,
@@ -77,7 +84,11 @@ export type {
   ExportSize,
   ExportFailure,
   ExportRenderResult,
+  ExportSvgRenderOptions,
+  SvgRenderResult,
 } from './render/export-scene.js'
+export { CanvasDrawTarget, SvgDrawTarget } from './render/draw-target.js'
+export type { DrawTarget, DrawTransform, SvgDrawTargetConfig } from './render/draw-target.js'
 
 export { ToolManager } from './tools/tool-manager.js'
 export { ShapeTool } from './tools/shape-tool.js'

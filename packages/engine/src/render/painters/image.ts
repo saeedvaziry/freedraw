@@ -1,6 +1,7 @@
 import type { ImageCache } from '../../assets/image-cache.js'
 import type { Element, ImageElement } from '../../model/types.js'
 import { getOutline, traceOutline } from '../../geometry/shape-outline.js'
+import type { DrawTarget } from '../draw-target.js'
 import { invertColor } from '../invert.js'
 
 const PLACEHOLDER_FILL = '#e5e7eb'
@@ -14,7 +15,7 @@ export function setImageCache(cache: ImageCache | null): void {
   imageCache = cache
 }
 
-export function paintImage(ctx: CanvasRenderingContext2D, element: Element, dark: boolean): void {
+export function paintImage(ctx: DrawTarget, element: Element, dark: boolean): void {
   const image = element as ImageElement
   const bitmap = imageCache?.getBitmap(image.assetId)
 

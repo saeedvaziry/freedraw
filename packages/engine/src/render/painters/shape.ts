@@ -1,11 +1,12 @@
 import type { Element } from '../../model/types.js'
 import { getOutline, traceOutline } from '../../geometry/shape-outline.js'
+import type { DrawTarget } from '../draw-target.js'
 import { elementColors } from '../draw-cache.js'
 import { dashPattern } from './dash.js'
 import { strokeOutline } from './sketch.js'
 import { paintLabel } from './text.js'
 
-export function paintShape(ctx: CanvasRenderingContext2D, element: Element, dark: boolean): void {
+export function paintShape(ctx: DrawTarget, element: Element, dark: boolean): void {
   const outline = getOutline(element.type, element, element.style.roundness)
   if (!outline) return
 

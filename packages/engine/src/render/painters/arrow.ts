@@ -2,6 +2,7 @@ import type { Drawable } from 'roughjs/bin/core.js'
 import type { ArrowElement, Arrowhead, Element, Point } from '../../model/types.js'
 import { arrowRoute } from '../../connectors/resolve.js'
 import { polylineMidpoint } from '../../text/arrow-label.js'
+import type { DrawTarget } from '../draw-target.js'
 import { arrowCache, type ArrowDrawables, elementColors } from '../draw-cache.js'
 import { paintDrawable } from '../rough.js'
 import { dashPattern } from './dash.js'
@@ -14,7 +15,7 @@ const DOT_RADIUS = 4
 const BAR_HALF = 7
 const BEND_RADIUS = 18
 
-export function paintArrow(ctx: CanvasRenderingContext2D, element: Element, dark: boolean): void {
+export function paintArrow(ctx: DrawTarget, element: Element, dark: boolean): void {
   const arrow = element as ArrowElement
   const points = arrowRoute(arrow)
   if (points.length < 2) return
@@ -138,7 +139,7 @@ export function roundedShaftPathData(points: Point[]): string {
   return commands.join(' ')
 }
 
-function traceRoundedShaft(ctx: CanvasRenderingContext2D, points: Point[]): void {
+function traceRoundedShaft(ctx: DrawTarget, points: Point[]): void {
   const first = points[0]
   if (!first) return
   ctx.moveTo(first.x, first.y)
@@ -210,7 +211,7 @@ function headTrim(head: Arrowhead, scale: number): number {
 }
 
 function paintHead(
-  ctx: CanvasRenderingContext2D,
+  ctx: DrawTarget,
   head: Arrowhead,
   tip: Point,
   from: Point,

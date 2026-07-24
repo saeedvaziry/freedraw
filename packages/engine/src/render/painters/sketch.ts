@@ -1,6 +1,7 @@
 import type { Drawable } from 'roughjs/bin/core.js'
 import type { Element, Point } from '../../model/types.js'
 import { getOutline, type Outline, traceOutline } from '../../geometry/shape-outline.js'
+import type { DrawTarget } from '../draw-target.js'
 import {
   hashSeed,
   paintDrawable,
@@ -16,7 +17,7 @@ export function isSloppy(element: Element): boolean {
 }
 
 export function strokeOutline(
-  ctx: CanvasRenderingContext2D,
+  ctx: DrawTarget,
   outline: Outline,
   element: Element,
   outlineType: string,
