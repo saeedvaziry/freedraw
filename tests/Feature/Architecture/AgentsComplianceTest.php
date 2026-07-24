@@ -135,7 +135,7 @@ test('models use laravel attribute metadata', function () {
 test('frontend files are kebab case and avoid inline svg elements', function () {
     foreach (project_files('resources/js', ['ts', 'tsx']) as $path) {
         $basename = basename($path, '.'.pathinfo($path, PATHINFO_EXTENSION));
-        $basename = Str::of($basename)->replaceEnd('.d', '')->toString();
+        $basename = Str::of($basename)->replaceEnd('.d', '')->replaceEnd('.test', '')->toString();
 
         expect($basename)->toMatch('/^[a-z0-9]+(?:-[a-z0-9]+)*$/')
             ->and(file_get_contents($path))->not->toContain('<svg');
