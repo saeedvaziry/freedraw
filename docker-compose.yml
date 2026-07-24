@@ -1,0 +1,136 @@
+# FreeDraw self-host stack. See docker/README.md for setup.
+#
+#   cp .env.example .env      # then set APP_KEY, DB_PASSWORD, COLLAB_* as needed
+#   docker compose build
+#   docker compose up -d
+#
+# Compose reads .env for ${...} interpolation below and passes it to the PHP
+# containers via env_file; DB_HOST / REDIS_HOST are overridden to the compose
+# service names. VITE_* are build args because Vite inlines them at build time.
+
+name: freedraw
+
+x-app-build: &app-build
+  context: .
+  dockerfile: docker/app.Dockerfile
+  target: app
+  args:
+    VITE_APP_NAME: ${APP_NAME:-FreeDraw}
+    VITE_COLLAB_ENABLED: ${VITE_COLLAB_ENABLED:-false}
+    VITE_COLLAB_URL: ${VITE_COLLAB_URL:-}
+
+x-app-common: &app-common
+  image: freedraw-app:latest
+  build: *app-build
+  env_file: .env
+  volumes:
+    - storage-data:/var/www/html/storage/app
+  depends_on:
+    mysql:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-freedraw}
+      MYSQL_USER: ${DB_USERNAME:-freedraw}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_ROOT_PASSWORD:-root}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  app:
+    <<: *app-common
+    environment:
+      CONTAINER_ROLE: app
+      DB_HOST: mysql
+      DB_DATABASE: ${DB_DATABASE:-freedraw}
+      DB_USERNAME: ${DB_USERNAME:-freedraw}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      REDIS_HOST: redis
+
+  web:
+    image: freedraw-web:latest
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+      target: web
+      args:
+        VITE_APP_NAME: ${APP_NAME:-FreeDraw}
+        VITE_COLLAB_ENABLED: ${VITE_COLLAB_ENABLED:-false}
+        VITE_COLLAB_URL: ${VITE_COLLAB_URL:-}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    depends_on:
+      - app
+      - hocuspocus
+    restart: unless-stopped
+
+  queue:
+    <<: *app-common
+    command: ["php", "artisan", "horizon"]
+    environment:
+      CONTAINER_ROLE: queue
+      DB_HOST: mysql
+      DB_DATABASE: ${DB_DATABASE:-freedraw}
+      DB_USERNAME: ${DB_USERNAME:-freedraw}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      REDIS_HOST: redis
+
+  scheduler:
+    <<: *app-common
+    command: ["php", "artisan", "schedule:work"]
+    environment:
+      CONTAINER_ROLE: scheduler
+      DB_HOST: mysql
+      DB_DATABASE: ${DB_DATABASE:-freedraw}
+      DB_USERNAME: ${DB_USERNAME:-freedraw}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      REDIS_HOST: redis
+
+  hocuspocus:
+    image: freedraw-hocuspocus:latest
+    build:
+      context: ./services/hocuspocus
+      dockerfile: Dockerfile
+    environment:
+      HOCUSPOCUS_PORT: ${HOCUSPOCUS_PORT:-1234}
+      HOCUSPOCUS_ADDRESS: 0.0.0.0
+      COLLAB_SECRET: ${COLLAB_SECRET:-}
+      REQUIRE_COLLAB_AUTH: ${COLLAB_ENABLED:-false}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-freedraw}
+      DB_USERNAME: ${DB_USERNAME:-freedraw}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  redis-data:
+  storage-data:
