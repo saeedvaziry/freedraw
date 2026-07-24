@@ -85,6 +85,7 @@ type FakeController = ReturnType<typeof createController>
 
 const boardExport = {
   exportImage: vi.fn(),
+  exportSvg: vi.fn(),
   copyImage: vi.fn(),
   exportScene: vi.fn(),
   importScene: vi.fn(),
@@ -141,6 +142,7 @@ const READ_ONLY_SAFE_IDS = new Set([
   'help.open',
   'export-png',
   'export-jpg',
+  'export-svg',
   'export-json',
   'copy-image',
 ])

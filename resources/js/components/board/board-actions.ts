@@ -17,6 +17,7 @@ import {
   CopyPlus,
   Crosshair,
   Download,
+  FileCode,
   FileJson,
   Group,
   ImageDown,
@@ -452,6 +453,14 @@ export const BOARD_ACTIONS: BoardAction[] = [
     group: 'export',
     when: ({ store }) => store.getSnapshot().order.length > 0,
     run: ({ boardExport, theme }) => void boardExport.exportImage('jpg', false, theme === 'dark'),
+  },
+  {
+    id: 'export-svg',
+    label: 'Export SVG',
+    icon: FileCode,
+    group: 'export',
+    when: ({ store }) => store.getSnapshot().order.length > 0,
+    run: ({ boardExport, theme }) => void boardExport.exportSvg(theme === 'dark'),
   },
   {
     id: 'export-json',

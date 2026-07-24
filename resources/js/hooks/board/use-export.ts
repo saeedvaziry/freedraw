@@ -29,6 +29,7 @@ export interface BoardExport {
     dark: boolean,
     options?: BoardExportOptions,
   ): Promise<void>
+  exportSvg(dark: boolean, options?: BoardExportOptions): Promise<void>
   copyImage(options?: BoardExportOptions): Promise<void>
   exportScene(options?: BoardExportOptions): void
   importScene(file: File): Promise<void>
@@ -57,6 +58,29 @@ export function useExport(controller: EditorController | null, store: SceneStore
         }
         downloadBlob(result.blob, `freedraw.${EXTENSION[format]}`)
         boardToast(`Exported as ${format.toUpperCase()}`)
+      } catch (error) {
+        console.error('Export failed', error)
+        boardToast('Export failed', 'error')
+      }
+    },
+    [controller],
+  )
+
+  const exportSvg = useCallback(
+    async (dark: boolean, options?: BoardExportOptions): Promise<void> => {
+      if (!controller) return
+      try {
+        const result = await controller.exportSvg({
+          dark,
+          scale: options?.scale,
+          selectionOnly: options?.selectionOnly,
+        })
+        if (!result.ok) {
+          boardToast(exportFailureMessage(result), 'error')
+          return
+        }
+        downloadBlob(new Blob([result.svg], { type: 'image/svg+xml' }), 'freedraw.svg')
+        boardToast('Exported as SVG')
       } catch (error) {
         console.error('Export failed', error)
         boardToast('Export failed', 'error')
@@ -125,8 +149,8 @@ export function useExport(controller: EditorController | null, store: SceneStore
   )
 
   return useMemo(
-    () => ({ exportImage, copyImage, exportScene, importScene }),
-    [exportImage, copyImage, exportScene, importScene],
+    () => ({ exportImage, exportSvg, copyImage, exportScene, importScene }),
+    [exportImage, exportSvg, copyImage, exportScene, importScene],
   )
 }
 

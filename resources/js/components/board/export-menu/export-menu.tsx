@@ -1,5 +1,5 @@
 import { useId, useMemo, useState, useSyncExternalStore } from 'react'
-import { ClipboardCopy, Download, FileJson, ImageDown, Moon, Sun, Upload } from 'lucide-react'
+import { ClipboardCopy, Download, FileCode, FileJson, ImageDown, Moon, Sun, Upload } from 'lucide-react'
 import {
   elementBounds,
   maxExportScale,
@@ -103,6 +103,11 @@ export function ExportMenu() {
     void boardExport.exportImage(format, formatTransparent, dark, options)
   }
 
+  const runExportSvg = (): void => {
+    setOpen(false)
+    void boardExport.exportSvg(dark, options)
+  }
+
   const runCopy = (): void => {
     setOpen(false)
     void boardExport.copyImage(options)
@@ -149,6 +154,12 @@ export function ExportMenu() {
               label="Export JPG"
               disabled={!state.canExport}
               onClick={() => runExport('jpg', false)}
+            />
+            <MenuItem
+              Icon={FileCode}
+              label="Export SVG"
+              disabled={!state.canExport}
+              onClick={runExportSvg}
             />
             <MenuItem
               Icon={FileJson}
