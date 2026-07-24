@@ -1,9 +1,12 @@
 import { router, usePage } from '@inertiajs/react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import * as Y from 'yjs'
+import { SceneStore, seedAppState, type Stencil } from '@freedraw/engine'
 import { boardToast } from '@/lib/board-toast'
 import {
   createRemotePage,
   deleteRemotePage,
+  encodeDocAsBase64,
   isCsrfExpired,
   updateRemotePage,
 } from '@/lib/persistence'
@@ -31,6 +34,7 @@ export interface UsePagesResult {
   setRenameDraft(title: string): void
   resetEditing(): void
   createPage(): void
+  createFromTemplate(template: Stencil): void
   beginRename(boardPage: BoardPage): void
   beginDelete(boardPage: BoardPage): void
   saveRename(boardPage: BoardPage): void
@@ -84,6 +88,26 @@ export function usePages(onNavigate?: () => void): UsePagesResult {
       .catch((error) => boardToast(failureMessage(error, 'Could not create the page. Try again.'), 'error'))
       .finally(() => setCreating(false))
   }, [creating, onNavigate])
+
+  const createFromTemplate = useCallback(
+    (template: Stencil) => {
+      if (creating) return
+      setCreating(true)
+      const doc = new Y.Doc()
+      seedAppState(doc)
+      new SceneStore(doc).insertStencil(template, { x: 0, y: 0 })
+      const document = encodeDocAsBase64(doc)
+      doc.destroy()
+      void createRemotePage({ title: template.name || 'Untitled page', document })
+        .then((created) => {
+          onNavigate?.()
+          router.visit(created.url)
+        })
+        .catch((error) => boardToast(failureMessage(error, 'Could not create the page. Try again.'), 'error'))
+        .finally(() => setCreating(false))
+    },
+    [creating, onNavigate],
+  )
 
   const beginRename = useCallback((boardPage: BoardPage) => {
     setEditing({ id: boardPage.publicId, mode: 'rename' })
@@ -152,6 +176,7 @@ export function usePages(onNavigate?: () => void): UsePagesResult {
     setRenameDraft,
     resetEditing,
     createPage,
+    createFromTemplate,
     beginRename,
     beginDelete,
     saveRename,

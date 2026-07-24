@@ -1,12 +1,16 @@
 import { usePage } from '@inertiajs/react'
-import { ChevronsUpDown, FileText, Plus, Share2 } from 'lucide-react'
+import { ChevronsUpDown, FileText, LayoutTemplate, Plus, Share2 } from 'lucide-react'
 import { useCallback, useState } from 'react'
+import { builtinTemplates } from '@freedraw/engine'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/components/board/ui-kit'
@@ -39,6 +43,7 @@ export function BoardPagesBar() {
     setRenameDraft,
     resetEditing,
     createPage,
+    createFromTemplate,
     beginRename,
     beginDelete,
     saveRename,
@@ -132,6 +137,28 @@ export function BoardPagesBar() {
             <Plus className="size-4" />
             <span>{creating ? 'Creating…' : 'New page'}</span>
           </DropdownMenuItem>
+
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger className="cursor-pointer gap-2" disabled={creating}>
+              <LayoutTemplate className="size-4" />
+              <span>New from template</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="max-h-72 w-56 overflow-y-auto">
+              {builtinTemplates.map((template) => (
+                <DropdownMenuItem
+                  key={template.id}
+                  className="cursor-pointer"
+                  disabled={creating}
+                  onSelect={(event) => {
+                    event.preventDefault()
+                    createFromTemplate(template)
+                  }}
+                >
+                  {template.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
         </DropdownMenuContent>
       </DropdownMenu>
 
