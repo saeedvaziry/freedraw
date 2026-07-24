@@ -54,6 +54,8 @@ export {
   STENCIL_THUMBNAIL_PADDING,
 } from './store/stencil-thumbnail.js'
 export type { StencilThumbnailOptions } from './store/stencil-thumbnail.js'
+export { builtinStencils, builtinTemplates } from './library/index.js'
+export type { BuiltinStencil, BuiltinTemplate, LibraryCategory } from './library/index.js'
 export { deriveSelectionStyle, MIXED } from './store/selection-style.js'
 export type { SelectionStyle, StyleValue } from './store/selection-style.js'
 
