@@ -28,32 +28,30 @@ export function MobileBar() {
     if (!hasSelection) setSection((current) => (current === 'style' ? null : current))
   }, [hasSelection])
 
+  if (readOnly) return null
+
   return (
     <FloatingPanel className="pointer-events-auto">
-      {!readOnly ? (
-        <>
-          <SectionItem
-            label="Tools"
-            Icon={Shapes}
-            value="tools"
-            section={section}
-            onChange={setSection}
-          >
-            <ToolbarHost store={store} layout="horizontal" />
-          </SectionItem>
+      <SectionItem
+        label="Tools"
+        Icon={Shapes}
+        value="tools"
+        section={section}
+        onChange={setSection}
+      >
+        <ToolbarHost store={store} layout="horizontal" />
+      </SectionItem>
 
-          <SectionItem
-            label="Style"
-            Icon={Palette}
-            value="style"
-            section={section}
-            disabled={!hasSelection}
-            onChange={setSection}
-          >
-            <StylePanelHost />
-          </SectionItem>
-        </>
-      ) : null}
+      <SectionItem
+        label="Style"
+        Icon={Palette}
+        value="style"
+        section={section}
+        disabled={!hasSelection}
+        onChange={setSection}
+      >
+        <StylePanelHost />
+      </SectionItem>
 
       <SectionItem
         label="Edit"
