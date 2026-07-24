@@ -11,7 +11,7 @@ import { selectionFrameFor } from '../geometry/selection-frame.js'
 import { labelRect } from '../geometry/shape-outline.js'
 import { moveRouteSegment, routeSegmentAxis, simplifyRoute, snapRouteSegmentTarget } from '../geometry/arrow-geometry.js'
 import { planConnectedShape, type SpawnDirection } from '../connectors/spawn.js'
-import { createArrow, pointsBounds } from '../model/factory.js'
+import { createArrow } from '../model/factory.js'
 import { isArrowElement } from '../model/guards.js'
 import { labelEditRequest } from '../text/label-edit.js'
 import { arrowRoute } from '../connectors/resolve.js'
@@ -20,6 +20,7 @@ import { portAtScreen, portHoverAtScreen, shapePortsWorld } from '../render/over
 import type { ArrowElement, Binding, Element, ElementId, Point, SceneSnapshot } from '../model/types.js'
 import type { SceneStore } from '../store/scene-store.js'
 import type { PointerInfo, Tool, ToolContext, ToolResult } from './tool.js'
+import { applyPatch, buildTransientElements, moveElementPatch } from './drag-preview.js'
 
 const MARQUEE_THRESHOLD = 3
 const DRAG_THRESHOLD = 4
@@ -68,16 +69,24 @@ type Mode =
   | { kind: 'reshapeEndpoint'; arrowId: ElementId; handle: 'start' | 'end' }
   | { kind: 'reshapeSegment'; arrowId: ElementId; segmentIndex: number; route: Point[] }
 
+type ElementPatch = { id: ElementId; patch: Partial<Element> }
+
+type PendingCommit =
+  | { kind: 'move'; ids: ElementId[]; dx: number; dy: number; movingShapeIds: Set<ElementId> }
+  | { kind: 'patches'; patches: ElementPatch[] }
+
 export class SelectTool implements Tool {
   readonly id = 'select'
   private mode: Mode = { kind: 'idle' }
   private moved = false
   private dragStartScreen: Point | null = null
   private spawnPreviewActive = false
+  private pending: PendingCommit | null = null
 
   onPointerDown(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (info.button !== 0) return {}
     this.moved = false
+    this.pending = null
     this.dragStartScreen = info.screen
     if (this.spawnPreviewActive) {
       this.spawnPreviewActive = false
@@ -173,7 +182,10 @@ export class SelectTool implements Tool {
       } else if (this.portDragEndedOnSource(info, mode, ctx)) {
         ctx.store.deleteElements([mode.arrowId])
       }
+    } else if (this.pending) {
+      this.commitPending(ctx)
     }
+    this.pending = null
     this.mode = { kind: 'idle' }
     this.dragStartScreen = null
     ctx.setMarquee(null)
@@ -181,8 +193,29 @@ export class SelectTool implements Tool {
     ctx.setGuides([])
     ctx.setPortTarget(null)
     ctx.setSpawnPreview(null)
+    ctx.setTransient?.(null)
     ctx.store.stopCapturing()
     return { scene: true, overlay: true }
+  }
+
+  private commitPending(ctx: ToolContext): void {
+    const pending = this.pending
+    if (!pending) return
+    ctx.store.transact((api) => {
+      const snapshot = ctx.store.getSnapshot()
+      if (pending.kind === 'move') {
+        for (const id of pending.ids) {
+          const live = snapshot.elements[id]
+          if (!live) continue
+          api.updateElement(id, moveElementPatch(live, pending.dx, pending.dy, pending.movingShapeIds))
+        }
+        return
+      }
+      for (const { id, patch } of pending.patches) {
+        if (!snapshot.elements[id]) continue
+        api.updateElement(id, patch)
+      }
+    })
   }
 
   private portDragEndedOnSource(
@@ -293,6 +326,7 @@ export class SelectTool implements Tool {
 
   onDeactivate(ctx: ToolContext): void {
     this.mode = { kind: 'idle' }
+    this.pending = null
     this.dragStartScreen = null
     this.spawnPreviewActive = false
     ctx.setMarquee(null)
@@ -300,6 +334,7 @@ export class SelectTool implements Tool {
     ctx.setGuides([])
     ctx.setPortTarget(null)
     ctx.setSpawnPreview(null)
+    ctx.setTransient?.(null)
     ctx.store.setUiState({ hoveredId: null })
   }
 
@@ -571,31 +606,13 @@ export class SelectTool implements Tool {
     const elements = this.mode.elements
     const { dx, dy } = this.applyAlignMove(ctx, elements, gridDx, gridDy, this.mode.others)
     const movingShapeIds = new Set(elements.filter((element) => !isArrowElement(element)).map((element) => element.id))
-    ctx.store.transact((api) => {
-      for (const element of elements) {
-        if (!ctx.store.getSnapshot().elements[element.id]) continue
-        if (isArrowElement(element)) {
-          const translate = (point: Point) => ({ x: point.x + dx, y: point.y + dy })
-          const detachStart = element.start && !movingShapeIds.has(element.start.elementId)
-          const detachEnd = element.end && !movingShapeIds.has(element.end.elementId)
-          const points = detachStart || detachEnd ? arrowRoute(element).map(translate) : element.points.map(translate)
-          api.updateElement(element.id, {
-            points,
-            ...(detachStart ? { start: undefined } : {}),
-            ...(detachEnd ? { end: undefined } : {}),
-            routing: detachStart && detachEnd ? 'straight' : element.routing,
-          })
-          continue
-        }
-        if (element.type === 'freedraw') {
-          const points = element.points.map((point) => ({ x: point.x + dx, y: point.y + dy }))
-          api.updateElement(element.id, { points, ...pointsBounds(points) })
-          continue
-        }
-        api.updateElement(element.id, { x: element.x + dx, y: element.y + dy })
-      }
-    })
-    return { scene: true, overlay: true }
+    const transformed = new Map<ElementId, Element>()
+    for (const element of elements) {
+      transformed.set(element.id, applyPatch(element, moveElementPatch(element, dx, dy, movingShapeIds)))
+    }
+    ctx.setTransient?.(buildTransientElements(ctx.store, transformed))
+    this.pending = { kind: 'move', ids: [...transformed.keys()], dx, dy, movingShapeIds }
+    return { overlay: true }
   }
 
   private applyAlignMove(
@@ -639,8 +656,9 @@ export class SelectTool implements Tool {
     const grid = resizedBounds(this.mode.frame, this.mode.handle, snapPointToGrid(info.world))
     const next = this.alignResizeBounds(ctx, grid, this.mode.handle, this.mode.frame.rotation, this.mode.others)
     const patches = resizeElements(this.mode.elements, this.mode.frame, next)
-    ctx.store.transact((api) => patches.forEach(({ id, patch }) => api.updateElement(id, patch)))
-    return { scene: true, overlay: true }
+    ctx.setTransient?.(buildTransientElements(ctx.store, patchedMap(this.mode.elements, patches)))
+    this.pending = { kind: 'patches', patches }
+    return { overlay: true }
   }
 
   private alignResizeBounds(
@@ -661,34 +679,33 @@ export class SelectTool implements Tool {
 
   private dragRotate(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (this.mode.kind !== 'rotate') return {}
-    if (this.mode.elements.length === 1) {
-      const element = this.mode.elements[0]
-      const rotation = rotationFor({ center: this.mode.center, bounds: ZERO_RECT, rotation: 0 }, info.world)
-      if (element) ctx.store.transact((api) => api.updateElement(element.id, { rotation }))
-      return { scene: true, overlay: true }
-    }
-    const delta = Math.atan2(info.world.y - this.mode.center.y, info.world.x - this.mode.center.x) - this.mode.startAngle
-    this.rotateGroup(delta, ctx)
-    return { scene: true, overlay: true }
+    const patches = this.rotatePatches(info)
+    ctx.setTransient?.(buildTransientElements(ctx.store, patchedMap(this.mode.elements, patches)))
+    this.pending = { kind: 'patches', patches }
+    return { overlay: true }
   }
 
-  private rotateGroup(delta: number, ctx: ToolContext): void {
-    if (this.mode.kind !== 'rotate') return
+  private rotatePatches(info: PointerInfo): ElementPatch[] {
+    if (this.mode.kind !== 'rotate') return []
+    if (this.mode.elements.length === 1) {
+      const element = this.mode.elements[0]
+      if (!element) return []
+      const rotation = rotationFor({ center: this.mode.center, bounds: ZERO_RECT, rotation: 0 }, info.world)
+      return [{ id: element.id, patch: { rotation } }]
+    }
     const { center, elements } = this.mode
+    const delta = Math.atan2(info.world.y - center.y, info.world.x - center.x) - this.mode.startAngle
     const cos = Math.cos(delta)
     const sin = Math.sin(delta)
-    ctx.store.transact((api) => {
-      for (const element of elements) {
-        const ec = elementCenter(element)
-        const dx = ec.x - center.x
-        const dy = ec.y - center.y
-        const nx = center.x + dx * cos - dy * sin
-        const ny = center.y + dx * sin + dy * cos
-        api.updateElement(element.id, {
-          x: nx - element.width / 2,
-          y: ny - element.height / 2,
-          rotation: element.rotation + delta,
-        })
+    return elements.map((element) => {
+      const ec = elementCenter(element)
+      const dx = ec.x - center.x
+      const dy = ec.y - center.y
+      const nx = center.x + dx * cos - dy * sin
+      const ny = center.y + dx * sin + dy * cos
+      return {
+        id: element.id,
+        patch: { x: nx - element.width / 2, y: ny - element.height / 2, rotation: element.rotation + delta },
       }
     })
   }
@@ -707,6 +724,16 @@ export class SelectTool implements Tool {
     }
     return next
   }
+}
+
+function patchedMap(elements: Element[], patches: ElementPatch[]): Map<ElementId, Element> {
+  const byId = new Map(elements.map((element) => [element.id, element]))
+  const map = new Map<ElementId, Element>()
+  for (const { id, patch } of patches) {
+    const element = byId.get(id)
+    if (element) map.set(id, applyPatch(element, patch))
+  }
+  return map
 }
 
 function selectedElements(store: SceneStore, ids: Set<ElementId>): Element[] {

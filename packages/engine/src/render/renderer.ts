@@ -33,6 +33,7 @@ export interface SpawnPreview {
 
 export interface OverlayState {
   preview?: Element | null
+  transient?: Element[] | null
   spawnPreview?: SpawnPreview | null
   selection?: SelectionFrame | null
   selectedArrows?: ArrowElement[]
@@ -157,7 +158,12 @@ export class Renderer {
     }
   }
 
-  renderScene(snapshot: SceneSnapshot, camera: Camera, editingId: string | null = null): void {
+  renderScene(
+    snapshot: SceneSnapshot,
+    camera: Camera,
+    editingId: string | null = null,
+    hiddenIds: ReadonlySet<string> | null = null,
+  ): void {
     const { dpr, cssWidth, cssHeight } = this
     const ctx = this.sceneCtx
     const grid = this.activeGrid
@@ -171,7 +177,7 @@ export class Renderer {
 
     const viewport = camera.viewportWorldRect(cssWidth, cssHeight)
     this.paintGrid(viewport, camera.zoom)
-    this.paintElements(snapshot, viewport, editingId)
+    this.paintElements(snapshot, viewport, editingId, hiddenIds)
   }
 
   renderOverlay(camera: Camera, overlay: OverlayState = {}): void {
@@ -183,6 +189,10 @@ export class Renderer {
     if (overlay.preview) {
       ctx.setTransform(scale, 0, 0, scale, -camera.x * scale, -camera.y * scale)
       paintElement(this.overlayTarget, overlay.preview, this.dark)
+    }
+    if (overlay.transient && overlay.transient.length > 0) {
+      ctx.setTransform(scale, 0, 0, scale, -camera.x * scale, -camera.y * scale)
+      for (const element of overlay.transient) paintElement(this.overlayTarget, element, this.dark)
     }
     if (overlay.spawnPreview) {
       ctx.setTransform(scale, 0, 0, scale, -camera.x * scale, -camera.y * scale)
@@ -247,8 +257,14 @@ export class Renderer {
     ctx.restore()
   }
 
-  private paintElements(snapshot: SceneSnapshot, viewport: Rect, editingId: string | null): void {
+  private paintElements(
+    snapshot: SceneSnapshot,
+    viewport: Rect,
+    editingId: string | null,
+    hiddenIds: ReadonlySet<string> | null,
+  ): void {
     for (const id of snapshot.order) {
+      if (hiddenIds?.has(id)) continue
       const element = snapshot.elements[id]
       if (!element) continue
       const bounds = expand(elementBounds(element), element.style.strokeWidth)

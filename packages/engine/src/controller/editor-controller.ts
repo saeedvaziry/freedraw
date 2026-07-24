@@ -94,6 +94,7 @@ export class EditorController {
   private readonly toolContext: ToolContext
   private readonly cleanups: Cleanup[] = []
   private preview: Element | null = null
+  private transientElements: Element[] | null = null
   private spawnPreview: SpawnPreview | null = null
   private marquee: Rect | null = null
   private guides: SnapGuide[] = []
@@ -143,6 +144,7 @@ export class EditorController {
       setSpawnPreview: (preview) => {
         this.spawnPreview = preview
       },
+      setTransient: (elements) => this.setTransient(elements),
       setMarquee: (rect) => {
         this.marquee = rect
         this.setInteraction('marquee', rect != null)
@@ -712,6 +714,13 @@ export class EditorController {
     if (result.overlay) this.loop.markOverlayDirty()
   }
 
+  private setTransient(elements: Element[] | null): void {
+    const next = elements && elements.length > 0 ? elements : null
+    if (!sameTransientIds(this.transientElements, next)) this.loop.markSceneDirty()
+    this.transientElements = next
+    this.loop.markOverlayDirty()
+  }
+
   private resize(): void {
     this.renderer.resize()
     this.loop.markDirty()
@@ -721,7 +730,10 @@ export class EditorController {
     const snapshot = this.store.getSnapshot()
     if (dirty.scene) {
       const editingId = this.editRequest?.elementId ?? null
-      this.renderer.renderScene(snapshot, this.camera, editingId)
+      const hiddenIds = this.transientElements
+        ? new Set(this.transientElements.map((element) => element.id))
+        : null
+      this.renderer.renderScene(snapshot, this.camera, editingId, hiddenIds)
     }
     if (dirty.overlay) {
       this.renderer.renderOverlay(this.camera, this.buildOverlay())
@@ -751,6 +763,7 @@ export class EditorController {
     const targetHighlight = this.portTargetId ? snapshot.elements[this.portTargetId] ?? null : null
     return {
       preview: this.preview,
+      transient: this.transientElements,
       spawnPreview: this.spawnPreview,
       selection,
       selectedArrows,
@@ -915,6 +928,14 @@ const EXPORT_BASE_BACKGROUND = '#ffffff'
 function exportBackground(options: ExportImageOptions): string | null {
   if (options.format === 'png' && options.transparent) return null
   return EXPORT_BASE_BACKGROUND
+}
+
+function sameTransientIds(a: Element[] | null, b: Element[] | null): boolean {
+  const as = a ?? []
+  const bs = b ?? []
+  if (as.length !== bs.length) return false
+  const ids = new Set(as.map((element) => element.id))
+  return bs.every((element) => ids.has(element.id))
 }
 
 function elementsFor(ids: Set<ElementId>, elements: Record<ElementId, Element>): Element[] {

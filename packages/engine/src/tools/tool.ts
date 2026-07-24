@@ -29,6 +29,7 @@ export interface ToolContext {
   camera: Camera
   setPreview(element: Element | null): void
   setSpawnPreview(preview: SpawnPreview | null): void
+  setTransient?(elements: Element[] | null): void
   setMarquee(rect: Rect | null): void
   setTransforming?(active: boolean): void
   setGuides(guides: SnapGuide[]): void

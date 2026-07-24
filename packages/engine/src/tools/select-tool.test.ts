@@ -192,6 +192,7 @@ describe('SelectTool ports', () => {
     store.setUiState({ selectedIds: new Set(['arrow-1']) })
     tool.onPointerDown(pointerAt({ x: 180, y: 40 }), ctx)
     tool.onPointerMove(pointerAt({ x: 210, y: 70 }), ctx)
+    tool.onPointerUp(pointerAt({ x: 210, y: 70 }), ctx)
 
     const moved = store.getSnapshot().elements['arrow-1'] as ArrowElement
     expect(moved.start).toBeUndefined()
