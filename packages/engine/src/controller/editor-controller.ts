@@ -479,6 +479,13 @@ export class EditorController {
     this.commitCamera()
   }
 
+  zoomToRect(rect: { x: number; y: number; width: number; height: number }): void {
+    const { width, height } = this.viewportSize
+    if (width === 0 || height === 0) return
+    this.camera.setState(fitCamera(rect, width, height))
+    this.commitCamera()
+  }
+
   zoomToActualSize(): void {
     const { width, height } = this.viewportSize
     const center = this.camera.screenToWorld({ x: width / 2, y: height / 2 })

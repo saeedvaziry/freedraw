@@ -20,6 +20,7 @@ import { DiagramPanelHost } from './diagram-panel-host.js'
 import { EmptyState } from './empty-state.js'
 import { LinksBar } from './links-bar.js'
 import { MobileBar } from './mobile-bar.js'
+import { PresentButton, PresentOverlay } from './present-mode.js'
 import { SceneImportHost } from './scene-import-host.js'
 import { SelectionToolbarHost } from './selection-toolbar/selection-toolbar-host.js'
 import { ShortcutsSheetHost } from './shortcuts-sheet.js'
@@ -30,6 +31,7 @@ import { createBoard, type Board as CreatedBoard } from './create-board.js'
 import { useBoardClipboard } from '@/hooks/board/use-board-clipboard.js'
 import { useExport } from '@/hooks/board/use-export.js'
 import { useBoardActions } from '@/hooks/board/use-board-actions.js'
+import { usePresentMode } from '@/hooks/board/use-present-mode.js'
 import { useAppearance } from '@/hooks/use-appearance'
 import type { BoardPage } from '@/types'
 
@@ -182,6 +184,7 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
     openImagePicker: imageInsert.openPicker,
   })
   useBoardClipboard(store, controller)
+  const present = usePresentMode(controller, store)
 
   useEffect(() => attachViewportPersistence(store, assetSource), [store, assetSource])
 
@@ -232,62 +235,69 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
         onDrop={imageInsert.onDrop}
       >
         <CanvasHost sceneRef={sceneRef} overlayRef={overlayRef} controller={controller} />
-        <ContextMenuHost />
-        <EmptyState />
-        <CommandPaletteHost />
-        <ShortcutsSheetHost />
-        <SelectionToolbarHost />
-        <SceneImportHost />
+        {present.active ? (
+          <PresentOverlay present={present} />
+        ) : (
+          <>
+            <ContextMenuHost />
+            <EmptyState />
+            <CommandPaletteHost />
+            <ShortcutsSheetHost />
+            <SelectionToolbarHost />
+            <SceneImportHost />
 
-        <div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-3 sm:hidden">
-          <BoardMobileMenu />
-        </div>
+            <div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-3 sm:hidden">
+              <BoardMobileMenu />
+            </div>
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] flex justify-center px-3 sm:hidden">
-          <MobileBar />
-        </div>
+            <div className="pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] flex justify-center px-3 sm:hidden">
+              <MobileBar />
+            </div>
 
-        <div className="pointer-events-none absolute top-3 right-3 hidden justify-end sm:flex">
-          <StylePanelHost collapsible />
-        </div>
-        <div className="pointer-events-none absolute top-3 bottom-3 left-3 hidden sm:block">
-          <BoardSidebar />
-        </div>
-        <div
-          className="pointer-events-none absolute top-3 hidden items-center gap-2 transition-[left] duration-200 ease-linear sm:flex"
-          style={{ left: 'calc(1.25rem + var(--board-sidebar-width, 0px))' }}
-        >
-          <BoardPagesBar />
-          <SyncStatus />
-        </div>
-        {diagramOpen ? (
-          <div
-            className="pointer-events-none absolute top-16 hidden justify-start transition-[left] duration-200 ease-linear sm:flex"
-            style={{ left: 'calc(0.75rem + var(--board-sidebar-width, 0px))' }}
-          >
-            <DiagramPanelHost onClose={() => setDiagramOpen(false)} />
-          </div>
-        ) : null}
-        <div
-          className="pointer-events-none absolute bottom-3 hidden justify-center px-3 transition-[left] duration-200 ease-linear sm:flex"
-          style={{ left: 'calc(0.75rem + var(--board-sidebar-width, 0px))', right: '0.75rem' }}
-        >
-          <BottomBar
-            diagramOpen={diagramOpen}
-            onToggleDiagram={() => setDiagramOpen((open) => !open)}
-          />
-        </div>
-        <div className="pointer-events-none absolute right-3 bottom-3 hidden items-center gap-2 sm:flex">
-          <LinksBar />
-          <ZoomIndicator />
-        </div>
-        <input
-          ref={imageInsert.fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={imageInsert.onFileInputChange}
-        />
+            <div className="pointer-events-none absolute top-3 right-3 hidden justify-end sm:flex">
+              <StylePanelHost collapsible />
+            </div>
+            <div className="pointer-events-none absolute top-3 bottom-3 left-3 hidden sm:block">
+              <BoardSidebar />
+            </div>
+            <div
+              className="pointer-events-none absolute top-3 hidden items-center gap-2 transition-[left] duration-200 ease-linear sm:flex"
+              style={{ left: 'calc(1.25rem + var(--board-sidebar-width, 0px))' }}
+            >
+              <BoardPagesBar />
+              <SyncStatus />
+            </div>
+            {diagramOpen ? (
+              <div
+                className="pointer-events-none absolute top-16 hidden justify-start transition-[left] duration-200 ease-linear sm:flex"
+                style={{ left: 'calc(0.75rem + var(--board-sidebar-width, 0px))' }}
+              >
+                <DiagramPanelHost onClose={() => setDiagramOpen(false)} />
+              </div>
+            ) : null}
+            <div
+              className="pointer-events-none absolute bottom-3 hidden justify-center px-3 transition-[left] duration-200 ease-linear sm:flex"
+              style={{ left: 'calc(0.75rem + var(--board-sidebar-width, 0px))', right: '0.75rem' }}
+            >
+              <BottomBar
+                diagramOpen={diagramOpen}
+                onToggleDiagram={() => setDiagramOpen((open) => !open)}
+              />
+            </div>
+            <div className="pointer-events-none absolute right-3 bottom-3 hidden items-center gap-2 sm:flex">
+              <PresentButton onEnter={present.enter} />
+              <LinksBar />
+              <ZoomIndicator />
+            </div>
+            <input
+              ref={imageInsert.fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={imageInsert.onFileInputChange}
+            />
+          </>
+        )}
       </div>
     </BoardProvider>
   )
