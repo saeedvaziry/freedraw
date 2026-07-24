@@ -1,0 +1,29 @@
+{
+  "name": "@freedraw/hocuspocus",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone Hocuspocus collaboration server that persists yjs documents into the FreeDraw MySQL update-log / snapshot schema.",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "start": "node dist/server.js",
+    "dev": "node --experimental-strip-types src/server.ts"
+  },
+  "dependencies": {
+    "@hocuspocus/server": "^4.4.0",
+    "mysql2": "^3.23.1",
+    "yjs": "^13.6.31"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

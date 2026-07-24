@@ -112,6 +112,7 @@ export default [
             'vite.config.ts',
             'resources/js/components/ui/*',
             'packages/**',
+            'services/**',
             'resources/js/components/board/**',
             'resources/js/hooks/board/**',
             'resources/js/lib/persistence/**',
