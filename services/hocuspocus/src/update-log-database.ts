@@ -68,18 +68,15 @@ export class UpdateLogDatabase implements Partial<Extension> {
       return
     }
 
-    const updates = await this.store.updatesAfter(page.id, 0)
-
-    if (updates.length > 0) {
-      for (const update of updates) {
-        Y.applyUpdate(data.document, update)
-      }
-
-      return
+    if (page.document) {
+      const base = base64ToBytes(page.document)
+      Y.applyUpdate(data.document, base)
+      await this.store.insertSnapshot(page.id, base, 0)
     }
 
-    if (page.document) {
-      Y.applyUpdate(data.document, base64ToBytes(page.document))
+    const updates = await this.store.updatesAfter(page.id, 0)
+    for (const update of updates) {
+      Y.applyUpdate(data.document, update)
     }
   }
 

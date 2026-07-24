@@ -139,3 +139,29 @@ test('the public endpoint rejects a non-public page slug', function () {
 test('the public endpoint rejects an unknown slug', function () {
     $this->postJson(route('share.realtime-token', 'does-not-exist'))->assertNotFound();
 });
+
+test('the authenticated endpoint is not found when collaboration is disabled', function () {
+    config()->set('services.collab.enabled', false);
+
+    $owner = User::factory()->create();
+    $page = Page::factory()->create([
+        'organization_id' => $owner->current_organization_id,
+        'created_by' => $owner->id,
+    ]);
+
+    $this->actingAs($owner)
+        ->postJson(route('pages.realtime-token', $page))
+        ->assertNotFound();
+});
+
+test('the public endpoint is not found when collaboration is disabled', function () {
+    config()->set('services.collab.enabled', false);
+
+    $owner = User::factory()->create();
+    $page = Page::factory()->public()->create([
+        'organization_id' => $owner->current_organization_id,
+        'created_by' => $owner->id,
+    ]);
+
+    $this->postJson(route('share.realtime-token', $page->share_slug))->assertNotFound();
+});

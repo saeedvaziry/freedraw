@@ -48,6 +48,7 @@ return [
     ],
 
     'collab' => [
+        'enabled' => (bool) env('COLLAB_ENABLED', false),
         'secret' => env('COLLAB_SECRET'),
         'token_ttl' => (int) env('COLLAB_TOKEN_TTL', 60),
     ],

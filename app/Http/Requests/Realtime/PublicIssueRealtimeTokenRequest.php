@@ -11,6 +11,8 @@ class PublicIssueRealtimeTokenRequest extends FormRequest
 {
     public function authorize(): bool
     {
+        abort_unless((bool) config('services.collab.enabled'), 404);
+
         return true;
     }
 

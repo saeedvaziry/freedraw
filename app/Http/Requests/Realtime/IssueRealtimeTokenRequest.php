@@ -10,6 +10,8 @@ class IssueRealtimeTokenRequest extends FormRequest
 {
     public function authorize(): bool
     {
+        abort_unless((bool) config('services.collab.enabled'), 404);
+
         return $this->user()?->can('view', $this->page()) ?? false;
     }
 

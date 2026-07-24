@@ -87,7 +87,7 @@ describe('UpdateLogDatabase.onLoadDocument', () => {
     expect(doc.getMap('elements').has('B')).toBe(true)
   })
 
-  it('seeds from the base64 bridge column when no snapshot or updates exist', async () => {
+  it('seeds a snapshot0 from the bridge column so the log becomes authoritative', async () => {
     const source = new Y.Doc()
     source.getMap('elements').set('Z', element({ type: 'text' }))
     const bridge = bytesToBase64(encodeDocState(source))
@@ -98,6 +98,31 @@ describe('UpdateLogDatabase.onLoadDocument', () => {
     await new UpdateLogDatabase({ store }).onLoadDocument(loadPayload(doc))
 
     expect(doc.getMap('elements').has('Z')).toBe(true)
+    expect(store.snapshots).toHaveLength(1)
+    expect(store.snapshots[0]!.upToSeq).toBe(0)
+
+    const reloaded = new Y.Doc()
+    await new UpdateLogDatabase({ store }).onLoadDocument(loadPayload(reloaded))
+
+    expect(reloaded.getMap('elements').has('Z')).toBe(true)
+  })
+
+  it('reconstructs losslessly when updates were logged before the first compaction', async () => {
+    const source = new Y.Doc()
+    source.getMap('elements').set('A', element({ type: 'rect' }))
+    const bridge = bytesToBase64(encodeDocState(source))
+    const delta = captureUpdate(source, () => source.getMap('elements').set('B', element({ type: 'ellipse' })))
+
+    const store = new FakePageStore({ room: ROOM, document: bridge })
+    store.seedUpdateAtSeq(1, delta)
+
+    const doc = new Y.Doc()
+    await new UpdateLogDatabase({ store }).onLoadDocument(loadPayload(doc))
+
+    expect(doc.getMap('elements').has('A')).toBe(true)
+    expect(doc.getMap('elements').has('B')).toBe(true)
+    expect(store.snapshots).toHaveLength(1)
+    expect(store.snapshots[0]!.upToSeq).toBe(0)
   })
 
   it('leaves the document untouched when the page is unknown', async () => {
