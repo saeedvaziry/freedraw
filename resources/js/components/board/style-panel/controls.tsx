@@ -1,6 +1,5 @@
 import * as React from 'react'
-import { cn } from '@/lib/utils'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { SegmentedControl as SegmentedControlPrimitive } from '../ui/segmented-control.js'
 
 export function FieldLabel({ children }: { children: React.ReactNode }) {
   return <span className="text-xs font-medium text-muted-foreground">{children}</span>
@@ -79,29 +78,21 @@ export function SegmentedControl<T extends string>({
   return (
     <div className="flex flex-col gap-1.5">
       <FieldLabel>{label}</FieldLabel>
-      <div className="grid grid-flow-col auto-cols-fr gap-1 rounded-[var(--control-radius)] border border-[color:var(--panel-border)] bg-muted/40 p-1">
-        {options.map((option) => (
-          <Tooltip key={option.value}>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                aria-label={option.label}
-                aria-pressed={value === option.value}
-                onClick={() => onChange(option.value)}
-                style={option.fontFamily ? { fontFamily: option.fontFamily } : undefined}
-                className={cn(
-                  'flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4',
-                  value === option.value &&
-                    'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground',
-                )}
-              >
-                {option.Icon ? <option.Icon /> : (option.previewText ?? option.label)}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>{option.label}</TooltipContent>
-          </Tooltip>
-        ))}
-      </div>
+      <SegmentedControlPrimitive
+        variant="solid"
+        size="md"
+        fill
+        hint="tooltip"
+        value={value}
+        onChange={onChange}
+        options={options.map((option) => ({
+          value: option.value,
+          label: option.label,
+          Icon: option.Icon,
+          text: option.Icon ? undefined : (option.previewText ?? option.label),
+          fontFamily: option.fontFamily,
+        }))}
+      />
     </div>
   )
 }

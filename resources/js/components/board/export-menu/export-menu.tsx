@@ -1,4 +1,4 @@
-import { useId, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useId, useMemo, useState, useSyncExternalStore } from 'react'
 import { ClipboardCopy, Download, FileJson, ImageDown, Moon, Sun, Upload } from 'lucide-react'
 import {
   elementBounds,
@@ -12,6 +12,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover.js'
 import { FloatingPanel } from '../ui/floating-panel.js'
 import { IconButton } from '../ui/icon-button.js'
+import { SegmentedControl } from '../ui/segmented-control.js'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { useBoardContext } from '../board-context.js'
@@ -171,37 +172,34 @@ export function ExportMenu() {
             <div className="my-1 h-px bg-[color:var(--panel-border)]" />
             <div className="flex items-center justify-between px-3 py-2 text-sm text-foreground/80">
               <span>Theme</span>
-              <div className="flex items-center gap-0.5 rounded-[var(--control-radius)] bg-muted p-0.5">
-                <SegmentOption active={!dark} label="Light" onClick={() => setDark(false)}>
-                  <Sun />
-                  Light
-                </SegmentOption>
-                <SegmentOption active={dark} label="Dark" onClick={() => setDark(true)}>
-                  <Moon />
-                  Dark
-                </SegmentOption>
-              </div>
+              <SegmentedControl<boolean>
+                size="sm"
+                value={dark}
+                onChange={setDark}
+                options={[
+                  { value: false, label: 'Light', Icon: Sun, text: 'Light' },
+                  { value: true, label: 'Dark', Icon: Moon, text: 'Dark' },
+                ]}
+              />
             </div>
             <div className="flex flex-col">
               <div className="flex items-center justify-between px-3 py-2 text-sm text-foreground/80">
                 <span>Size</span>
-                <div className="flex items-center gap-0.5 rounded-[var(--control-radius)] bg-muted p-0.5">
-                  {SCALES.map((value) => {
+                <SegmentedControl<number>
+                  size="sm"
+                  value={activeScale}
+                  onChange={setScale}
+                  options={SCALES.map((value) => {
                     const unavailable = value > scaleLimit
-                    return (
-                      <SegmentOption
-                        key={value}
-                        active={activeScale === value}
-                        disabled={unavailable}
-                        describedBy={unavailable ? scaleHintId : undefined}
-                        label={unavailable ? `${value}x (unavailable)` : `${value}x`}
-                        onClick={() => setScale(value)}
-                      >
-                        {value}x
-                      </SegmentOption>
-                    )
+                    return {
+                      value,
+                      label: unavailable ? `${value}x (unavailable)` : `${value}x`,
+                      text: `${value}x`,
+                      disabled: unavailable,
+                      describedBy: unavailable ? scaleHintId : undefined,
+                    }
                   })}
-                </div>
+                />
               </div>
               {scaleHint ? (
                 <p id={scaleHintId} className="px-3 pb-2 text-right text-xs text-foreground/50">
@@ -237,37 +235,6 @@ export function ExportMenu() {
         </PopoverContent>
       </FloatingPanel>
     </Popover>
-  )
-}
-
-interface SegmentOptionProps {
-  active: boolean
-  label: string
-  disabled?: boolean
-  describedBy?: string
-  children: ReactNode
-  onClick(): void
-}
-
-function SegmentOption({ active, label, disabled, describedBy, children, onClick }: SegmentOptionProps) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-pressed={active}
-      aria-disabled={disabled || undefined}
-      aria-describedby={describedBy}
-      onClick={() => {
-        if (!disabled) onClick()
-      }}
-      className={cn(
-        'flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-foreground/70 transition-colors hover:text-foreground [&_svg]:size-3.5',
-        active && 'bg-background text-foreground shadow-sm',
-        disabled && 'cursor-not-allowed text-foreground/30 hover:text-foreground/30',
-      )}
-    >
-      {children}
-    </button>
   )
 }
 
