@@ -68,7 +68,7 @@ export function BoardPagesBar() {
             type="button"
             className={cn(
               pillSurface,
-              'flex h-9 min-w-0 max-w-[min(22rem,calc(100vw-10rem))] items-center gap-2 px-2.5 text-left text-sm transition-colors hover:bg-accent data-[state=open]:bg-accent',
+              'flex h-9 min-w-0 max-w-[min(22rem,calc(100vw-10rem))] items-center gap-2 px-2.5 text-left text-sm transition-colors hover:bg-accent coarse:h-11 data-[state=open]:bg-accent',
             )}
           >
             <FileText className="size-4 shrink-0 text-foreground/70" />
@@ -143,7 +143,7 @@ export function BoardPagesBar() {
           onClick={() => setShareOpen(true)}
           className={cn(
             pillSurface,
-            'flex h-9 shrink-0 items-center gap-2 px-2.5 text-sm transition-colors hover:bg-accent',
+            'flex h-9 shrink-0 items-center gap-2 px-2.5 text-sm transition-colors hover:bg-accent coarse:h-11',
           )}
         >
           <Share2 className="size-4 shrink-0 text-foreground/70" />

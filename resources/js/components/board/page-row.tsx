@@ -95,7 +95,7 @@ export function PageRow({
           type="button"
           disabled={busy}
           onClick={onCancel}
-          className="h-7 shrink-0 rounded-md px-2 text-sm text-foreground/70 transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+          className="h-7 shrink-0 rounded-md px-2 text-sm text-foreground/70 transition-colors hover:bg-accent hover:text-foreground coarse:h-9 disabled:pointer-events-none disabled:opacity-50"
         >
           Cancel
         </button>
@@ -103,7 +103,7 @@ export function PageRow({
           type="button"
           disabled={busy}
           onClick={() => onConfirmDelete(boardPage)}
-          className="h-7 shrink-0 rounded-md bg-destructive px-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-50"
+          className="h-7 shrink-0 rounded-md bg-destructive px-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 coarse:h-9 disabled:pointer-events-none disabled:opacity-50"
         >
           {busy ? 'Deleting…' : 'Delete'}
         </button>

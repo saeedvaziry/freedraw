@@ -58,7 +58,7 @@ export function ColorPicker({
             <TooltipTrigger asChild>
               <label
                 className={cn(
-                  'relative flex h-5 w-5 cursor-pointer items-center justify-center overflow-hidden rounded-md border',
+                  'relative flex h-5 w-5 cursor-pointer items-center justify-center overflow-hidden rounded-md border coarse:h-7 coarse:w-7',
                   mixed || isTransparent ? TRANSPARENT_PATTERN : '',
                 )}
                 style={mixed || isTransparent ? undefined : { backgroundColor: value }}
@@ -92,7 +92,7 @@ export function ColorPicker({
                 aria-pressed={!mixed && value === color}
                 onClick={() => onChange(color)}
                 className={cn(
-                  'h-6 w-full rounded-md border transition-transform hover:scale-110',
+                  'h-6 w-full rounded-md border transition-transform hover:scale-110 coarse:h-9',
                   color === 'transparent' && TRANSPARENT_PATTERN,
                   !mixed && value === color && 'ring-2 ring-primary ring-offset-1 ring-offset-background',
                 )}

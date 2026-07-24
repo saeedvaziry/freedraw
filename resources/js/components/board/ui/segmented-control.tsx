@@ -45,7 +45,7 @@ const INACTIVE_VARIANT: Record<SegmentedControlVariant, string> = {
 
 const SIZE_CLASS: Record<SegmentedControlSize, string> = {
   sm: 'py-1 [&_svg]:size-3.5',
-  md: 'h-7 [&_svg]:size-4',
+  md: 'h-7 coarse:h-9 [&_svg]:size-4',
 }
 
 export function SegmentedControl<T extends string | number | boolean>({
