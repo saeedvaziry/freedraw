@@ -493,7 +493,9 @@ export class EditorController {
     return { ok: true, blob }
   }
 
-  async copyImageToClipboard(options?: Partial<ExportImageOptions>): Promise<ExportImageResult> {
+  async copyImageToClipboard(
+    options?: Partial<ExportImageOptions>,
+  ): Promise<ExportImageResult | { ok: false; reason: 'clipboard-unsupported' }> {
     const result = await this.exportImage({
       format: 'png',
       transparent: false,
@@ -502,7 +504,7 @@ export class EditorController {
     })
     if (!result.ok) return result
     if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) {
-      return { ok: false, reason: 'unsupported' }
+      return { ok: false, reason: 'clipboard-unsupported' }
     }
     await navigator.clipboard.write([new ClipboardItem({ [result.blob.type]: result.blob })])
     return result

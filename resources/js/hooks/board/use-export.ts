@@ -138,8 +138,10 @@ function exportFailureMessage(failure: ExportFailure): string {
   return `Board too large at ${failure.size.scale}x — try ${suggested}x or lower`
 }
 
-function copyFailureMessage(failure: ExportFailure): string {
-  if (failure.reason === 'unsupported') return 'Clipboard not supported'
+type CopyFailure = ExportFailure | { ok: false; reason: 'clipboard-unsupported' }
+
+function copyFailureMessage(failure: CopyFailure): string {
+  if (failure.reason === 'clipboard-unsupported') return 'Clipboard not supported'
   return exportFailureMessage(failure)
 }
 
