@@ -21,6 +21,7 @@ export interface AppConfig {
   stampAssetReferences: boolean
   pruneSupersededSnapshots: boolean
   collabSecret: string
+  requireCollabAuth: boolean
   db: DbConfig
 }
 
@@ -68,6 +69,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     stampAssetReferences: readBoolean(env, 'HOCUSPOCUS_STAMP_ASSETS', true),
     pruneSupersededSnapshots: readBoolean(env, 'HOCUSPOCUS_PRUNE_SNAPSHOTS', true),
     collabSecret: readString(env, 'COLLAB_SECRET', ''),
+    requireCollabAuth: readBoolean(env, 'REQUIRE_COLLAB_AUTH', false),
     db: {
       host: readString(env, 'DB_HOST', '127.0.0.1'),
       port: readNumber(env, 'DB_PORT', 3306),
@@ -78,5 +80,13 @@ export function loadConfig(env: Env = process.env): AppConfig {
       charset: readString(env, 'DB_CHARSET', 'utf8mb4'),
       connectionLimit: readNumber(env, 'DB_POOL_SIZE', 10),
     },
+  }
+}
+
+export function assertAuthConfig(config: AppConfig): void {
+  if (config.requireCollabAuth && config.collabSecret.length === 0) {
+    throw new Error(
+      'REQUIRE_COLLAB_AUTH is set but COLLAB_SECRET is missing — refusing to start with authentication disabled',
+    )
   }
 }

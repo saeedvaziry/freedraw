@@ -72,6 +72,26 @@ app uses, so it can share the project `.env`.
 | `HOCUSPOCUS_SEQ_MAX_RETRIES` | `5` | Duplicate-seq append retries |
 | `HOCUSPOCUS_STAMP_ASSETS` | `true` | Stamp `page_assets.referenced_at` on store |
 | `HOCUSPOCUS_PRUNE_SNAPSHOTS` | `true` | Prune superseded auto snapshots on store |
+| `COLLAB_SECRET` | _(empty)_ | HMAC secret used to verify realtime auth tokens |
+| `REQUIRE_COLLAB_AUTH` | `false` | Refuse to start when authentication is disabled |
+
+## Authentication
+
+Connections are authenticated by the `RealtimeAuth` extension, which verifies the
+HMAC token minted by the Laravel app against `COLLAB_SECRET`. The room in the
+token must match the requested document, and the token's `canEdit` claim decides
+whether the connection is writable or read-only.
+
+When `COLLAB_SECRET` is empty the `RealtimeAuth` extension is **not** registered
+and every connection is accepted unauthenticated. This fail-open behavior is a
+development convenience only.
+
+`REQUIRE_COLLAB_AUTH` is the production guard against shipping that fail-open
+default. When it is set (truthy) and `COLLAB_SECRET` is missing/empty, the
+service refuses to start and exits with an error instead of running with
+authentication disabled. Set **both** `REQUIRE_COLLAB_AUTH` and `COLLAB_SECRET`
+before enabling collaboration in production. Leaving `REQUIRE_COLLAB_AUTH` unset
+(the default) preserves the fail-open dev convenience.
 
 ## Scripts
 

@@ -1,5 +1,5 @@
 import { Server, type Extension } from '@hocuspocus/server'
-import { loadConfig } from './config.js'
+import { assertAuthConfig, loadConfig } from './config.js'
 import { asQueryable, createPool } from './db.js'
 import { MysqlPageStore } from './page-store.js'
 import { RealtimeAuth } from './realtime-auth.js'
@@ -13,6 +13,8 @@ const logger: Logger = {
 
 async function main(): Promise<void> {
   const config = loadConfig(process.env)
+  assertAuthConfig(config)
+
   const pool = createPool(config.db)
   const store = new MysqlPageStore(asQueryable(pool), { seqMaxRetries: config.seqMaxRetries })
 
