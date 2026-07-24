@@ -32,7 +32,7 @@ export function resolveCanvasColors(overrides: CanvasColorOverrides = {}): Canva
     const value = overrides[key]
     if (typeof value === 'string') {
       const trimmed = value.trim()
-      if (trimmed !== '') resolved[key] = trimmed
+      if (trimmed !== '' && !trimmed.includes('var(')) resolved[key] = trimmed
     }
   }
   return resolved

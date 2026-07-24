@@ -5,22 +5,32 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 
 interface Swatch {
   value: string
-  css?: string
+  token?: string
 }
 
 const SWATCHES: Swatch[] = [
   { value: 'transparent' },
-  { value: '#1e1e1e', css: 'var(--canvas-swatch-black)' },
-  { value: '#e03131', css: 'var(--canvas-swatch-red)' },
-  { value: '#2f9e44', css: 'var(--canvas-swatch-green)' },
-  { value: '#1971c2', css: 'var(--canvas-swatch-blue)' },
-  { value: '#f08c00', css: 'var(--canvas-swatch-orange)' },
-  { value: '#ae3ec9', css: 'var(--canvas-swatch-purple)' },
-  { value: '#ffffff', css: 'var(--canvas-swatch-white)' },
+  { value: '#1e1e1e', token: '--canvas-swatch-black' },
+  { value: '#e03131', token: '--canvas-swatch-red' },
+  { value: '#2f9e44', token: '--canvas-swatch-green' },
+  { value: '#1971c2', token: '--canvas-swatch-blue' },
+  { value: '#f08c00', token: '--canvas-swatch-orange' },
+  { value: '#ae3ec9', token: '--canvas-swatch-purple' },
+  { value: '#ffffff', token: '--canvas-swatch-white' },
 ]
 
 const TRANSPARENT_PATTERN =
   'bg-[conic-gradient(#ccc_25%,#fff_0_50%,#ccc_0_75%,#fff_0)] bg-[length:8px_8px]'
+
+function resolveSwatchColor(swatch: Swatch): string {
+  if (!swatch.token) return swatch.value
+  if (typeof window === 'undefined' || typeof document === 'undefined') return swatch.value
+  const resolved = getComputedStyle(document.documentElement)
+    .getPropertyValue(swatch.token)
+    .trim()
+  if (resolved === '' || resolved.includes('var(')) return swatch.value
+  return resolved
+}
 
 function contrastColor(hex: string): string {
   const match = /^#?([\da-f]{6})$/i.exec(hex)
@@ -90,29 +100,31 @@ export function ColorPicker({
         </span>
       </span>
       <div className={cn('grid gap-1.5', allowTransparent ? 'grid-cols-8' : 'grid-cols-7')}>
-        {swatches.map((swatch) => (
-          <Tooltip key={swatch.value}>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                aria-label={`${label} ${swatch.value}`}
-                aria-pressed={!mixed && value === swatch.value}
-                onClick={() => onChange(swatch.value)}
-                className={cn(
-                  'h-6 w-full rounded-md border transition-transform hover:scale-110 coarse:h-9',
-                  swatch.value === 'transparent' && TRANSPARENT_PATTERN,
-                  !mixed &&
-                    value === swatch.value &&
-                    'ring-2 ring-primary ring-offset-1 ring-offset-background',
-                )}
-                style={swatch.css ? { backgroundColor: swatch.css } : undefined}
-              />
-            </TooltipTrigger>
-            <TooltipContent>
-              {swatch.value === 'transparent' ? 'None' : swatch.value.toUpperCase()}
-            </TooltipContent>
-          </Tooltip>
-        ))}
+        {swatches.map((swatch) => {
+          const color = resolveSwatchColor(swatch)
+          const selected = !mixed && value === color
+          return (
+            <Tooltip key={swatch.value}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={`${label} ${swatch.value}`}
+                  aria-pressed={selected}
+                  onClick={() => onChange(color)}
+                  className={cn(
+                    'h-6 w-full rounded-md border transition-transform hover:scale-110 coarse:h-9',
+                    swatch.value === 'transparent' && TRANSPARENT_PATTERN,
+                    selected && 'ring-2 ring-primary ring-offset-1 ring-offset-background',
+                  )}
+                  style={swatch.token ? { backgroundColor: `var(${swatch.token})` } : undefined}
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                {swatch.value === 'transparent' ? 'None' : color.toUpperCase()}
+              </TooltipContent>
+            </Tooltip>
+          )
+        })}
       </div>
     </div>
   )

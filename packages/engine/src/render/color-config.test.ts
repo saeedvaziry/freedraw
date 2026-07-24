@@ -23,6 +23,17 @@ describe('resolveCanvasColors', () => {
     expect(resolved.gridMajor).toBe(DEFAULT_CANVAS_COLORS.gridMajor)
   })
 
+  it('rejects unsubstituted var() results and falls back to the default', () => {
+    const resolved = resolveCanvasColors({
+      selectionAccent: 'var(--selection-accent)',
+      gridBackground: '  var(--canvas-grid-background)  ',
+      selectionHandle: 'oklch(var(--handle) / 1)',
+    })
+    expect(resolved.selectionAccent).toBe(DEFAULT_CANVAS_COLORS.selectionAccent)
+    expect(resolved.gridBackground).toBe(DEFAULT_CANVAS_COLORS.gridBackground)
+    expect(resolved.selectionHandle).toBe(DEFAULT_CANVAS_COLORS.selectionHandle)
+  })
+
   it('applies provided values and trims surrounding whitespace', () => {
     const resolved = resolveCanvasColors({
       selectionAccent: ' oklch(0.623 0.214 259.8) ',
