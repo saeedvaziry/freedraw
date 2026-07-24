@@ -13,6 +13,7 @@ export interface Stencil {
   kind: StencilKind
   name: string
   payload: SceneClipboardPayload
+  thumbnail?: string
 }
 
 export type Template = Stencil & { kind: 'template' }

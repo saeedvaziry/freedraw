@@ -9,6 +9,7 @@ import {
   AlignVerticalDistributeCenter,
   ArrowDown,
   ArrowUp,
+  BookmarkPlus,
   BoxSelect,
   BringToFront,
   ClipboardCopy,
@@ -42,6 +43,7 @@ import type { BoardExport } from '@/hooks/board/use-export.js'
 import { boardToast } from '@/lib/board-toast'
 
 export const SCENE_IMPORT_EVENT = 'freedraw:import-scene'
+export const SAVE_STENCIL_EVENT = 'freedraw:save-stencil'
 
 export type BoardActionScope = 'canvas' | 'menu-open' | 'text-editing'
 
@@ -128,6 +130,15 @@ export const BOARD_ACTIONS: BoardAction[] = [
     when: ({ store, readOnly }) => !readOnly && store.getUiState().selectedIds.size > 0,
     run: ({ store }) => store.duplicateElements(store.getUiState().selectedIds),
     match: (event) => usesMod(event) && event.key.toLowerCase() === 'd',
+  },
+  {
+    id: 'save-stencil',
+    label: 'Save as stencil',
+    icon: BookmarkPlus,
+    group: 'edit',
+    requiresEdit: true,
+    when: ({ store, readOnly }) => !readOnly && store.getUiState().selectedIds.size > 0,
+    run: () => window.dispatchEvent(new Event(SAVE_STENCIL_EVENT)),
   },
   {
     id: 'group',

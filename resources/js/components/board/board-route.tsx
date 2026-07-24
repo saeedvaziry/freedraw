@@ -21,6 +21,7 @@ import { EmptyState } from './empty-state.js'
 import { LinksBar } from './links-bar.js'
 import { MobileBar } from './mobile-bar.js'
 import { PresentButton, PresentOverlay } from './present-mode.js'
+import { SaveStencilHost } from './save-stencil-host.js'
 import { SceneImportHost } from './scene-import-host.js'
 import { SelectionToolbarHost } from './selection-toolbar/selection-toolbar-host.js'
 import { ShortcutsSheetHost } from './shortcuts-sheet.js'
@@ -245,6 +246,7 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
             <ShortcutsSheetHost />
             <SelectionToolbarHost />
             <SceneImportHost />
+            <SaveStencilHost />
 
             <div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-3 sm:hidden">
               <BoardMobileMenu />

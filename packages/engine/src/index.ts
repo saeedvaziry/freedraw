@@ -47,6 +47,13 @@ export {
 export type { SceneFile } from './store/scene-file.js'
 export { buildStencil, STENCIL_VERSION } from './store/stencil.js'
 export type { Stencil, Template, StencilKind, BuildStencilOptions } from './store/stencil.js'
+export {
+  buildStencilFromSelection,
+  renderStencilThumbnail,
+  STENCIL_THUMBNAIL_SCALE,
+  STENCIL_THUMBNAIL_PADDING,
+} from './store/stencil-thumbnail.js'
+export type { StencilThumbnailOptions } from './store/stencil-thumbnail.js'
 export { deriveSelectionStyle, MIXED } from './store/selection-style.js'
 export type { SelectionStyle, StyleValue } from './store/selection-style.js'
 
