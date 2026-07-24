@@ -76,6 +76,11 @@ describe('locked elements', () => {
     const hits = marqueeHits({ x: -10, y: -10, width: 400, height: 200 }, snapshotOf(locked, open))
     expect(hits.map((element) => element.id)).toEqual(['open'])
   })
+
+  it('are hittable when includeLocked bypasses the skip', () => {
+    const locked: Element = { ...rect, id: 'locked', locked: true }
+    expect(hitTest({ x: 60, y: 40 }, snapshotOf(locked), { includeLocked: true })?.id).toBe('locked')
+  })
 })
 
 describe('group selection', () => {

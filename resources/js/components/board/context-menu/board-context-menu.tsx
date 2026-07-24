@@ -18,7 +18,7 @@ import { useBoardContext } from '../board-context.js'
 const GROUPS: string[][] = [
   ['copy', 'cut', 'paste', 'copy-link'],
   ['duplicate', 'delete'],
-  ['group', 'ungroup', 'lock', 'unlock'],
+  ['group', 'ungroup', 'lock', 'unlock-selection', 'unlock'],
   ['order-front', 'order-forward', 'order-backward', 'order-back'],
   ['align-left', 'align-center-horizontal', 'align-right', 'align-top', 'align-middle-vertical', 'align-bottom'],
   ['distribute-horizontal', 'distribute-vertical'],

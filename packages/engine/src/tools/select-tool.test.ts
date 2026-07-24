@@ -34,6 +34,10 @@ function pointerAt(point: Point): PointerInfo {
   }
 }
 
+function altPointerAt(point: Point): PointerInfo {
+  return { ...pointerAt(point), altKey: true }
+}
+
 function altArrow(key: string): KeyboardEvent {
   return { key, altKey: true, preventDefault: () => {} } as unknown as KeyboardEvent
 }
@@ -319,6 +323,35 @@ describe('SelectTool grouping', () => {
     tool.onPointerDown(pointerAt({ x: 60, y: 40 }), ctx)
 
     expect(store.getUiState().selectedIds.size).toBe(0)
+  })
+})
+
+describe('SelectTool locked bypass', () => {
+  it('selects a single locked element on Alt+click', () => {
+    const { store, ctx } = setup()
+    const tool = new SelectTool()
+    const other = createShape({ id: 'shape-2', x: 300, y: 0, width: 120, height: 80 })
+    store.transact((api) => api.addElement(other))
+    store.groupElements(['shape-1', 'shape-2'])
+    store.lockElements(['shape-1', 'shape-2'])
+
+    tool.onPointerDown(altPointerAt({ x: 60, y: 40 }), ctx)
+
+    expect([...store.getUiState().selectedIds]).toEqual(['shape-1'])
+  })
+
+  it('does not move a locked element selected via Alt+click', () => {
+    const { store, ctx } = setup()
+    const tool = new SelectTool()
+    store.lockElements(['shape-1'])
+
+    tool.onPointerDown(altPointerAt({ x: 60, y: 40 }), ctx)
+    tool.onPointerMove(pointerAt({ x: 200, y: 200 }), ctx)
+    tool.onPointerUp(pointerAt({ x: 200, y: 200 }), ctx)
+
+    const shape = store.getSnapshot().elements['shape-1']
+    expect(shape?.x).toBe(0)
+    expect(shape?.y).toBe(0)
   })
 })
 

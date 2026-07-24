@@ -431,6 +431,20 @@ describe('lock', () => {
 
     expect(store.getSnapshot().elements.a?.locked).toBe(false)
   })
+
+  it('unlocks only the given locked elements', () => {
+    const store = new SceneStore()
+    store.transact((api) => {
+      api.addElement(shapeAt('a', 0))
+      api.addElement(shapeAt('b', 60))
+    })
+    store.lockElements(['a', 'b'])
+
+    store.unlockElements(['a'])
+
+    expect(store.getSnapshot().elements.a?.locked).toBe(false)
+    expect(store.getSnapshot().elements.b?.locked).toBe(true)
+  })
 })
 
 describe('z-order', () => {

@@ -87,7 +87,9 @@ export class SelectTool implements Tool {
     const store = ctx.store
     const selected = store.getUiState().selectedIds
     const selectionElements = selectedElements(store, selected)
-    const shapeSelectionElements = selectionElements.filter((element) => !isArrowElement(element))
+    const shapeSelectionElements = selectionElements.filter(
+      (element) => !isArrowElement(element) && !element.locked,
+    )
 
     const reshape = this.tryReshape(info, ctx, selected)
     if (reshape) return reshape
@@ -110,7 +112,7 @@ export class SelectTool implements Tool {
     const portDrag = this.tryPortDrag(info, ctx)
     if (portDrag) return portDrag
 
-    const hit = hitTest(info.world, store.getSnapshot())
+    const hit = hitTest(info.world, store.getSnapshot(), { includeLocked: info.altKey })
     if (!hit) {
       this.mode = {
         kind: 'marquee',
@@ -122,6 +124,11 @@ export class SelectTool implements Tool {
       return { overlay: true }
     }
 
+    if (hit.locked) {
+      store.setUiState({ selectedIds: new Set([hit.id]) })
+      return { overlay: true }
+    }
+
     const targets = expandGroupSelection([hit.id], store.getSnapshot())
     const nextSelection = this.resolveSelection(selected, targets, info.shiftKey)
     store.setUiState({ selectedIds: nextSelection })
@@ -129,7 +136,7 @@ export class SelectTool implements Tool {
       this.mode = {
         kind: 'move',
         start: snapPointToGrid(info.world),
-        elements: selectedElements(store, nextSelection),
+        elements: selectedElements(store, nextSelection).filter((element) => !element.locked),
         others: otherBounds(store.getSnapshot(), nextSelection),
       }
     }
@@ -215,14 +222,18 @@ export class SelectTool implements Tool {
   onContextMenu(info: PointerInfo, ctx: ToolContext): ToolResult | void {
     this.spawnPreviewActive = false
     ctx.setSpawnPreview(null)
-    const hit = hitTest(info.world, ctx.store.getSnapshot())
+    const hit = hitTest(info.world, ctx.store.getSnapshot(), { includeLocked: info.altKey })
     const selected = ctx.store.getUiState().selectedIds
     if (!hit) {
       if (selected.size > 0) ctx.store.setUiState({ selectedIds: new Set() })
+    } else if (hit.locked) {
+      if (!selected.has(hit.id) || selected.size !== 1) {
+        ctx.store.setUiState({ selectedIds: new Set([hit.id]) })
+      }
     } else if (!selected.has(hit.id)) {
       ctx.store.setUiState({ selectedIds: expandGroupSelection([hit.id], ctx.store.getSnapshot()) })
     }
-    const sourceId = hit && !isArrowElement(hit) ? hit.id : null
+    const sourceId = hit && !isArrowElement(hit) && !hit.locked ? hit.id : null
     ctx.requestContextMenu?.({ screen: info.screen, sourceId })
     return { overlay: true }
   }
@@ -406,7 +417,7 @@ export class SelectTool implements Tool {
     const visible = [...ui.selectedIds]
     for (const id of visible) {
       const shape = snapshot.elements[id]
-      if (!shape || isArrowElement(shape)) continue
+      if (!shape || isArrowElement(shape) || shape.locked) continue
       const port = hitPort(info.screen, shape, ctx.camera)
       if (port) return { shape, port }
     }
@@ -521,7 +532,7 @@ export class SelectTool implements Tool {
     const snapshot = ctx.store.getSnapshot()
     const portHit = this.portShapeAt(info, ctx)
     const spawned = this.trackSpawnPreview(info, ctx, portHit)
-    const hit = hitTest(info.world, snapshot)
+    const hit = hitTest(info.world, snapshot, { includeLocked: info.altKey })
     const portHover = portHit ?? (hit ? null : this.portHoverShapeAt(info, ctx))
     const nextId = portHover?.shape.id ?? hit?.id ?? null
     if (nextId === ctx.store.getHoveredId()) return spawned ? { overlay: true } : {}

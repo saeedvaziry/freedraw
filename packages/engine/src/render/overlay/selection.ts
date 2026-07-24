@@ -13,6 +13,7 @@ import type { Rect } from '../../geometry/rect.js'
 
 const ACCENT = '#4f6bff'
 const HANDLE_FILL = '#ffffff'
+const LOCK_BADGE_RADIUS = 9
 
 export function marqueeScreenRect(marquee: Rect, camera: Camera): Rect {
   const a = camera.worldToScreen({ x: marquee.x, y: marquee.y })
@@ -55,6 +56,43 @@ export function paintHover(ctx: CanvasRenderingContext2D, element: Element, came
   else traceRect(ctx, elementBounds(element))
   ctx.restore()
   ctx.stroke()
+  if (element.locked) paintLockBadge(ctx, element, camera)
+}
+
+function paintLockBadge(ctx: CanvasRenderingContext2D, element: Element, camera: Camera): void {
+  const center = elementCenter(element)
+  const cos = Math.cos(element.rotation)
+  const sin = Math.sin(element.rotation)
+  const dx = element.x - center.x
+  const dy = element.y - center.y
+  const corner = camera.worldToScreen({
+    x: center.x + dx * cos - dy * sin,
+    y: center.y + dx * sin + dy * cos,
+  })
+  drawLockBadge(ctx, corner)
+}
+
+function drawLockBadge(ctx: CanvasRenderingContext2D, position: Point): void {
+  const { x, y } = position
+  ctx.save()
+  ctx.beginPath()
+  ctx.arc(x, y, LOCK_BADGE_RADIUS, 0, Math.PI * 2)
+  ctx.fillStyle = ACCENT
+  ctx.fill()
+  ctx.strokeStyle = HANDLE_FILL
+  ctx.lineWidth = 1.5
+  ctx.stroke()
+
+  ctx.strokeStyle = HANDLE_FILL
+  ctx.fillStyle = HANDLE_FILL
+  ctx.lineWidth = 1.4
+  ctx.beginPath()
+  ctx.arc(x, y - 1.4, 2.4, Math.PI, Math.PI * 2)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.rect(x - 3.4, y - 1.4, 6.8, 5.4)
+  ctx.fill()
+  ctx.restore()
 }
 
 export function paintSelection(

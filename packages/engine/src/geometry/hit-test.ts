@@ -88,12 +88,16 @@ export function hitTestElement(point: Point, element: Element): boolean {
   return hitShape(local, element)
 }
 
-export function hitTest(point: Point, snapshot: SceneSnapshot): Element | null {
+export interface HitTestOptions {
+  includeLocked?: boolean
+}
+
+export function hitTest(point: Point, snapshot: SceneSnapshot, options: HitTestOptions = {}): Element | null {
   for (let i = snapshot.order.length - 1; i >= 0; i -= 1) {
     const id = snapshot.order[i]
     if (!id) continue
     const element = snapshot.elements[id]
-    if (!element || element.locked) continue
+    if (!element || (element.locked && !options.includeLocked)) continue
     const broad = expand(hitBounds(element), element.style.strokeWidth / 2 + HIT_TOLERANCE)
     if (!pointInRect(point, broad, 0)) continue
     if (hitTestElement(point, element)) return element

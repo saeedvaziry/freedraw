@@ -24,7 +24,7 @@ const MIXED_PATTERN =
   'bg-[conic-gradient(#ccc_25%,#fff_0_50%,#ccc_0_75%,#fff_0)] bg-[length:6px_6px]'
 
 export const SELECTION_ACTION_GROUPS: string[][] = [
-  ['group', 'ungroup', 'lock'],
+  ['group', 'ungroup', 'lock', 'unlock-selection'],
   [
     'align-left',
     'align-center-horizontal',
@@ -108,7 +108,7 @@ function ColorButton({ stroke, onPick }: { stroke: string | null; onPick(color: 
               onClick={() => onPick(color)}
               style={{ backgroundColor: color }}
               className={cn(
-                'size-7 rounded-md border border-black/10 transition-transform hover:scale-110 dark:border-white/20',
+                'size-7 rounded-md border border-black/10 transition-transform hover:scale-110 coarse:size-9 dark:border-white/20',
                 stroke === color &&
                   'ring-2 ring-[color:var(--focus-ring)] ring-offset-1 ring-offset-background',
               )}

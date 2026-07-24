@@ -166,6 +166,23 @@ export const BOARD_ACTIONS: BoardAction[] = [
     run: ({ store }) => store.lockElements(store.getUiState().selectedIds),
   },
   {
+    id: 'unlock-selection',
+    label: 'Unlock',
+    icon: LockOpen,
+    group: 'edit',
+    requiresEdit: true,
+    when: ({ store, readOnly }) => {
+      if (readOnly) return false
+      const snapshot = store.getSnapshot()
+      return [...store.getUiState().selectedIds].some((id) => snapshot.elements[id]?.locked)
+    },
+    run: ({ store }) => {
+      const snapshot = store.getSnapshot()
+      const locked = [...store.getUiState().selectedIds].filter((id) => snapshot.elements[id]?.locked)
+      store.unlockElements(locked)
+    },
+  },
+  {
     id: 'unlock',
     label: 'Unlock all',
     icon: LockOpen,

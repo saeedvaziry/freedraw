@@ -541,6 +541,11 @@ export class SceneStore {
     this.writeLocked(locked, false)
   }
 
+  unlockElements(ids: Iterable<ElementId>): void {
+    const targets = [...ids].filter((id) => this.snapshot.elements[id]?.locked)
+    this.writeLocked(targets, false)
+  }
+
   private writeLocked(ids: ElementId[], locked: boolean): void {
     const targets = ids.filter((id) => this.yElements.has(id))
     if (targets.length === 0) return
