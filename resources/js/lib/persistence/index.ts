@@ -25,6 +25,7 @@ export { createDocumentPersistence, DOCUMENT_DB_NAME } from './document-persiste
 export type { DocumentPersistence } from './document-persistence.js'
 export {
   buildAssetReferenceIndex,
+  collectAssetIds,
   gcOrphanedAssets,
   gcOrphanedStorage,
 } from './storage-gc.js'

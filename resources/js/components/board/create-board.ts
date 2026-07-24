@@ -2,12 +2,15 @@ import * as Y from 'yjs'
 import { isValidScene, migrateDoc, SceneStore, seedAppState } from '@freedraw/engine'
 import {
   applyBase64Update,
+  assetRepo,
+  collectAssetIds,
   createDocumentPersistence,
   createPageSync,
   createRemotePage,
   DOCUMENT_DB_NAME,
   documentHasContent,
   encodeDocAsBase64,
+  uploadPageAsset,
   type AssetSource,
   type DocumentPersistence,
   type PageSync,
@@ -177,6 +180,24 @@ function clearPromotedMarker(): void {
   }
 }
 
+async function uploadPromotedAssets(doc: Y.Doc, page: BoardPage): Promise<void> {
+  let assetIds: Set<string>
+  try {
+    assetIds = collectAssetIds(doc)
+  } catch (error) {
+    console.warn('Failed to read promoted board assets', error)
+    return
+  }
+
+  for (const assetId of assetIds) {
+    const blob = await assetRepo.getAsset(assetId).catch(() => undefined)
+    if (!blob) continue
+    await uploadPageAsset(page.publicId, assetId, blob).catch((error) => {
+      console.warn('Asset upload failed', error)
+    })
+  }
+}
+
 async function promoteAnonymousBoard(): Promise<BoardPage | null> {
   const persistence = createDocumentPersistence(new Y.Doc(), DOCUMENT_DB_NAME)
   await persistence.whenSynced
@@ -211,6 +232,7 @@ async function promoteAnonymousBoard(): Promise<BoardPage | null> {
     // Record the page before clearing so an interrupted clear() is recoverable
     // without re-creating the page.
     writePromotedMarker(page)
+    await uploadPromotedAssets(persistence.doc, page)
     await persistence.clear()
     clearPromotedMarker()
 

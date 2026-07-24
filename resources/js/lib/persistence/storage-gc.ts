@@ -57,7 +57,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   })
 }
 
-function collectAssetIds(doc: Y.Doc): Set<string> {
+export function collectAssetIds(doc: Y.Doc): Set<string> {
   const ids = new Set<string>()
   const elements = doc.getMap('elements')
 
