@@ -18,6 +18,7 @@ import { CommandPaletteHost } from './command-palette/command-palette-host.js'
 import { ContextMenuHost } from './context-menu/context-menu-host.js'
 import { DiagramPanelHost } from './diagram-panel-host.js'
 import { EmptyState } from './empty-state.js'
+import { LibraryPanelHost } from './library-panel-host.js'
 import { LinksBar } from './links-bar.js'
 import { MobileBar } from './mobile-bar.js'
 import { PresentButton, PresentOverlay } from './present-mode.js'
@@ -171,6 +172,7 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
   const overlayRef = useRef<HTMLCanvasElement>(null)
   const [controller, setController] = useState<EditorController | null>(null)
   const [diagramOpen, setDiagramOpen] = useState(false)
+  const [libraryOpen, setLibraryOpen] = useState(false)
   // The board consumes the app-wide appearance (light / dark / system) hook; the
   // canvas and export only care about the *resolved* light/dark value.
   const { resolvedAppearance: theme } = useAppearance()
@@ -277,13 +279,23 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
                 <DiagramPanelHost onClose={() => setDiagramOpen(false)} />
               </div>
             ) : null}
+            {libraryOpen ? (
+              <div
+                className="pointer-events-none absolute top-16 hidden justify-start transition-[left] duration-200 ease-linear sm:flex"
+                style={{ left: 'calc(0.75rem + var(--board-sidebar-width, 0px))' }}
+              >
+                <LibraryPanelHost onClose={() => setLibraryOpen(false)} />
+              </div>
+            ) : null}
             <div
               className="pointer-events-none absolute bottom-3 hidden justify-center px-3 transition-[left] duration-200 ease-linear sm:flex"
               style={{ left: 'calc(0.75rem + var(--board-sidebar-width, 0px))', right: '0.75rem' }}
             >
               <BottomBar
                 diagramOpen={diagramOpen}
+                libraryOpen={libraryOpen}
                 onToggleDiagram={() => setDiagramOpen((open) => !open)}
+                onToggleLibrary={() => setLibraryOpen((open) => !open)}
               />
             </div>
             <div className="pointer-events-none absolute right-3 bottom-3 hidden items-center gap-2 sm:flex">

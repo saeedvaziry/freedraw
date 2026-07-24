@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react'
-import { Wrench } from 'lucide-react'
+import { LibraryBig, Wrench } from 'lucide-react'
 import { ExportMenu, ToolButton } from '@/components/board/ui-kit'
 import { useBoardContext } from './board-context.js'
 import { ActionsMenu } from './actions-menu.js'
@@ -8,7 +8,9 @@ import { ToolbarHost } from './toolbar-host.js'
 
 interface BottomBarProps {
   diagramOpen: boolean
+  libraryOpen: boolean
   onToggleDiagram(): void
+  onToggleLibrary(): void
 }
 
 /**
@@ -17,8 +19,13 @@ interface BottomBarProps {
  * button that opens the editing actions — undo, redo, delete, … plus snap — as
  * an upward dropdown menu, and the export menu next to it.
  */
-export function BottomBar({ diagramOpen, onToggleDiagram }: BottomBarProps) {
-  const { store, controller, boardExport, theme } = useBoardContext()
+export function BottomBar({
+  diagramOpen,
+  libraryOpen,
+  onToggleDiagram,
+  onToggleLibrary,
+}: BottomBarProps) {
+  const { store, controller, boardExport, theme, readOnly } = useBoardContext()
   // Signed-in users reach their account from the sidebar, so the bar's user menu
   // is only needed by guests (to log in or register).
   const isAuthenticated = Boolean(usePage().props.auth?.user)
@@ -31,6 +38,11 @@ export function BottomBar({ diagramOpen, onToggleDiagram }: BottomBarProps) {
       onToggleDiagram={onToggleDiagram}
       trailing={
         <>
+          {!readOnly ? (
+            <ToolButton label="Library" active={libraryOpen} onClick={onToggleLibrary}>
+              <LibraryBig />
+            </ToolButton>
+          ) : null}
           <ActionsMenu
             store={store}
             controller={controller}
