@@ -20,6 +20,7 @@ export interface AppConfig {
   seqMaxRetries: number
   stampAssetReferences: boolean
   pruneSupersededSnapshots: boolean
+  collabSecret: string
   db: DbConfig
 }
 
@@ -66,6 +67,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     seqMaxRetries: readNumber(env, 'HOCUSPOCUS_SEQ_MAX_RETRIES', 5),
     stampAssetReferences: readBoolean(env, 'HOCUSPOCUS_STAMP_ASSETS', true),
     pruneSupersededSnapshots: readBoolean(env, 'HOCUSPOCUS_PRUNE_SNAPSHOTS', true),
+    collabSecret: readString(env, 'COLLAB_SECRET', ''),
     db: {
       host: readString(env, 'DB_HOST', '127.0.0.1'),
       port: readNumber(env, 'DB_PORT', 3306),

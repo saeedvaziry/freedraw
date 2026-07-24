@@ -47,4 +47,9 @@ return [
         'redirect' => '/login/google/callback',
     ],
 
+    'collab' => [
+        'secret' => env('COLLAB_SECRET'),
+        'token_ttl' => (int) env('COLLAB_TOKEN_TTL', 60),
+    ],
+
 ];

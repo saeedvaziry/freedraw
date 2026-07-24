@@ -7,6 +7,8 @@ use App\Http\Controllers\PageController;
 use App\Http\Controllers\PageShareController;
 use App\Http\Controllers\PublicPageAssetController;
 use App\Http\Controllers\PublicPageController;
+use App\Http\Controllers\PublicRealtimeTokenController;
+use App\Http\Controllers\RealtimeTokenController;
 use App\Http\Controllers\SocialLoginController;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
@@ -36,6 +38,9 @@ Route::get('/docs/SKILL.md', fn () => response(File::get(base_path('skills/freed
 // Public share links (open to anyone, read-only).
 Route::get('s/{slug}', [PublicPageController::class, 'show'])->name('share.show');
 Route::get('s/{slug}/assets/{assetId}', [PublicPageAssetController::class, 'show'])->name('share.assets.show');
+Route::post('s/{slug}/realtime-token', [PublicRealtimeTokenController::class, 'store'])
+    ->middleware('throttle:60,1')
+    ->name('share.realtime-token');
 
 // Social Login (GitHub, Google)
 Route::middleware('guest')->group(function () {
@@ -53,6 +58,10 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('pages/{page}', [PageController::class, 'update'])->name('pages.update');
     Route::patch('pages/{page}/share', [PageShareController::class, 'update'])->name('pages.share');
     Route::delete('pages/{page}', [PageController::class, 'destroy'])->name('pages.destroy');
+
+    Route::post('pages/{page}/realtime-token', [RealtimeTokenController::class, 'store'])
+        ->middleware('throttle:60,1')
+        ->name('pages.realtime-token');
 
     Route::post('pages/{page}/assets', [PageAssetController::class, 'store'])->name('pages.assets.store');
     Route::get('pages/{page}/assets/{assetId}', [PageAssetController::class, 'show'])->name('pages.assets.show');

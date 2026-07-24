@@ -1,7 +1,8 @@
-import { Server } from '@hocuspocus/server'
+import { Server, type Extension } from '@hocuspocus/server'
 import { loadConfig } from './config.js'
 import { asQueryable, createPool } from './db.js'
 import { MysqlPageStore } from './page-store.js'
+import { RealtimeAuth } from './realtime-auth.js'
 import { UpdateLogDatabase, type Logger } from './update-log-database.js'
 
 const logger: Logger = {
@@ -22,6 +23,14 @@ async function main(): Promise<void> {
     pruneSupersededSnapshots: config.pruneSupersededSnapshots,
   })
 
+  const extensions: Extension[] = [extension]
+
+  if (config.collabSecret.length > 0) {
+    extensions.push(new RealtimeAuth(config.collabSecret))
+  } else {
+    logger.warn('COLLAB_SECRET is not set; realtime authentication is disabled')
+  }
+
   const server = new Server({
     name: config.name,
     port: config.port,
@@ -30,7 +39,7 @@ async function main(): Promise<void> {
     debounce: config.debounce,
     maxDebounce: config.maxDebounce,
     quiet: config.quiet,
-    extensions: [extension],
+    extensions,
   })
 
   let shuttingDown = false
