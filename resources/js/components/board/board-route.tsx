@@ -1,6 +1,6 @@
 import { router, usePage } from '@inertiajs/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { EditorController, type SceneStore } from '@freedraw/engine'
+import { EditorController, type CanvasColorOverrides, type SceneStore } from '@freedraw/engine'
 import { BoardProvider, type BoardContextValue } from './board-context.js'
 import {
   attachViewportPersistence,
@@ -37,6 +37,20 @@ function destroyBoard(board: CreatedBoard): void {
   void board.sync?.flush()
   board.sync?.destroy()
   board.persistence.destroy()
+}
+
+function readCanvasColors(): CanvasColorOverrides {
+  if (typeof document === 'undefined') return {}
+  const styles = getComputedStyle(document.documentElement)
+  const read = (name: string) => styles.getPropertyValue(name)
+  return {
+    gridLine: read('--canvas-grid-line'),
+    gridMajor: read('--canvas-grid-major'),
+    gridBackground: read('--canvas-grid-background'),
+    selectionAccent: read('--selection-accent'),
+    selectionAccentSoft: read('--selection-accent-weak'),
+    selectionHandle: read('--canvas-selection-handle'),
+  }
 }
 
 export function BoardRoute() {
@@ -176,7 +190,7 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
     const overlay = overlayRef.current
     if (!scene || !overlay) return
 
-    const instance = new EditorController(store, scene, overlay)
+    const instance = new EditorController(store, scene, overlay, readCanvasColors())
     const cleanup = instance.mount()
     setController(instance)
     return () => {
@@ -187,6 +201,7 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
 
   useEffect(() => {
     controller?.setDark(theme === 'dark')
+    controller?.setColors(readCanvasColors())
   }, [controller, theme])
 
   // Read-only public shares can still pan, zoom, copy and export; only document

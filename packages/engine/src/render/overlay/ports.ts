@@ -2,9 +2,8 @@ import type { Camera } from '../../geometry/camera.js'
 import { shapeAnchors } from '../../geometry/snap.js'
 import { elementCenter } from '../../geometry/hit-test.js'
 import type { Element, Point } from '../../model/types.js'
+import type { OverlayColors } from '../color-config.js'
 
-const ACCENT = '#4f6bff'
-const PORT_FILL = 'rgba(79, 107, 255, 0.16)'
 export const PORT_OFFSET = 20
 const PORT_RADIUS = 5
 
@@ -63,10 +62,15 @@ export function portHoverAtScreen(screen: Point, element: Element, camera: Camer
   return portAnchorWithin(screen, element, camera, PORT_HOVER_RADIUS)
 }
 
-export function paintPorts(ctx: CanvasRenderingContext2D, element: Element, camera: Camera): void {
+export function paintPorts(
+  ctx: CanvasRenderingContext2D,
+  element: Element,
+  camera: Camera,
+  colors: OverlayColors,
+): void {
   ctx.save()
-  ctx.fillStyle = PORT_FILL
-  ctx.strokeStyle = ACCENT
+  ctx.fillStyle = colors.accentSoft
+  ctx.strokeStyle = colors.accent
   ctx.lineWidth = 1.5
   for (const handle of shapePortHandlesScreen(element, camera)) {
     ctx.beginPath()
@@ -81,9 +85,10 @@ export function paintTargetHighlight(
   ctx: CanvasRenderingContext2D,
   element: Element,
   camera: Camera,
+  colors: OverlayColors,
 ): void {
   ctx.save()
-  ctx.strokeStyle = ACCENT
+  ctx.strokeStyle = colors.accent
   ctx.lineWidth = 2
   for (const handle of shapePortHandlesScreen(element, camera)) {
     ctx.beginPath()

@@ -160,6 +160,31 @@
     --selection-accent-weak: oklch(0.623 0.214 259.8 / 15%);
 
     --focus-ring: var(--ring);
+
+    --canvas-grid-line: rgba(31, 41, 55, 0.035);
+    --canvas-grid-major: rgba(31, 41, 55, 0.09);
+    --canvas-grid-background: #ffffff;
+
+    --canvas-shape-stroke: #1e1e1e;
+    --canvas-shape-fill: transparent;
+    --canvas-shape-text: #1e1e1e;
+
+    --canvas-selection-handle: #ffffff;
+
+    --canvas-sticky-yellow: #fdf08a;
+    --canvas-sticky-green: #b9f6ca;
+    --canvas-sticky-blue: #a7d8ff;
+    --canvas-sticky-pink: #ffc4dd;
+    --canvas-sticky-orange: #ffd8a8;
+    --canvas-sticky-purple: #e0c3fc;
+
+    --canvas-swatch-black: #1e1e1e;
+    --canvas-swatch-red: #e03131;
+    --canvas-swatch-green: #2f9e44;
+    --canvas-swatch-blue: #1971c2;
+    --canvas-swatch-orange: #f08c00;
+    --canvas-swatch-purple: #ae3ec9;
+    --canvas-swatch-white: #ffffff;
 }
 
 .dark {

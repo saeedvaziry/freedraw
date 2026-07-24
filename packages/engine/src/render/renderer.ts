@@ -13,6 +13,13 @@ import type { ArrowElement, Element, SceneSnapshot } from '../model/types.js'
 import { paintElement } from './painters/index.js'
 import { CanvasDrawTarget } from './draw-target.js'
 import { invertColor } from './invert.js'
+import {
+  DEFAULT_CANVAS_COLORS,
+  overlayColorsFrom,
+  resolveCanvasColors,
+  type CanvasColorOverrides,
+  type CanvasColors,
+} from './color-config.js'
 import { paintHover, paintMarquee, paintSelection } from './overlay/selection.js'
 import { paintPorts, paintTargetHighlight } from './overlay/ports.js'
 import { paintArrowHandles } from './overlay/arrow-handles.js'
@@ -49,9 +56,27 @@ const defaultGrid: GridStyle = {
   ...defaultGridConfig,
   lineWidth: 1,
   majorLineWidth: 1,
-  color: 'rgba(31, 41, 55, 0.035)',
-  majorColor: 'rgba(31, 41, 55, 0.09)',
-  background: '#ffffff',
+  color: DEFAULT_CANVAS_COLORS.gridLine,
+  majorColor: DEFAULT_CANVAS_COLORS.gridMajor,
+  background: DEFAULT_CANVAS_COLORS.gridBackground,
+}
+
+function buildGrid(colors: CanvasColors): GridStyle {
+  return {
+    ...defaultGrid,
+    color: colors.gridLine,
+    majorColor: colors.gridMajor,
+    background: colors.gridBackground,
+  }
+}
+
+function buildDarkGrid(grid: GridStyle): GridStyle {
+  return {
+    ...grid,
+    color: invertColor(grid.color),
+    majorColor: invertColor(grid.majorColor),
+    background: invertColor(grid.background),
+  }
 }
 
 function elementBounds(element: SceneSnapshot['elements'][string]): Rect {
@@ -65,8 +90,9 @@ export class Renderer {
   private readonly overlayCtx: CanvasRenderingContext2D
   private readonly sceneTarget: CanvasDrawTarget
   private readonly overlayTarget: CanvasDrawTarget
-  private readonly grid: GridStyle
-  private readonly darkGrid: GridStyle
+  private colors: CanvasColors
+  private grid: GridStyle
+  private darkGrid: GridStyle
   private dpr = 1
   private cssWidth = 0
   private cssHeight = 0
@@ -75,7 +101,7 @@ export class Renderer {
   constructor(
     scene: HTMLCanvasElement,
     overlay: HTMLCanvasElement,
-    grid: Partial<GridStyle> = {},
+    colors: CanvasColorOverrides = {},
   ) {
     const sceneCtx = scene.getContext('2d')
     const overlayCtx = overlay.getContext('2d')
@@ -86,17 +112,19 @@ export class Renderer {
     this.overlayCtx = overlayCtx
     this.sceneTarget = new CanvasDrawTarget(sceneCtx)
     this.overlayTarget = new CanvasDrawTarget(overlayCtx)
-    this.grid = { ...defaultGrid, ...grid }
-    this.darkGrid = {
-      ...this.grid,
-      color: invertColor(this.grid.color),
-      majorColor: invertColor(this.grid.majorColor),
-      background: invertColor(this.grid.background),
-    }
+    this.colors = resolveCanvasColors(colors)
+    this.grid = buildGrid(this.colors)
+    this.darkGrid = buildDarkGrid(this.grid)
   }
 
   setDark(dark: boolean): void {
     this.dark = dark
+  }
+
+  setColors(colors: CanvasColorOverrides): void {
+    this.colors = resolveCanvasColors(colors)
+    this.grid = buildGrid(this.colors)
+    this.darkGrid = buildDarkGrid(this.grid)
   }
 
   private get activeGrid(): GridStyle {
@@ -163,17 +191,18 @@ export class Renderer {
     }
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    if (overlay.hover) paintHover(ctx, overlay.hover, camera)
-    if (overlay.selection) paintSelection(ctx, overlay.selection, camera)
+    const colors = overlayColorsFrom(this.colors)
+    if (overlay.hover) paintHover(ctx, overlay.hover, camera, colors)
+    if (overlay.selection) paintSelection(ctx, overlay.selection, camera, colors)
     if (overlay.selectedArrows) {
-      for (const arrow of overlay.selectedArrows) paintArrowHandles(ctx, arrow, camera)
+      for (const arrow of overlay.selectedArrows) paintArrowHandles(ctx, arrow, camera, colors)
     }
     if (overlay.ports) {
-      for (const element of overlay.ports) paintPorts(ctx, element, camera)
+      for (const element of overlay.ports) paintPorts(ctx, element, camera, colors)
     }
-    if (overlay.targetHighlight) paintTargetHighlight(ctx, overlay.targetHighlight, camera)
+    if (overlay.targetHighlight) paintTargetHighlight(ctx, overlay.targetHighlight, camera, colors)
     if (overlay.guides) paintGuides(ctx, overlay.guides, camera)
-    if (overlay.marquee) paintMarquee(ctx, overlay.marquee, camera)
+    if (overlay.marquee) paintMarquee(ctx, overlay.marquee, camera, colors)
     if (overlay.presence) paintPresence(ctx, overlay.presence, camera)
   }
 

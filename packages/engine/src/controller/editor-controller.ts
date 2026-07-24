@@ -25,6 +25,7 @@ import { elementBounds } from '../geometry/hit-test.js'
 import type { Style } from '../model/types.js'
 import { createRenderLoop, type RenderDirty, type RenderLoopHandle } from '../render/loop.js'
 import { Renderer, type OverlayState, type SpawnPreview } from '../render/renderer.js'
+import type { CanvasColorOverrides } from '../render/color-config.js'
 import type { PresenceOverlay } from '../render/overlay/presence.js'
 import {
   canvasToBlob,
@@ -123,6 +124,7 @@ export class EditorController {
     private readonly store: SceneStore,
     scene: HTMLCanvasElement,
     private readonly overlay: HTMLCanvasElement,
+    colors: CanvasColorOverrides = {},
   ) {
     this.camera = new Camera(store.getSnapshot().appState.camera)
     this.imageCache = new ImageCache({
@@ -130,7 +132,7 @@ export class EditorController {
       onReady: () => this.requestRepaint(),
     })
     setImageCache(this.imageCache)
-    this.renderer = new Renderer(scene, overlay)
+    this.renderer = new Renderer(scene, overlay, colors)
     this.loop = createRenderLoop((dirty) => this.paint(dirty))
     this.toolContext = {
       store,
@@ -249,6 +251,12 @@ export class EditorController {
     this.renderer.setDark(dark)
     this.loop.markDirty()
     this.editListeners.forEach((listener) => listener(this.editRequest))
+  }
+
+  setColors(colors: CanvasColorOverrides): void {
+    this.renderer.setColors(colors)
+    this.loop.markDirty()
+    this.loop.markOverlayDirty()
   }
 
   get isDark(): boolean {

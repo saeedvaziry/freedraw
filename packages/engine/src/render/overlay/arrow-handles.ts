@@ -2,8 +2,8 @@ import type { Camera } from '../../geometry/camera.js'
 import { arrowRoute } from '../../connectors/resolve.js'
 import { editableRouteSegments, type RouteSegmentAxis } from '../../geometry/arrow-geometry.js'
 import type { ArrowElement, Point } from '../../model/types.js'
+import type { OverlayColors } from '../color-config.js'
 
-const ACCENT = '#4f6bff'
 const ENDPOINT_SIZE = 9
 const MIDPOINT_WIDTH = 8
 const MIDPOINT_HEIGHT = 16
@@ -65,11 +65,12 @@ export function paintArrowHandles(
   ctx: CanvasRenderingContext2D,
   arrow: ArrowElement,
   camera: Camera,
+  colors: OverlayColors,
 ): void {
   const points = arrowRoute(arrow)
   if (points.length < 2) return
   ctx.save()
-  ctx.strokeStyle = ACCENT
+  ctx.strokeStyle = colors.accent
   ctx.lineWidth = 1.5
 
   ctx.beginPath()
@@ -82,12 +83,12 @@ export function paintArrowHandles(
 
   for (const handle of arrowHandlesScreen(arrow, camera)) {
     if (handle.id === 'midpoint') {
-      ctx.fillStyle = '#ffffff'
+      ctx.fillStyle = colors.handle
       drawPill(ctx, handle.position)
       continue
     }
     const bound = handle.id === 'start' ? Boolean(arrow.start) : Boolean(arrow.end)
-    ctx.fillStyle = bound ? ACCENT : '#ffffff'
+    ctx.fillStyle = bound ? colors.accent : colors.handle
     drawSquare(ctx, handle.position)
   }
   ctx.restore()

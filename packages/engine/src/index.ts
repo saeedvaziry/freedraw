@@ -1,5 +1,11 @@
 export { Renderer } from './render/renderer.js'
 export type { GridStyle, OverlayState, SpawnPreview } from './render/renderer.js'
+export {
+  DEFAULT_CANVAS_COLORS,
+  resolveCanvasColors,
+  overlayColorsFrom,
+} from './render/color-config.js'
+export type { CanvasColors, CanvasColorOverrides, OverlayColors } from './render/color-config.js'
 export { invertColor } from './render/invert.js'
 export { createRenderLoop } from './render/loop.js'
 export type { RenderLoopHandle } from './render/loop.js'

@@ -13,12 +13,12 @@ interface StickyColorEntry {
 }
 
 const STICKY_COLOR_ENTRIES: StickyColorEntry[] = [
-  { key: 'yellow', label: 'Yellow', swatch: '#fdf08a' },
-  { key: 'green', label: 'Green', swatch: '#b9f6ca' },
-  { key: 'blue', label: 'Blue', swatch: '#a7d8ff' },
-  { key: 'pink', label: 'Pink', swatch: '#ffc4dd' },
-  { key: 'orange', label: 'Orange', swatch: '#ffd8a8' },
-  { key: 'purple', label: 'Purple', swatch: '#e0c3fc' },
+  { key: 'yellow', label: 'Yellow', swatch: 'var(--canvas-sticky-yellow)' },
+  { key: 'green', label: 'Green', swatch: 'var(--canvas-sticky-green)' },
+  { key: 'blue', label: 'Blue', swatch: 'var(--canvas-sticky-blue)' },
+  { key: 'pink', label: 'Pink', swatch: 'var(--canvas-sticky-pink)' },
+  { key: 'orange', label: 'Orange', swatch: 'var(--canvas-sticky-orange)' },
+  { key: 'purple', label: 'Purple', swatch: 'var(--canvas-sticky-purple)' },
 ]
 
 export interface StickyPopoverProps {

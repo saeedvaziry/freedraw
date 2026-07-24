@@ -3,15 +3,20 @@ import { cn } from '@/lib/utils'
 import { FieldLabel } from './controls.js'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
-const SWATCHES = [
-  'transparent',
-  '#1e1e1e',
-  '#e03131',
-  '#2f9e44',
-  '#1971c2',
-  '#f08c00',
-  '#ae3ec9',
-  '#ffffff',
+interface Swatch {
+  value: string
+  css?: string
+}
+
+const SWATCHES: Swatch[] = [
+  { value: 'transparent' },
+  { value: '#1e1e1e', css: 'var(--canvas-swatch-black)' },
+  { value: '#e03131', css: 'var(--canvas-swatch-red)' },
+  { value: '#2f9e44', css: 'var(--canvas-swatch-green)' },
+  { value: '#1971c2', css: 'var(--canvas-swatch-blue)' },
+  { value: '#f08c00', css: 'var(--canvas-swatch-orange)' },
+  { value: '#ae3ec9', css: 'var(--canvas-swatch-purple)' },
+  { value: '#ffffff', css: 'var(--canvas-swatch-white)' },
 ]
 
 const TRANSPARENT_PATTERN =
@@ -43,7 +48,9 @@ export function ColorPicker({
   mixed = false,
   onChange,
 }: ColorPickerProps) {
-  const swatches = allowTransparent ? SWATCHES : SWATCHES.filter((color) => color !== 'transparent')
+  const swatches = allowTransparent
+    ? SWATCHES
+    : SWATCHES.filter((swatch) => swatch.value !== 'transparent')
   const isTransparent = value === 'transparent'
 
   return (
@@ -83,23 +90,27 @@ export function ColorPicker({
         </span>
       </span>
       <div className={cn('grid gap-1.5', allowTransparent ? 'grid-cols-8' : 'grid-cols-7')}>
-        {swatches.map((color) => (
-          <Tooltip key={color}>
+        {swatches.map((swatch) => (
+          <Tooltip key={swatch.value}>
             <TooltipTrigger asChild>
               <button
                 type="button"
-                aria-label={`${label} ${color}`}
-                aria-pressed={!mixed && value === color}
-                onClick={() => onChange(color)}
+                aria-label={`${label} ${swatch.value}`}
+                aria-pressed={!mixed && value === swatch.value}
+                onClick={() => onChange(swatch.value)}
                 className={cn(
                   'h-6 w-full rounded-md border transition-transform hover:scale-110 coarse:h-9',
-                  color === 'transparent' && TRANSPARENT_PATTERN,
-                  !mixed && value === color && 'ring-2 ring-primary ring-offset-1 ring-offset-background',
+                  swatch.value === 'transparent' && TRANSPARENT_PATTERN,
+                  !mixed &&
+                    value === swatch.value &&
+                    'ring-2 ring-primary ring-offset-1 ring-offset-background',
                 )}
-                style={color === 'transparent' ? undefined : { backgroundColor: color }}
+                style={swatch.css ? { backgroundColor: swatch.css } : undefined}
               />
             </TooltipTrigger>
-            <TooltipContent>{color === 'transparent' ? 'None' : color.toUpperCase()}</TooltipContent>
+            <TooltipContent>
+              {swatch.value === 'transparent' ? 'None' : swatch.value.toUpperCase()}
+            </TooltipContent>
           </Tooltip>
         ))}
       </div>

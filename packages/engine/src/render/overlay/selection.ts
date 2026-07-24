@@ -10,9 +10,8 @@ import { getOutline, traceOutline } from '../../geometry/shape-outline.js'
 import { elementBounds, elementCenter } from '../../geometry/hit-test.js'
 import type { Element, Point } from '../../model/types.js'
 import type { Rect } from '../../geometry/rect.js'
+import type { OverlayColors } from '../color-config.js'
 
-const ACCENT = '#4f6bff'
-const HANDLE_FILL = '#ffffff'
 const LOCK_BADGE_RADIUS = 9
 
 export function marqueeScreenRect(marquee: Rect, camera: Camera): Rect {
@@ -26,11 +25,16 @@ export function marqueeScreenRect(marquee: Rect, camera: Camera): Rect {
   }
 }
 
-export function paintMarquee(ctx: CanvasRenderingContext2D, marquee: Rect, camera: Camera): void {
+export function paintMarquee(
+  ctx: CanvasRenderingContext2D,
+  marquee: Rect,
+  camera: Camera,
+  colors: OverlayColors,
+): void {
   const screen = marqueeScreenRect(marquee, camera)
   ctx.save()
-  ctx.strokeStyle = ACCENT
-  ctx.fillStyle = 'rgba(79, 107, 255, 0.1)'
+  ctx.strokeStyle = colors.accent
+  ctx.fillStyle = colors.accentSoft
   ctx.lineWidth = 1
   ctx.setLineDash([])
   ctx.fillRect(screen.x, screen.y, screen.width, screen.height)
@@ -38,11 +42,16 @@ export function paintMarquee(ctx: CanvasRenderingContext2D, marquee: Rect, camer
   ctx.restore()
 }
 
-export function paintHover(ctx: CanvasRenderingContext2D, element: Element, camera: Camera): void {
+export function paintHover(
+  ctx: CanvasRenderingContext2D,
+  element: Element,
+  camera: Camera,
+  colors: OverlayColors,
+): void {
   const outlineType = element.type === 'sticky' || element.type === 'image' ? 'roundRect' : element.type
   const outline = getOutline(outlineType, elementBounds(element), element.style.roundness)
   ctx.save()
-  ctx.strokeStyle = ACCENT
+  ctx.strokeStyle = colors.accent
   ctx.lineWidth = 1.5
   ctx.setLineDash([])
   const center = elementCenter(element)
@@ -56,10 +65,15 @@ export function paintHover(ctx: CanvasRenderingContext2D, element: Element, came
   else traceRect(ctx, elementBounds(element))
   ctx.restore()
   ctx.stroke()
-  if (element.locked) paintLockBadge(ctx, element, camera)
+  if (element.locked) paintLockBadge(ctx, element, camera, colors)
 }
 
-function paintLockBadge(ctx: CanvasRenderingContext2D, element: Element, camera: Camera): void {
+function paintLockBadge(
+  ctx: CanvasRenderingContext2D,
+  element: Element,
+  camera: Camera,
+  colors: OverlayColors,
+): void {
   const center = elementCenter(element)
   const cos = Math.cos(element.rotation)
   const sin = Math.sin(element.rotation)
@@ -69,22 +83,22 @@ function paintLockBadge(ctx: CanvasRenderingContext2D, element: Element, camera:
     x: center.x + dx * cos - dy * sin,
     y: center.y + dx * sin + dy * cos,
   })
-  drawLockBadge(ctx, corner)
+  drawLockBadge(ctx, corner, colors)
 }
 
-function drawLockBadge(ctx: CanvasRenderingContext2D, position: Point): void {
+function drawLockBadge(ctx: CanvasRenderingContext2D, position: Point, colors: OverlayColors): void {
   const { x, y } = position
   ctx.save()
   ctx.beginPath()
   ctx.arc(x, y, LOCK_BADGE_RADIUS, 0, Math.PI * 2)
-  ctx.fillStyle = ACCENT
+  ctx.fillStyle = colors.accent
   ctx.fill()
-  ctx.strokeStyle = HANDLE_FILL
+  ctx.strokeStyle = colors.handle
   ctx.lineWidth = 1.5
   ctx.stroke()
 
-  ctx.strokeStyle = HANDLE_FILL
-  ctx.fillStyle = HANDLE_FILL
+  ctx.strokeStyle = colors.handle
+  ctx.fillStyle = colors.handle
   ctx.lineWidth = 1.4
   ctx.beginPath()
   ctx.arc(x, y - 1.4, 2.4, Math.PI, Math.PI * 2)
@@ -99,10 +113,11 @@ export function paintSelection(
   ctx: CanvasRenderingContext2D,
   frame: SelectionFrame,
   camera: Camera,
+  colors: OverlayColors,
 ): void {
   const corners = frameCornersScreen(frame, camera)
   ctx.save()
-  ctx.strokeStyle = ACCENT
+  ctx.strokeStyle = colors.accent
   ctx.lineWidth = 1.5
   ctx.setLineDash([])
   ctx.beginPath()
@@ -120,7 +135,7 @@ export function paintSelection(
   ctx.lineTo(rotate.position.x, rotate.position.y)
   ctx.stroke()
 
-  ctx.fillStyle = HANDLE_FILL
+  ctx.fillStyle = colors.handle
   for (const handle of resizeHandlesScreen(frame, camera)) {
     drawHandleSquare(ctx, handle.position)
   }
