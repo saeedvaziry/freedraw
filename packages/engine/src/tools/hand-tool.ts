@@ -15,6 +15,7 @@ export class HandTool implements Tool {
     if (!this.panning) return {}
     ctx.camera.panByScreen(info.screen.x - this.last.x, info.screen.y - this.last.y)
     this.last = { x: info.screen.x, y: info.screen.y }
+    ctx.emitCameraInput?.()
     return { scene: true, overlay: true }
   }
 

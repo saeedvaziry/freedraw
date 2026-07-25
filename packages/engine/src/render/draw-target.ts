@@ -642,7 +642,7 @@ export class SvgDrawTarget implements DrawTarget {
     attrs.push(`dominant-baseline="${dominantBaseline(this.state.textBaseline)}"`)
     if (this.state.globalAlpha < 1) attrs.push(`opacity="${fmt(this.state.globalAlpha)}"`)
     const filter = this.shadowActive
-      ? this.shadowFilter(
+      ? this.absoluteShadowFilter(
           textBounds(x + place.offsetX, y + place.offsetY, this.measureText(text).width, size),
         )
       : null
@@ -751,7 +751,7 @@ export class SvgDrawTarget implements DrawTarget {
       attrs.push(`stroke-dasharray="${this.state.lineDash.map(fmt).join(' ')}"`)
     }
     if (this.state.globalAlpha < 1) attrs.push(`opacity="${fmt(this.state.globalAlpha)}"`)
-    const filter = this.shadowFilter(expandBounds(bounds, this.state.lineWidth / 2))
+    const filter = this.shadowFilter(bounds, this.state.lineWidth / 2)
     if (filter) attrs.push(`filter="url(#${filter})"`)
     if (this.state.clipId) attrs.push(`clip-path="url(#${this.state.clipId})"`)
     this.body.push(`<path ${attrs.join(' ')}/>`)
@@ -806,13 +806,31 @@ export class SvgDrawTarget implements DrawTarget {
     return shadowBlur !== 0 || shadowOffsetX !== 0 || shadowOffsetY !== 0
   }
 
-  private shadowFilter(bounds: DrawBounds | null): string | null {
+  private shadowFilter(bounds: DrawBounds | null, pad = 0): string | null {
     if (!this.shadowActive) return null
+    const { marginX, marginY } = this.shadowMargins(pad)
+    return this.filterFor(boundingBoxRegion(bounds, marginX, marginY))
+  }
+
+  private absoluteShadowFilter(bounds: DrawBounds | null): string | null {
+    if (!this.shadowActive) return null
+    const { marginX, marginY } = this.shadowMargins(0)
+    return this.filterFor(userSpaceRegion(bounds, marginX, marginY))
+  }
+
+  private shadowMargins(pad: number): { marginX: number; marginY: number } {
+    const spread = this.state.shadowBlur * SHADOW_BLUR_EXTENT + pad
+    return {
+      marginX: spread + Math.abs(this.state.shadowOffsetX),
+      marginY: spread + Math.abs(this.state.shadowOffsetY),
+    }
+  }
+
+  private filterFor(region: string): string {
     const color = this.state.shadowColor
     const blur = this.state.shadowBlur
     const offsetX = this.state.shadowOffsetX
     const offsetY = this.state.shadowOffsetY
-    const region = shadowRegion(bounds, blur, offsetX, offsetY)
     const key = `${color}|${blur}|${offsetX}|${offsetY}|${region}`
     const existing = this.filters.get(key)
     if (existing) return existing
@@ -829,6 +847,8 @@ export class SvgDrawTarget implements DrawTarget {
 }
 
 const SHADOW_BLUR_EXTENT = 1.5
+const SHADOW_SPREAD_STEP = 0.125
+const DEFAULT_SHADOW_REGION = 'x="-50%" y="-50%" width="200%" height="200%"'
 const TEXT_BOUNDS_LINES = 1.5
 
 function boundsOf(points: readonly Point[]): DrawBounds {
@@ -843,30 +863,26 @@ function boundsOf(points: readonly Point[]): DrawBounds {
   return bounds
 }
 
-function expandBounds(bounds: DrawBounds | null, amount: number): DrawBounds | null {
-  if (!bounds || !(amount > 0)) return bounds
-  return {
-    minX: bounds.minX - amount,
-    minY: bounds.minY - amount,
-    maxX: bounds.maxX + amount,
-    maxY: bounds.maxY + amount,
-  }
-}
-
 function textBounds(x: number, y: number, width: number, size: number): DrawBounds {
   const height = size * TEXT_BOUNDS_LINES
   return { minX: x - width, minY: y - height, maxX: x + width, maxY: y + height }
 }
 
-function shadowRegion(
-  bounds: DrawBounds | null,
-  blur: number,
-  offsetX: number,
-  offsetY: number,
-): string {
-  if (!bounds) return 'x="-50%" y="-50%" width="200%" height="200%"'
-  const marginX = blur * SHADOW_BLUR_EXTENT + Math.abs(offsetX)
-  const marginY = blur * SHADOW_BLUR_EXTENT + Math.abs(offsetY)
+function boundingBoxRegion(bounds: DrawBounds | null, marginX: number, marginY: number): string {
+  if (!bounds) return DEFAULT_SHADOW_REGION
+  const width = bounds.maxX - bounds.minX
+  const height = bounds.maxY - bounds.minY
+  if (!(width > 0) || !(height > 0)) return userSpaceRegion(bounds, marginX, marginY)
+  const spreadX = quantizeSpread(marginX / width)
+  const spreadY = quantizeSpread(marginY / height)
+  return (
+    `x="${percent(-spreadX)}" y="${percent(-spreadY)}" ` +
+    `width="${percent(1 + spreadX * 2)}" height="${percent(1 + spreadY * 2)}"`
+  )
+}
+
+function userSpaceRegion(bounds: DrawBounds | null, marginX: number, marginY: number): string {
+  if (!bounds) return DEFAULT_SHADOW_REGION
   const x = bounds.minX - marginX
   const y = bounds.minY - marginY
   const width = Math.max(bounds.maxX - bounds.minX + marginX * 2, 1)
@@ -875,6 +891,15 @@ function shadowRegion(
     'filterUnits="userSpaceOnUse" ' +
     `x="${fmt(x)}" y="${fmt(y)}" width="${fmt(width)}" height="${fmt(height)}"`
   )
+}
+
+function quantizeSpread(ratio: number): number {
+  if (!Number.isFinite(ratio) || ratio < 0) return SHADOW_SPREAD_STEP
+  return (Math.floor(ratio / SHADOW_SPREAD_STEP) + 1) * SHADOW_SPREAD_STEP
+}
+
+function percent(ratio: number): string {
+  return `${fmt(ratio * 100)}%`
 }
 
 function multiply(a: DrawTransform, b: DrawTransform): DrawTransform {

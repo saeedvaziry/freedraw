@@ -211,6 +211,15 @@ describe('renderSceneSvg', () => {
     expect(svg).toContain('filter="url(#fd-shadow-')
   })
 
+  it('shares one shadow filter across many same-sized stickies', () => {
+    const stickies = Array.from({ length: 8 }, (_, index) =>
+      createSticky({ id: `s${index}`, x: index * 400, y: index * 250, width: 200, height: 200 }),
+    )
+    const svg = svgOf(sceneWith(...stickies))
+    expect(svg.match(/filter="url\(#fd-shadow-/g) ?? []).toHaveLength(8)
+    expect(svg.match(/<filter /g) ?? []).toHaveLength(1)
+  })
+
   it('inverts colors and the background in dark mode', () => {
     const shape = createShape({ id: 'a', type: 'rect', x: 0, y: 0, width: 40, height: 40, style: { sloppiness: 0 } })
     const svg = svgOf(sceneWith(shape), { dark: true, background: '#ffffff' })
@@ -251,8 +260,9 @@ describe('SvgDrawTarget', () => {
     svg.shadowBlur = 4
     svg.fillRect(10, 10, 20, 20)
     const out = svg.toSvg()
-    expect(out).toContain('filterUnits="userSpaceOnUse" x="4" y="4" width="32" height="32"')
+    expect(out).toContain('x="-37.5%" y="-37.5%" width="175%" height="175%"')
     expect(out).not.toContain('x="-50%"')
+    expect(out).not.toContain('userSpaceOnUse')
   })
 
   it('grows the filter region for large blur radii and large offsets', () => {
@@ -262,9 +272,7 @@ describe('SvgDrawTarget', () => {
     svg.shadowBlur = 40
     svg.shadowOffsetY = 30
     svg.fillRect(10, 10, 20, 20)
-    expect(svg.toSvg()).toContain(
-      'filterUnits="userSpaceOnUse" x="-50" y="-80" width="140" height="200"',
-    )
+    expect(svg.toSvg()).toContain('x="-312.5%" y="-462.5%" width="725%" height="1025%"')
   })
 
   it('reuses one filter for repeated shadows with the same geometry', () => {
@@ -275,6 +283,48 @@ describe('SvgDrawTarget', () => {
     svg.fillRect(10, 10, 20, 20)
     svg.fillRect(10, 10, 20, 20)
     expect(svg.toSvg().match(/<filter /g) ?? []).toHaveLength(1)
+  })
+
+  it('reuses one filter for same-sized shapes drawn at different positions', () => {
+    const svg = target()
+    svg.fillStyle = '#000000'
+    svg.shadowColor = '#000000'
+    svg.shadowBlur = 4
+    svg.fillRect(0, 0, 20, 20)
+    svg.fillRect(400, 250, 20, 20)
+    svg.fillRect(-90, 730, 20, 20)
+    const out = svg.toSvg()
+    expect(out.match(/filter="url\(#fd-shadow-/g) ?? []).toHaveLength(3)
+    expect(out.match(/<filter /g) ?? []).toHaveLength(1)
+  })
+
+  it('quantizes near-equal geometry onto a shared filter without shrinking the region', () => {
+    const svg = target()
+    svg.fillStyle = '#000000'
+    svg.shadowColor = '#000000'
+    svg.shadowBlur = 4
+    svg.fillRect(0, 0, 200, 200)
+    svg.fillRect(0, 0, 214, 207)
+    const out = svg.toSvg()
+    expect(out.match(/<filter /g) ?? []).toHaveLength(1)
+    expect(out).toContain('x="-12.5%" y="-12.5%" width="125%" height="125%"')
+  })
+
+  it('keeps the filter region unclipped for wildly different shape sizes', () => {
+    const svg = target()
+    svg.fillStyle = '#000000'
+    svg.shadowColor = '#000000'
+    svg.shadowBlur = 20
+    svg.fillRect(0, 0, 400, 400)
+    svg.fillRect(0, 0, 20, 20)
+    const out = svg.toSvg()
+    const spreads = [...out.matchAll(/<filter [^>]*\sx="-([\d.]+)%"/g)].map(
+      (match) => Number(match[1]) / 100,
+    )
+    expect(spreads).toHaveLength(2)
+    expect(spreads[0]).not.toBe(spreads[1])
+    expect(spreads[0]! * 400).toBeGreaterThanOrEqual(30)
+    expect(spreads[1]! * 20).toBeGreaterThanOrEqual(30)
   })
 
   it('applies the shadow filter to strokes with a region that survives a flat path', () => {
@@ -320,7 +370,7 @@ describe('SvgDrawTarget', () => {
     )
     const out = svg.toSvg()
     expect(out).toMatch(/<image[^>]*filter="url\(#fd-shadow-/)
-    expect(out).toContain('filterUnits="userSpaceOnUse" x="-15" y="-15" width="50" height="50"')
+    expect(out).toContain('x="-87.5%" y="-87.5%" width="275%" height="275%"')
   })
 
   it('leaves strokes, text and images unfiltered when no shadow is set', () => {

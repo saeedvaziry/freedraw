@@ -802,3 +802,136 @@ describe('remote update isolation', () => {
     expect(store.canUndo).toBe(false)
   })
 })
+
+describe('remote deletion selection pruning', () => {
+  const sync = (from: SceneStore, to: SceneStore): void => {
+    Y.applyUpdate(to.doc, Y.encodeStateAsUpdate(from.doc), 'remote-peer')
+  }
+
+  const pair = (): { store: SceneStore; remote: SceneStore } => {
+    const store = new SceneStore()
+    const remote = new SceneStore(new Y.Doc())
+    remote.transact((api) => {
+      api.addElement(shapeAt('a', 0))
+      api.addElement(shapeAt('b', 60))
+    })
+    sync(remote, store)
+    return { store, remote }
+  }
+
+  it('drops a selected id deleted by a remote peer', () => {
+    const { store, remote } = pair()
+    store.setUiState({ selectedIds: new Set(['a', 'b']) })
+    let selectionEvents = 0
+    store.subscribeSelection(() => {
+      selectionEvents += 1
+    })
+
+    remote.transact((api) => api.removeElement('a'))
+    sync(remote, store)
+
+    expect(store.getSnapshot().elements.a).toBeUndefined()
+    expect([...store.getUiState().selectedIds]).toEqual(['b'])
+    expect(selectionEvents).toBe(1)
+  })
+
+  it('clears a hovered id deleted by a remote peer', () => {
+    const { store, remote } = pair()
+    store.setHoveredId('a')
+
+    remote.transact((api) => api.removeElement('a'))
+    sync(remote, store)
+
+    expect(store.getHoveredId()).toBeNull()
+  })
+
+  it('leaves the selection untouched when a remote peer deletes an unselected element', () => {
+    const { store, remote } = pair()
+    const selected = new Set(['b'])
+    store.setUiState({ selectedIds: selected })
+    let selectionEvents = 0
+    store.subscribeSelection(() => {
+      selectionEvents += 1
+    })
+
+    remote.transact((api) => api.removeElement('a'))
+    sync(remote, store)
+
+    expect(store.getSnapshot().elements.a).toBeUndefined()
+    expect(store.getUiState().selectedIds).toBe(selected)
+    expect(selectionEvents).toBe(0)
+  })
+
+  it('does not sweep the selection for a remote update', () => {
+    const { store, remote } = pair()
+    const selected = new Set(['a', 'ghost'])
+    store.setUiState({ selectedIds: selected })
+    let selectionEvents = 0
+    store.subscribeSelection(() => {
+      selectionEvents += 1
+    })
+
+    remote.transact((api) => api.updateElement('a', { x: 240 }))
+    sync(remote, store)
+
+    expect(store.getSnapshot().elements.a?.x).toBe(240)
+    expect(store.getUiState().selectedIds).toBe(selected)
+    expect([...store.getUiState().selectedIds]).toEqual(['a', 'ghost'])
+    expect(selectionEvents).toBe(0)
+  })
+
+  it('keeps a selected id that a transient preview still covers', () => {
+    const { store, remote } = pair()
+    const selected = new Set(['a'])
+    store.setUiState({ selectedIds: selected })
+    store.setHoveredId('a')
+    store.setTransientIds(['a'])
+    let selectionEvents = 0
+    store.subscribeSelection(() => {
+      selectionEvents += 1
+    })
+
+    remote.transact((api) => api.removeElement('a'))
+    sync(remote, store)
+
+    expect(store.getSnapshot().elements.a).toBeUndefined()
+    expect(store.getUiState().selectedIds).toBe(selected)
+    expect(store.getHoveredId()).toBe('a')
+    expect(selectionEvents).toBe(0)
+  })
+
+  it('sweeps the deferred id once the transient preview is released', () => {
+    const { store, remote } = pair()
+    store.setUiState({ selectedIds: new Set(['a', 'b']) })
+    store.setTransientIds(['a'])
+    remote.transact((api) => api.removeElement('a'))
+    sync(remote, store)
+    let selectionEvents = 0
+    store.subscribeSelection(() => {
+      selectionEvents += 1
+    })
+
+    store.setTransientIds(null)
+
+    expect([...store.getUiState().selectedIds]).toEqual(['b'])
+    expect(selectionEvents).toBe(1)
+  })
+
+  it('notifies selection subscribers once for a local delete', () => {
+    const store = new SceneStore()
+    store.transact((api) => {
+      api.addElement(shapeAt('a', 0))
+      api.addElement(shapeAt('b', 60))
+    })
+    store.setUiState({ selectedIds: new Set(['a']) })
+    let selectionEvents = 0
+    store.subscribeSelection(() => {
+      selectionEvents += 1
+    })
+
+    store.deleteElements(['a'])
+
+    expect([...store.getUiState().selectedIds]).toEqual([])
+    expect(selectionEvents).toBe(1)
+  })
+})

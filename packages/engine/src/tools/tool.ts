@@ -34,6 +34,7 @@ export interface ToolContext {
   setTransforming?(active: boolean): void
   setGuides(guides: SnapGuide[]): void
   setPortTarget(id: ElementId | null): void
+  emitCameraInput?(): void
   beginEdit(request: EditRequest): void
   requestContextMenu?(request: ContextMenuRequest): void
   spawnChildAndEdit(sourceId: ElementId, direction: SpawnDirection, type?: ShapeType): void

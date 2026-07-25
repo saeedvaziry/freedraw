@@ -272,6 +272,7 @@ export class SceneStore {
   private readonly arrowBindings = new Map<ElementId, ElementId[]>()
   private readonly routeCache = new RouteCache()
   private selectionStyle: SelectionStyle | null = null
+  private transientIds: ReadonlySet<ElementId> | null = null
   private clipboard: SceneClipboardPayload | null = null
   private clipboardPasteCount = 0
 
@@ -799,11 +800,18 @@ export class SceneStore {
     this.pruneDanglingIds()
   }
 
-  private pruneDanglingIds(): void {
+  setTransientIds(ids: Iterable<ElementId> | null): void {
+    const next = ids ? new Set(ids) : null
+    this.transientIds = next && next.size > 0 ? next : null
+    if (!this.transientIds) this.pruneDanglingIds()
+  }
+
+  private pruneDanglingIds(keep: ReadonlySet<ElementId> | null = null): void {
+    const isLive = (id: ElementId): boolean => this.yElements.has(id) || keep?.has(id) === true
     const hovered = this.hover.get()
-    if (hovered !== null && !this.yElements.has(hovered)) this.hover.set(null)
+    if (hovered !== null && !isLive(hovered)) this.hover.set(null)
     const selected = this.uiState.selectedIds
-    const live = [...selected].filter((id) => this.yElements.has(id))
+    const live = [...selected].filter(isLive)
     if (live.length === selected.size) return
     this.setUiState({ selectedIds: new Set(live) })
   }
@@ -909,11 +917,13 @@ export class SceneStore {
     const previous = this.snapshot
     const elements = { ...this.snapshot.elements }
     const changedIds = new Set<ElementId>()
+    let removed = false
     for (const event of events) {
       if (event.target === this.yElements) {
         event.changes.keys.forEach((change, id) => {
           changedIds.add(id)
           if (change.action === 'delete') {
+            removed = true
             delete elements[id]
             return
           }
@@ -933,6 +943,7 @@ export class SceneStore {
     this.routeCache.invalidateForChanges(previous, next, changedIds)
     this.snapshot = this.routeCache.overlay(next)
     this.updateBindingIndex(changedIds)
+    if (removed) this.pruneDanglingIds(this.transientIds)
     this.invalidate()
   }
 

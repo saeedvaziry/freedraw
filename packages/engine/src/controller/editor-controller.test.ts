@@ -3,7 +3,8 @@ import * as Y from 'yjs'
 import { arrowRoute } from '../connectors/resolve.js'
 import { fitCamera } from '../geometry/fit.js'
 import { createArrow, createShape } from '../model/factory.js'
-import type { ArrowElement, Point } from '../model/types.js'
+import type { ArrowElement, CameraState, Point } from '../model/types.js'
+import type { EditRequest } from '../text/edit.js'
 import { Renderer, type OverlayState } from '../render/renderer.js'
 import { SceneStore } from '../store/scene-store.js'
 import { EditorController } from './editor-controller.js'
@@ -448,5 +449,147 @@ describe('EditorController locked badges', () => {
 
     expect(first).toHaveLength(0)
     expect(lastOverlay().lockedBadges).toBe(first)
+  })
+})
+
+describe('EditorController edit liveness', () => {
+  let store: SceneStore
+  let controller: EditorController
+  let cleanup: (() => void) | null = null
+
+  function seedShape(id: string): void {
+    store.transact((api) =>
+      api.addElement(createShape({ id, type: 'rect', x: 0, y: 0, width: 120, height: 80 })),
+    )
+    store.stopCapturing()
+  }
+
+  beforeEach(() => {
+    stubEnvironment()
+    store = new SceneStore()
+    controller = new EditorController(store, fakeCanvas(), fakeCanvas())
+    cleanup = controller.mount()
+  })
+
+  afterEach(() => {
+    cleanup?.()
+    cleanup = null
+    vi.unstubAllGlobals()
+  })
+
+  it('ends an open label edit when undo removes the edited element', () => {
+    seedShape('a')
+    controller.beginLabelEditFromText('a', 'hello')
+    expect(controller.activeEdit?.elementId).toBe('a')
+
+    const seen: (EditRequest | null)[] = []
+    controller.subscribeEdit((request) => seen.push(request))
+
+    store.undo()
+
+    expect(store.getSnapshot().elements['a']).toBeUndefined()
+    expect(controller.activeEdit).toBeNull()
+    expect(seen.at(-1)).toBeNull()
+  })
+
+  it('ends an open label edit when a peer deletes the edited element', () => {
+    seedShape('a')
+    controller.beginLabelEditFromText('a', 'hello')
+
+    const remote = new SceneStore()
+    Y.applyUpdate(remote.doc, Y.encodeStateAsUpdate(store.doc))
+    remote.transact((api) => api.removeElements(['a']))
+    Y.applyUpdate(store.doc, Y.encodeStateAsUpdate(remote.doc), 'remote-peer')
+
+    expect(controller.activeEdit).toBeNull()
+  })
+
+  it('keeps the edit open when an unrelated element is removed', () => {
+    seedShape('a')
+    seedShape('b')
+    controller.beginLabelEditFromText('a', 'hello')
+
+    store.deleteElements(['b'])
+
+    expect(controller.activeEdit?.elementId).toBe('a')
+  })
+})
+
+describe('EditorController camera input signal', () => {
+  let store: SceneStore
+  let controller: EditorController
+  let overlayCanvas: HTMLCanvasElement
+  let emitted: CameraState[]
+  let cleanup: (() => void) | null = null
+
+  beforeEach(() => {
+    stubEnvironment()
+    store = new SceneStore()
+    overlayCanvas = fakeCanvas()
+    controller = new EditorController(store, fakeCanvas(), overlayCanvas)
+    cleanup = controller.mount()
+    emitted = []
+    controller.subscribeCameraInput((state) => emitted.push(state))
+  })
+
+  afterEach(() => {
+    cleanup?.()
+    cleanup = null
+    vi.unstubAllGlobals()
+  })
+
+  it('emits while the hand tool pans', () => {
+    store.setUiState({ activeTool: 'hand' })
+
+    dispatchPointer(overlayCanvas, 'pointerdown', { x: 100, y: 100 })
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 160, y: 140 })
+
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0]).toEqual(controller.getViewport())
+    expect(controller.getViewport()).toEqual({ x: -60, y: -40, zoom: 1 })
+  })
+
+  it('does not emit for a hand tool click that never moves', () => {
+    store.setUiState({ activeTool: 'hand' })
+
+    dispatchPointer(overlayCanvas, 'pointerdown', { x: 100, y: 100 })
+    dispatchPointer(overlayCanvas, 'pointerup', { x: 100, y: 100 })
+
+    expect(emitted).toHaveLength(0)
+  })
+
+  it('emits for zoomToFit', () => {
+    store.transact((api) =>
+      api.addElement(createShape({ id: 'a', type: 'rect', x: 0, y: 0, width: 200, height: 100 })),
+    )
+
+    controller.zoomToFit()
+
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0]).toEqual(controller.getViewport())
+  })
+
+  it('emits for zoomToRect', () => {
+    controller.zoomToRect({ x: 120, y: 240, width: 400, height: 300 })
+
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0]).toEqual(controller.getViewport())
+  })
+
+  it('emits for zoomToActualSize', () => {
+    controller.zoomToRect({ x: 120, y: 240, width: 400, height: 300 })
+    emitted.length = 0
+
+    controller.zoomToActualSize()
+
+    expect(emitted).toHaveLength(1)
+    expect(controller.getViewport().zoom).toBe(1)
+  })
+
+  it('does not emit for focusViewport', () => {
+    controller.focusViewport({ x: 12, y: 34, zoom: 2 })
+
+    expect(emitted).toHaveLength(0)
+    expect(controller.getViewport()).toEqual({ x: 12, y: 34, zoom: 2 })
   })
 })

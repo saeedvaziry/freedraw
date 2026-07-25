@@ -149,6 +149,7 @@ export class EditorController {
     this.toolContext = {
       store,
       camera: this.camera,
+      emitCameraInput: () => this.emitCameraInput(),
       setPreview: (element) => {
         this.preview = element
       },
@@ -218,6 +219,7 @@ export class EditorController {
     this.cleanups.push(
       this.store.subscribe(() => {
         this.sweepCachesOnDelete()
+        this.pruneDanglingEdit()
         this.loop.markDirty()
       }),
     )
@@ -490,6 +492,7 @@ export class EditorController {
     if (!bounds || width === 0 || height === 0) return
     this.camera.setState(fitCamera(bounds, width, height))
     this.commitCamera()
+    this.emitCameraInput()
   }
 
   zoomToRect(rect: { x: number; y: number; width: number; height: number }): void {
@@ -497,6 +500,7 @@ export class EditorController {
     if (width === 0 || height === 0) return
     this.camera.setState(fitCamera(rect, width, height))
     this.commitCamera()
+    this.emitCameraInput()
   }
 
   zoomToActualSize(): void {
@@ -504,6 +508,7 @@ export class EditorController {
     const center = this.camera.screenToWorld({ x: width / 2, y: height / 2 })
     this.camera.zoomToScreenPoint(1, this.camera.worldToScreen(center))
     this.commitCamera()
+    this.emitCameraInput()
   }
 
   async exportImage(options: ExportImageOptions): Promise<ExportImageResult> {
@@ -701,6 +706,13 @@ export class EditorController {
     }
   }
 
+  private pruneDanglingEdit(): void {
+    const request = this.editRequest
+    if (!request) return
+    if (this.store.getSnapshot().elements[request.elementId]) return
+    this.endEdit()
+  }
+
   private endEdit(): void {
     if (!this.editRequest) return
     this.editRequest = null
@@ -731,6 +743,7 @@ export class EditorController {
     if (!sameTransientIds(this.transientById, index)) this.loop.markSceneDirty()
     this.transientElements = next
     this.transientById = index
+    this.store.setTransientIds(index ? [...index.keys()] : null)
     this.loop.markOverlayDirty()
   }
 
