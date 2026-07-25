@@ -194,13 +194,14 @@ export function useVersions(): UseVersionsResult {
         .then(() => {
           setPendingRestoreId(null)
           boardToast(RESTORED_MESSAGE)
+          refresh()
         })
         .catch((cause: unknown) => {
           boardToast(failureMessage(cause, 'Could not restore that version.'), 'error')
         })
         .finally(() => setRestoringId(null))
     },
-    [publicId, restoringId],
+    [publicId, restoringId, refresh],
   )
 
   return {

@@ -227,7 +227,7 @@ test('restoring a version appends a new head snapshot without deleting anything'
 
     $response
         ->assertCreated()
-        ->assertJsonPath('label', null)
+        ->assertJsonPath('label', 'Restored: v1')
         ->assertJsonPath('upToSeq', 30)
         ->assertJsonPath('creator.id', $user->id);
 
@@ -239,7 +239,14 @@ test('restoring a version appends a new head snapshot without deleting anything'
 
     expect($restored->state)->toBe('v1-state')
         ->and($restored->up_to_seq)->toBe(30)
-        ->and($restored->label)->toBeNull();
+        ->and($restored->label)->toBe('Restored: v1');
+
+    $this
+        ->actingAs($user)
+        ->getJson(route('pages.versions.index', $page))
+        ->assertOk()
+        ->assertJsonPath('0.id', $restored->id)
+        ->assertJsonPath('0.label', 'Restored: v1');
 });
 
 test('restoring a version is forbidden for members without edit permission', function () {

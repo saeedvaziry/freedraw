@@ -63,8 +63,45 @@ test('restore page version appends a new head-seq row and never deletes', functi
 
     expect($restored->state)->toBe('v1-state')
         ->and($restored->up_to_seq)->toBe(25)
-        ->and($restored->label)->toBeNull()
+        ->and($restored->label)->toBe('Restored: v1')
         ->and($restored->created_by)->toBe($user->id)
         ->and($page->snapshots()->count())->toBe(3)
         ->and($version->fresh())->not->toBeNull();
+});
+
+test('restoring a restore does not stack the label prefix', function () {
+    $user = User::factory()->create();
+    $page = Page::factory()->create();
+
+    $version = PageSnapshot::factory()->for($page)->labelled('Restored: v1')->create([
+        'up_to_seq' => 4,
+        'state' => 'v1-state',
+    ]);
+
+    $restored = app(RestorePageVersion::class)->handle(new RestorePageVersionData(
+        page: $page,
+        user: $user,
+        version: $version,
+    ));
+
+    expect($restored->label)->toBe('Restored: v1');
+});
+
+test('restore labels stay within the column limit', function () {
+    $user = User::factory()->create();
+    $page = Page::factory()->create();
+
+    $version = PageSnapshot::factory()->for($page)->labelled(str_repeat('a', 255))->create([
+        'up_to_seq' => 4,
+        'state' => 'v1-state',
+    ]);
+
+    $restored = app(RestorePageVersion::class)->handle(new RestorePageVersionData(
+        page: $page,
+        user: $user,
+        version: $version,
+    ));
+
+    expect(mb_strlen($restored->label))->toBe(255)
+        ->and($restored->label)->toStartWith('Restored: ');
 });
