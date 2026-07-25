@@ -9,6 +9,7 @@ export interface PresencePeer {
   color: string
   avatar: string | null
   isLocal: boolean
+  selectedCount: number
 }
 
 export interface PresenceRosterSource {
@@ -17,8 +18,13 @@ export interface PresenceRosterSource {
   subscribe(listener: () => void): () => void
 }
 
+export interface UsePresenceRosterOptions {
+  previewing?: boolean
+}
+
 export interface PresenceRosterView {
   active: boolean
+  previewing: boolean
   peers: PresencePeer[]
   others: PresencePeer[]
   local: PresencePeer | null
@@ -27,7 +33,10 @@ export interface PresenceRosterView {
 
 const EMPTY_PEERS: PresencePeer[] = []
 
-export function toPresencePeer(participant: PresenceParticipant): PresencePeer {
+export function toPresencePeer(
+  participant: PresenceParticipant,
+  previewing = false,
+): PresencePeer {
   return {
     clientId: participant.clientId,
     id: participant.user.id,
@@ -36,6 +45,7 @@ export function toPresencePeer(participant: PresenceParticipant): PresencePeer {
     color: participant.user.color,
     avatar: participant.user.avatar,
     isLocal: participant.isLocal,
+    selectedCount: previewing ? 0 : participant.selection.length,
   }
 }
 
@@ -53,7 +63,8 @@ export function samePresencePeers(
       peer.name === other.name &&
       peer.color === other.color &&
       peer.avatar === other.avatar &&
-      peer.isLocal === other.isLocal
+      peer.isLocal === other.isLocal &&
+      peer.selectedCount === other.selectedCount
     )
   })
 }
@@ -64,11 +75,16 @@ interface PresencePeerStore {
   getServerSnapshot(): PresencePeer[]
 }
 
-export function createPresencePeerStore(source: PresenceRosterSource): PresencePeerStore {
+export function createPresencePeerStore(
+  source: PresenceRosterSource,
+  previewing = false,
+): PresencePeerStore {
   let snapshot: PresencePeer[] | null = null
 
   const read = (): PresencePeer[] => {
-    const next = source.active ? source.readParticipants().map(toPresencePeer) : EMPTY_PEERS
+    const next = source.active
+      ? source.readParticipants().map((participant) => toPresencePeer(participant, previewing))
+      : EMPTY_PEERS
     if (snapshot !== null && samePresencePeers(snapshot, next)) return snapshot
     snapshot = next
     return next
@@ -81,23 +97,28 @@ export function createPresencePeerStore(source: PresenceRosterSource): PresenceP
   }
 }
 
-export function usePresenceRoster(source: PresenceRosterSource): PresenceRosterView {
+export function usePresenceRoster(
+  source: PresenceRosterSource,
+  options: UsePresenceRosterOptions = {},
+): PresenceRosterView {
   const { active, readParticipants, subscribe } = source
+  const { previewing = false } = options
 
   const store = useMemo(
-    () => createPresencePeerStore({ active, readParticipants, subscribe }),
-    [active, readParticipants, subscribe],
+    () => createPresencePeerStore({ active, readParticipants, subscribe }, previewing),
+    [active, previewing, readParticipants, subscribe],
   )
   const peers = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot)
 
   return useMemo(
     () => ({
       active,
+      previewing,
       peers,
       others: peers.filter((peer) => !peer.isLocal),
       local: peers.find((peer) => peer.isLocal) ?? null,
       count: peers.length,
     }),
-    [active, peers],
+    [active, previewing, peers],
   )
 }

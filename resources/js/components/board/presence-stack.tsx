@@ -44,7 +44,7 @@ export function PresenceStack({
       <FloatingPanel
         padding={false}
         gap={false}
-        className={cn('pointer-events-auto h-9 px-1.5', className)}
+        className={cn('pointer-events-auto h-9 px-1.5 coarse:h-11', className)}
       >
         <Tooltip>
           <TooltipTrigger asChild>
@@ -53,7 +53,7 @@ export function PresenceStack({
                 type="button"
                 aria-label={summary}
                 data-test="presence-stack-trigger"
-                className="flex h-8 items-center gap-2 rounded-md px-1 transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)] focus-visible:outline-none"
+                className="flex h-8 items-center gap-2 rounded-md px-1 transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)] focus-visible:outline-none coarse:h-10"
               >
                 <span className="flex -space-x-2">
                   {shown.map((peer) => (
@@ -69,7 +69,7 @@ export function PresenceStack({
                     </span>
                   ) : null}
                 </span>
-                <span className="hidden text-xs font-medium text-muted-foreground md:inline">
+                <span className="text-xs font-medium text-muted-foreground">
                   {peers.length} here
                 </span>
               </button>
@@ -115,7 +115,7 @@ interface PeerRowProps {
 function PeerRow({ peer, following, onFollow, onStopFollowing }: PeerRowProps) {
   if (peer.isLocal) {
     return (
-      <div className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm">
+      <div className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm coarse:py-2.5">
         <PresenceAvatar peer={peer} following={false} />
         <span className="min-w-0 flex-1 truncate">{peer.name}</span>
         <span className="shrink-0 text-xs text-muted-foreground">You</span>
@@ -130,12 +130,17 @@ function PeerRow({ peer, following, onFollow, onStopFollowing }: PeerRowProps) {
       aria-pressed={following}
       onClick={() => (following ? onStopFollowing() : onFollow(peer.clientId))}
       className={cn(
-        'flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent',
+        'flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent coarse:py-2.5',
         following && 'bg-accent',
       )}
     >
       <PresenceAvatar peer={peer} following={following} />
       <span className="min-w-0 flex-1 truncate">{peer.name}</span>
+      {peer.selectedCount > 0 ? (
+        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+          {peer.selectedCount} selected
+        </span>
+      ) : null}
       {following ? (
         <EyeOff className="size-4 shrink-0 text-muted-foreground" />
       ) : (

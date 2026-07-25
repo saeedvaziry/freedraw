@@ -204,7 +204,7 @@ function Board({ store: liveStore, readOnly = false, sync, assetSource }: BoardP
   useBoardClipboard(store, controller)
   const present = usePresentMode(controller, store)
   const presence = usePresenceSync({ controller, store, sync, readOnly: locked, previewing })
-  const roster = usePresenceRoster(presence)
+  const roster = usePresenceRoster(presence, { previewing })
   const follow = useFollowPeer({ controller, source: presence, peers: roster.peers })
 
   useEffect(() => attachViewportPersistence(store, assetSource), [store, assetSource])
@@ -248,6 +248,16 @@ function Board({ store: liveStore, readOnly = false, sync, assetSource }: BoardP
     [store, controller, boardExport, theme, locked, imageInsert.openPicker, sync],
   )
 
+  const presenceStack =
+    roster.others.length > 0 ? (
+      <PresenceStack
+        peers={roster.peers}
+        followingId={follow.followingId}
+        onFollow={follow.follow}
+        onStopFollowing={follow.stop}
+      />
+    ) : null
+
   return (
     <BoardProvider value={context}>
       <div
@@ -283,19 +293,18 @@ function Board({ store: liveStore, readOnly = false, sync, assetSource }: BoardP
               />
             </div>
 
+            {presenceStack ? (
+              <div className="pointer-events-none absolute top-[max(0.75rem,env(safe-area-inset-top))] right-3 flex justify-end sm:hidden">
+                {presenceStack}
+              </div>
+            ) : null}
+
             <div className="pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] flex justify-center px-3 sm:hidden">
               <MobileBar />
             </div>
 
             <div className="pointer-events-none absolute top-3 right-3 hidden items-start justify-end gap-2 sm:flex">
-              {roster.others.length > 0 ? (
-                <PresenceStack
-                  peers={roster.peers}
-                  followingId={follow.followingId}
-                  onFollow={follow.follow}
-                  onStopFollowing={follow.stop}
-                />
-              ) : null}
+              {presenceStack}
               <StylePanelHost collapsible />
             </div>
             <div className="pointer-events-none absolute top-3 bottom-3 left-3 hidden sm:block">
@@ -327,7 +336,7 @@ function Board({ store: liveStore, readOnly = false, sync, assetSource }: BoardP
             {versionsOpen ? (
               <div
                 className={`pointer-events-none absolute flex justify-start transition-[left] duration-200 ease-linear sm:top-16 ${
-                  versions.previewVersion ? 'top-32' : 'top-16'
+                  versions.previewVersion ? 'top-36' : 'top-16'
                 }`}
                 style={{ left: 'calc(0.75rem + var(--board-sidebar-width, 0px))' }}
               >
@@ -339,7 +348,7 @@ function Board({ store: liveStore, readOnly = false, sync, assetSource }: BoardP
               </div>
             ) : null}
             {versions.previewVersion || follow.peer ? (
-              <div className="pointer-events-none absolute inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] flex flex-col items-center gap-2 px-3 sm:px-16">
+              <div className="pointer-events-none absolute inset-x-0 top-[calc(max(0.75rem,env(safe-area-inset-top))+4.25rem)] flex flex-col items-center gap-2 px-3 sm:top-[max(0.75rem,env(safe-area-inset-top))] sm:px-16">
                 {versions.previewVersion ? (
                   <VersionPreviewBanner
                     version={versions.previewVersion}

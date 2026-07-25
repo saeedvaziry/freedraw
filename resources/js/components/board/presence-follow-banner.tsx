@@ -27,7 +27,7 @@ export function PresenceFollowBanner({ peer, onStop }: PresenceFollowBannerProps
         type="button"
         size="sm"
         variant="outline"
-        className="shrink-0 gap-1.5"
+        className="shrink-0 gap-1.5 coarse:h-10"
         onClick={onStop}
       >
         <X className="size-4" />
