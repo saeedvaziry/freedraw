@@ -180,6 +180,15 @@ describe('EditorController overlay chrome during transient drags', () => {
     return seeded
   }
 
+  function pairScene(): SceneStore {
+    const seeded = new SceneStore()
+    seeded.transact((api) => {
+      api.addElement(createShape({ id: 'a', type: 'rect', x: 0, y: 0, width: 100, height: 100 }))
+      api.addElement(createShape({ id: 'b', type: 'rect', x: 200, y: 0, width: 100, height: 100 }))
+    })
+    return seeded
+  }
+
   beforeEach(() => {
     stubEnvironment()
     renderOverlay = vi.spyOn(Renderer.prototype, 'renderOverlay')
@@ -246,6 +255,41 @@ describe('EditorController overlay chrome during transient drags', () => {
     const dragging = lastOverlay()
     expect(store.getSnapshot().elements['a']!.rotation).toBe(0)
     expect(dragging.selection?.rotation).not.toBe(0)
+  })
+
+  it('spins a multi-select rotate frame rigidly instead of remeasuring it', () => {
+    mountWith(pairScene())
+    store.setUiState({ selectedIds: new Set(['a', 'b']) })
+    flushFrame()
+
+    expect(lastOverlay().selection?.bounds).toEqual({ x: 0, y: 0, width: 300, height: 100 })
+
+    dispatchPointer(overlayCanvas, 'pointerdown', { x: 150, y: -48 })
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 250, y: 50 })
+    flushFrame()
+
+    const quarter = lastOverlay().selection
+    expect(quarter?.bounds.width).toBeCloseTo(300, 6)
+    expect(quarter?.bounds.height).toBeCloseTo(100, 6)
+    expect(quarter?.rotation).toBeCloseTo(Math.PI / 2, 6)
+    expect(quarter?.center.x).toBeCloseTo(150, 6)
+    expect(quarter?.center.y).toBeCloseTo(50, 6)
+
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 150, y: 150 })
+    flushFrame()
+
+    const half = lastOverlay().selection
+    expect(half?.bounds.width).toBeCloseTo(300, 6)
+    expect(half?.bounds.height).toBeCloseTo(100, 6)
+    expect(half?.rotation).toBeCloseTo(Math.PI, 6)
+
+    dispatchPointer(overlayCanvas, 'pointerup', { x: 150, y: 150 })
+    flushFrame()
+
+    const released = lastOverlay().selection
+    expect(store.getSnapshot().elements['a']!.rotation).toBeCloseTo(Math.PI, 6)
+    expect(released?.rotation).toBe(0)
+    expect(released?.bounds.width).toBeCloseTo(300, 6)
   })
 
   it('moves the arrow handles with a transient endpoint preview', () => {

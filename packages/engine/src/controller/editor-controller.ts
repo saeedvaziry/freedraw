@@ -764,7 +764,7 @@ export class EditorController {
     const shapes = selected.filter((element) => !isArrowElement(element) && !element.locked)
     const lockedSelected = selected.find((element) => element.locked) ?? null
     const selectedArrows = selected.filter(isArrowElement)
-    const selection = selectionFrameFor(shapes)
+    const selection = selectionFrameFor(shapes, this.committedShapes(shapes, elements))
     const hovered =
       hoveredId && !ui.selectedIds.has(hoveredId) ? this.overlayElement(hoveredId, elements) : null
     const hover =
@@ -787,6 +787,20 @@ export class EditorController {
       marquee: this.marquee,
       presence: this.presenceOverlay,
     }
+  }
+
+  private committedShapes(
+    shapes: Element[],
+    elements: Record<ElementId, Element>,
+  ): Element[] | null {
+    if (!this.transientById || shapes.length < 2) return null
+    const committed: Element[] = []
+    for (const shape of shapes) {
+      const element = elements[shape.id]
+      if (!element) return null
+      committed.push(element)
+    }
+    return committed
   }
 
   private overlayElement(id: ElementId, elements: Record<ElementId, Element>): Element | null {
