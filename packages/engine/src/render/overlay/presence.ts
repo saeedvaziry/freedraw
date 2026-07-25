@@ -1,6 +1,7 @@
 import type { Camera } from '../../geometry/camera.js'
 import type { SelectionFrame } from '../../geometry/handles.js'
 import type { Point } from '../../model/types.js'
+import { PRESENCE_COLORS, type PresenceColors } from '../color-config.js'
 
 export interface PresenceCursor {
   id: string
@@ -29,9 +30,10 @@ export function paintPresence(
   ctx: CanvasRenderingContext2D,
   presence: PresenceOverlay,
   camera: Camera,
+  colors: PresenceColors = PRESENCE_COLORS,
 ): void {
   for (const halo of presence.halos) paintHalo(ctx, halo, camera)
-  for (const cursor of presence.cursors) paintCursor(ctx, cursor, camera)
+  for (const cursor of presence.cursors) paintCursor(ctx, cursor, camera, colors)
 }
 
 function paintHalo(ctx: CanvasRenderingContext2D, halo: PresenceHalo, camera: Camera): void {
@@ -50,12 +52,17 @@ function paintHalo(ctx: CanvasRenderingContext2D, halo: PresenceHalo, camera: Ca
   ctx.restore()
 }
 
-function paintCursor(ctx: CanvasRenderingContext2D, cursor: PresenceCursor, camera: Camera): void {
+function paintCursor(
+  ctx: CanvasRenderingContext2D,
+  cursor: PresenceCursor,
+  camera: Camera,
+  colors: PresenceColors,
+): void {
   const screen = camera.worldToScreen(cursor.point)
   ctx.save()
   ctx.translate(screen.x, screen.y)
   ctx.fillStyle = cursor.color
-  ctx.strokeStyle = '#ffffff'
+  ctx.strokeStyle = colors.cursorOutline
   ctx.lineWidth = 1
   ctx.setLineDash([])
   ctx.beginPath()
@@ -69,11 +76,15 @@ function paintCursor(ctx: CanvasRenderingContext2D, cursor: PresenceCursor, came
   ctx.closePath()
   ctx.fill()
   ctx.stroke()
-  if (cursor.label) paintCursorLabel(ctx, cursor)
+  if (cursor.label) paintCursorLabel(ctx, cursor, colors)
   ctx.restore()
 }
 
-function paintCursorLabel(ctx: CanvasRenderingContext2D, cursor: PresenceCursor): void {
+function paintCursorLabel(
+  ctx: CanvasRenderingContext2D,
+  cursor: PresenceCursor,
+  colors: PresenceColors,
+): void {
   const label = cursor.label ?? ''
   ctx.font = CURSOR_LABEL_FONT
   const textWidth = ctx.measureText(label).width
@@ -83,7 +94,7 @@ function paintCursorLabel(ctx: CanvasRenderingContext2D, cursor: PresenceCursor)
   ctx.fillStyle = cursor.color
   roundRectPath(ctx, x, y, width, CURSOR_LABEL_HEIGHT, 4)
   ctx.fill()
-  ctx.fillStyle = '#ffffff'
+  ctx.fillStyle = colors.cursorLabelText
   ctx.textBaseline = 'middle'
   ctx.textAlign = 'left'
   ctx.fillText(label, x + CURSOR_LABEL_PADDING, y + CURSOR_LABEL_HEIGHT / 2)

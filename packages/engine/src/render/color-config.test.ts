@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_CANVAS_COLORS,
+  PRESENCE_COLORS,
   overlayColorsFrom,
+  presenceColors,
   resolveCanvasColors,
 } from './color-config.js'
 
@@ -62,5 +64,32 @@ describe('overlayColorsFrom', () => {
       accentSoft: 'rgba(1, 2, 3, 0.2)',
       handle: '#fefefe',
     })
+  })
+})
+
+describe('presenceColors', () => {
+  it('exposes a high-contrast outline and label color for remote cursors', () => {
+    expect(presenceColors()).toEqual({ cursorOutline: '#ffffff', cursorLabelText: '#ffffff' })
+  })
+
+  it('stays fixed regardless of the resolved canvas colors', () => {
+    resolveCanvasColors({
+      gridBackground: '#000000',
+      selectionHandle: '#101010',
+      selectionAccent: '#202020',
+    })
+    expect(presenceColors()).toEqual(PRESENCE_COLORS)
+  })
+
+  it('is not part of the themeable canvas color set', () => {
+    expect(Object.keys(DEFAULT_CANVAS_COLORS)).not.toContain('cursorOutline')
+    expect(Object.keys(DEFAULT_CANVAS_COLORS)).not.toContain('cursorLabelText')
+  })
+
+  it('hands out a copy so callers cannot mutate the shared group', () => {
+    const copy = presenceColors()
+    copy.cursorOutline = '#000000'
+    expect(PRESENCE_COLORS.cursorOutline).toBe('#ffffff')
+    expect(presenceColors().cursorOutline).toBe('#ffffff')
   })
 })

@@ -15,6 +15,7 @@ import { CanvasDrawTarget } from './draw-target.js'
 import { invertColor } from './invert.js'
 import {
   DEFAULT_CANVAS_COLORS,
+  PRESENCE_COLORS,
   overlayColorsFrom,
   resolveCanvasColors,
   type CanvasColorOverrides,
@@ -217,7 +218,7 @@ export class Renderer {
     if (overlay.targetHighlight) paintTargetHighlight(ctx, overlay.targetHighlight, camera, colors)
     if (overlay.guides) paintGuides(ctx, overlay.guides, camera)
     if (overlay.marquee) paintMarquee(ctx, overlay.marquee, camera, colors)
-    if (overlay.presence) paintPresence(ctx, overlay.presence, camera)
+    if (overlay.presence) paintPresence(ctx, overlay.presence, camera, PRESENCE_COLORS)
   }
 
   private paintGrid(viewport: Rect, zoom: number): void {

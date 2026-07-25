@@ -15,6 +15,16 @@ export interface OverlayColors {
   handle: string
 }
 
+export interface PresenceColors {
+  cursorOutline: string
+  cursorLabelText: string
+}
+
+export const PRESENCE_COLORS: PresenceColors = {
+  cursorOutline: '#ffffff',
+  cursorLabelText: '#ffffff',
+}
+
 export const DEFAULT_CANVAS_COLORS: CanvasColors = {
   gridLine: 'rgba(31, 41, 55, 0.035)',
   gridMajor: 'rgba(31, 41, 55, 0.09)',
@@ -44,4 +54,8 @@ export function overlayColorsFrom(colors: CanvasColors): OverlayColors {
     accentSoft: colors.selectionAccentSoft,
     handle: colors.selectionHandle,
   }
+}
+
+export function presenceColors(): PresenceColors {
+  return { ...PRESENCE_COLORS }
 }
