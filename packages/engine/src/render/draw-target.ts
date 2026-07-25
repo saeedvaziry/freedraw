@@ -11,6 +11,8 @@ export interface DrawTransform {
   f: number
 }
 
+export type ImageHrefResolver = () => string | undefined
+
 export interface DrawTarget {
   globalAlpha: number
   fillStyle: string | CanvasGradient | CanvasPattern
@@ -69,7 +71,14 @@ export interface DrawTarget {
   fillRect(x: number, y: number, width: number, height: number): void
   strokeRect(x: number, y: number, width: number, height: number): void
   fillText(text: string, x: number, y: number): void
-  drawImage(image: CanvasImageSource, dx: number, dy: number, dw: number, dh: number): void
+  drawImage(
+    image: CanvasImageSource,
+    dx: number,
+    dy: number,
+    dw: number,
+    dh: number,
+    resolveHref?: ImageHrefResolver,
+  ): void
   setLineDash(segments: number[]): void
   measureText(text: string): { readonly width: number }
   getTransform(): DrawTransform
@@ -275,11 +284,29 @@ interface GraphicsState {
   clipId: string | null
 }
 
+export interface SvgFontFace {
+  family: string
+  source: string
+  weight?: string | number
+  style?: string
+}
+
 export interface SvgDrawTargetConfig {
   bounds: Rect
   padding: number
   scale: number
   background: string | null
+  fonts?: readonly SvgFontFace[]
+}
+
+let defaultFontFaces: readonly SvgFontFace[] = []
+
+export function setSvgFontFaces(faces: readonly SvgFontFace[]): void {
+  defaultFontFaces = faces.slice()
+}
+
+export function svgFontFaces(): readonly SvgFontFace[] {
+  return defaultFontFaces
 }
 
 export class SvgDrawTarget implements DrawTarget {
@@ -291,6 +318,9 @@ export class SvgDrawTarget implements DrawTarget {
   private readonly body: string[] = []
   private readonly defs: string[] = []
   private readonly filters = new Map<string, string>()
+  private readonly fonts: readonly SvgFontFace[]
+  private readonly usedFamilies = new Set<string>()
+  private usesXlink = false
   private idSeq = 0
   private path: string[] = []
   private pen: Point = { x: 0, y: 0 }
@@ -305,6 +335,7 @@ export class SvgDrawTarget implements DrawTarget {
     this.pixelWidth = Math.max(1, Math.round(this.viewWidth * config.scale))
     this.pixelHeight = Math.max(1, Math.round(this.viewHeight * config.scale))
     this.background = config.background
+    this.fonts = config.fonts ?? defaultFontFaces
     this.state = {
       matrix: { a: 1, b: 0, c: 0, d: 1, e: -minX, f: -minY },
       globalAlpha: 1,
@@ -569,6 +600,7 @@ export class SvgDrawTarget implements DrawTarget {
     const color = colorString(this.state.fillStyle)
     if (color === 'transparent') return
     const { size, family } = parseFont(this.state.font)
+    for (const name of familyNames(family)) this.usedFamilies.add(name)
     const attrs: string[] = []
     attrs.push(this.placement(x, y))
     attrs.push(`font-family="${escapeAttr(family)}"`)
@@ -581,14 +613,24 @@ export class SvgDrawTarget implements DrawTarget {
     this.body.push(`<text ${attrs.join(' ')}>${escapeText(text)}</text>`)
   }
 
-  drawImage(image: CanvasImageSource, dx: number, dy: number, dw: number, dh: number): void {
-    const href = toDataUrl(image)
+  drawImage(
+    image: CanvasImageSource,
+    dx: number,
+    dy: number,
+    dw: number,
+    dh: number,
+    resolveHref?: ImageHrefResolver,
+  ): void {
+    const href = resolveHref?.() ?? toDataUrl(image)
     if (!href) return
+    const encoded = escapeAttr(href)
+    this.usesXlink = true
     const attrs: string[] = []
     attrs.push(this.placement(dx, dy))
     attrs.push(`width="${fmt(dw)}"`)
     attrs.push(`height="${fmt(dh)}"`)
-    attrs.push(`href="${escapeAttr(href)}"`)
+    attrs.push(`href="${encoded}"`)
+    attrs.push(`xlink:href="${encoded}"`)
     attrs.push('preserveAspectRatio="none"')
     if (this.state.globalAlpha < 1) attrs.push(`opacity="${fmt(this.state.globalAlpha)}"`)
     if (this.state.clipId) attrs.push(`clip-path="url(#${this.state.clipId})"`)
@@ -609,15 +651,27 @@ export class SvgDrawTarget implements DrawTarget {
   }
 
   toSvg(): string {
-    const defs = this.defs.length > 0 ? `<defs>${this.defs.join('')}</defs>` : ''
+    const fontStyle = this.fontFaceStyle()
+    const content = `${fontStyle}${this.defs.join('')}`
+    const defs = content.length > 0 ? `<defs>${content}</defs>` : ''
     const background = this.background
       ? `<rect x="0" y="0" width="${fmt(this.viewWidth)}" height="${fmt(this.viewHeight)}" fill="${escapeAttr(this.background)}"/>`
       : ''
+    const xlink = this.usesXlink ? ' xmlns:xlink="http://www.w3.org/1999/xlink"' : ''
     return (
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${this.pixelWidth}" height="${this.pixelHeight}" ` +
+      `<svg xmlns="http://www.w3.org/2000/svg"${xlink} width="${this.pixelWidth}" height="${this.pixelHeight}" ` +
       `viewBox="0 0 ${fmt(this.viewWidth)} ${fmt(this.viewHeight)}">` +
       `${defs}${background}${this.body.join('')}</svg>`
     )
+  }
+
+  private fontFaceStyle(): string {
+    if (this.fonts.length === 0 || this.usedFamilies.size === 0) return ''
+    const rules = this.fonts
+      .filter((face) => this.usedFamilies.has(normalizeFamily(face.family)))
+      .map(fontFaceRule)
+    if (rules.length === 0) return ''
+    return `<style>${escapeText(rules.join(''))}</style>`
   }
 
   private emitFill(d: string, fillRule?: CanvasFillRule): void {
@@ -731,6 +785,28 @@ function parseFont(font: string): { size: number; family: string } {
   const match = /([\d.]+)px\s+(.+)$/.exec(font)
   if (!match) return { size: 16, family: 'sans-serif' }
   return { size: Number(match[1]), family: match[2]!.trim() }
+}
+
+function normalizeFamily(name: string): string {
+  return name.trim().replace(/^["']|["']$/g, '').trim().toLowerCase()
+}
+
+function familyNames(family: string): string[] {
+  return family
+    .split(',')
+    .map(normalizeFamily)
+    .filter((name) => name.length > 0)
+}
+
+function fontFaceRule(face: SvgFontFace): string {
+  const parts = [`font-family:'${cssEscape(face.family)}'`, `src:url("${cssEscape(face.source)}")`]
+  if (face.weight !== undefined) parts.push(`font-weight:${cssEscape(String(face.weight))}`)
+  if (face.style) parts.push(`font-style:${cssEscape(face.style)}`)
+  return `@font-face{${parts.join(';')}}`
+}
+
+function cssEscape(value: string): string {
+  return value.replace(/[\r\n]/g, '').replace(/[\\"']/g, '\\$&')
 }
 
 function textAnchor(align: CanvasTextAlign): string {

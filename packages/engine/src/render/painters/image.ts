@@ -28,7 +28,9 @@ export function paintImage(ctx: DrawTarget, element: Element, dark: boolean): vo
       traceOutline(ctx, outline)
       ctx.clip()
     }
-    ctx.drawImage(bitmap, image.x, image.y, image.width, image.height)
+    ctx.drawImage(bitmap, image.x, image.y, image.width, image.height, () =>
+      imageCache?.getSourceDataUrl(image.assetId),
+    )
     ctx.restore()
     return
   }
