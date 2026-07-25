@@ -16,6 +16,7 @@ import { useBoardContext } from './board-context.js'
 import { ActionsBarHost } from './actions-bar-host.js'
 import { LibraryPanelHost } from './library-panel-host.js'
 import { StylePanelHost } from './style-panel-host.js'
+import { SyncStatus } from './sync-status.js'
 import { ToolbarHost } from './toolbar-host.js'
 
 type Section = 'tools' | 'style' | 'library' | 'edit'
@@ -29,7 +30,7 @@ export function MobileBar() {
     if (!hasSelection) setSection((current) => (current === 'style' ? null : current))
   }, [hasSelection])
 
-  if (readOnly) return null
+  if (readOnly) return <SyncStatus />
 
   return (
     <FloatingPanel className="pointer-events-auto">

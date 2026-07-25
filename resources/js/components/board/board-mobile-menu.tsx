@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react'
-import { Check, ChevronDown, ChevronsUpDown, House, LayoutTemplate, LogIn, LogOut, Menu, Plus, Settings, Share2, UserPlus, Users } from 'lucide-react'
+import { Check, ChevronDown, ChevronsUpDown, History, House, LayoutTemplate, LogIn, LogOut, Menu, Plus, Settings, Share2, UserPlus, Users } from 'lucide-react'
 import { Fragment, useCallback, useMemo, useState, useSyncExternalStore } from 'react'
 import { builtinTemplates, shallowEqual, type SceneStore } from '@freedraw/engine'
 import AppLogoIcon from '@/components/app-logo-icon'
@@ -34,7 +34,15 @@ import { SharePageModal } from './share-page-modal.js'
  * account — behind a top-left menu button that opens a left slide-in sheet.
  * Guests get log in / register instead.
  */
-export function BoardMobileMenu() {
+interface BoardMobileMenuProps {
+  versionsAvailable?: boolean
+  onOpenVersions?(): void
+}
+
+export function BoardMobileMenu({
+  versionsAvailable = false,
+  onOpenVersions,
+}: BoardMobileMenuProps = {}) {
   const page = usePage()
   const user = page.props.auth?.user ?? null
   const currentOrganization = page.props.currentOrganization ?? null
@@ -106,6 +114,21 @@ export function BoardMobileMenu() {
               <PagesSection pages={pages} onNavigate={close} />
 
               <div className="my-1 h-px bg-border" />
+
+              {versionsAvailable && onOpenVersions ? (
+                <button
+                  type="button"
+                  data-test="board-mobile-menu-versions"
+                  onClick={() => {
+                    close()
+                    onOpenVersions()
+                  }}
+                  className="flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-accent"
+                >
+                  <History className="size-4 shrink-0 text-foreground/70" />
+                  <span className="truncate">Version history</span>
+                </button>
+              ) : null}
 
               <Link
                 href="/settings/profile"

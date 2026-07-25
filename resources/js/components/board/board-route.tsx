@@ -22,6 +22,8 @@ import { EmptyState } from './empty-state.js'
 import { LibraryPanelHost } from './library-panel-host.js'
 import { LinksBar } from './links-bar.js'
 import { MobileBar } from './mobile-bar.js'
+import { PresenceFollowBanner } from './presence-follow-banner.js'
+import { PresenceStack } from './presence-stack.js'
 import { PresentButton, PresentOverlay } from './present-mode.js'
 import { SaveStencilHost } from './save-stencil-host.js'
 import { SceneImportHost } from './scene-import-host.js'
@@ -36,6 +38,8 @@ import { createBoard, type Board as CreatedBoard } from './create-board.js'
 import { useBoardClipboard } from '@/hooks/board/use-board-clipboard.js'
 import { useExport } from '@/hooks/board/use-export.js'
 import { useBoardActions } from '@/hooks/board/use-board-actions.js'
+import { useFollowPeer } from '@/hooks/board/use-follow-peer.js'
+import { usePresenceRoster } from '@/hooks/board/use-presence-roster.js'
 import { usePresenceSync } from '@/hooks/board/use-presence-sync.js'
 import { usePresentMode } from '@/hooks/board/use-present-mode.js'
 import { useVersions } from '@/hooks/board/use-versions.js'
@@ -199,7 +203,9 @@ function Board({ store: liveStore, readOnly = false, sync, assetSource }: BoardP
   })
   useBoardClipboard(store, controller)
   const present = usePresentMode(controller, store)
-  usePresenceSync({ controller, store, sync, readOnly: locked })
+  const presence = usePresenceSync({ controller, store, sync, readOnly: locked, previewing })
+  const roster = usePresenceRoster(presence)
+  const follow = useFollowPeer({ controller, source: presence, peers: roster.peers })
 
   useEffect(() => attachViewportPersistence(store, assetSource), [store, assetSource])
 
@@ -271,14 +277,25 @@ function Board({ store: liveStore, readOnly = false, sync, assetSource }: BoardP
             <SaveStencilHost />
 
             <div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-3 sm:hidden">
-              <BoardMobileMenu />
+              <BoardMobileMenu
+                versionsAvailable={versions.available && !readOnly}
+                onOpenVersions={() => setVersionsOpen(true)}
+              />
             </div>
 
             <div className="pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] flex justify-center px-3 sm:hidden">
               <MobileBar />
             </div>
 
-            <div className="pointer-events-none absolute top-3 right-3 hidden justify-end sm:flex">
+            <div className="pointer-events-none absolute top-3 right-3 hidden items-start justify-end gap-2 sm:flex">
+              {roster.others.length > 0 ? (
+                <PresenceStack
+                  peers={roster.peers}
+                  followingId={follow.followingId}
+                  onFollow={follow.follow}
+                  onStopFollowing={follow.stop}
+                />
+              ) : null}
               <StylePanelHost collapsible />
             </div>
             <div className="pointer-events-none absolute top-3 bottom-3 left-3 hidden sm:block">
@@ -309,24 +326,35 @@ function Board({ store: liveStore, readOnly = false, sync, assetSource }: BoardP
             ) : null}
             {versionsOpen ? (
               <div
-                className="pointer-events-none absolute top-16 hidden justify-start transition-[left] duration-200 ease-linear sm:flex"
+                className={`pointer-events-none absolute flex justify-start transition-[left] duration-200 ease-linear sm:top-16 ${
+                  versions.previewVersion ? 'top-32' : 'top-16'
+                }`}
                 style={{ left: 'calc(0.75rem + var(--board-sidebar-width, 0px))' }}
               >
-                <VersionPanelHost versions={versions} onClose={() => setVersionsOpen(false)} />
+                <VersionPanelHost
+                  versions={versions}
+                  className="max-h-[calc(100dvh-11rem)] sm:max-h-[calc(100vh-6rem)]"
+                  onClose={() => setVersionsOpen(false)}
+                />
               </div>
             ) : null}
-            {versions.previewVersion ? (
-              <div className="pointer-events-none absolute inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] flex justify-center px-3 sm:px-16">
-                <VersionPreviewBanner
-                  version={versions.previewVersion}
-                  canManage={versions.canManage}
-                  pendingRestore={versions.pendingRestoreId === versions.previewVersion.id}
-                  restoring={versions.restoringId === versions.previewVersion.id}
-                  onExit={versions.closePreview}
-                  onRequestRestore={versions.requestRestore}
-                  onCancelRestore={versions.cancelRestore}
-                  onConfirmRestore={versions.confirmRestore}
-                />
+            {versions.previewVersion || follow.peer ? (
+              <div className="pointer-events-none absolute inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] flex flex-col items-center gap-2 px-3 sm:px-16">
+                {versions.previewVersion ? (
+                  <VersionPreviewBanner
+                    version={versions.previewVersion}
+                    canManage={versions.canManage}
+                    pendingRestore={versions.pendingRestoreId === versions.previewVersion.id}
+                    restoring={versions.restoringId === versions.previewVersion.id}
+                    onExit={versions.closePreview}
+                    onRequestRestore={versions.requestRestore}
+                    onCancelRestore={versions.cancelRestore}
+                    onConfirmRestore={versions.confirmRestore}
+                  />
+                ) : null}
+                {follow.peer ? (
+                  <PresenceFollowBanner peer={follow.peer} onStop={follow.stop} />
+                ) : null}
               </div>
             ) : null}
             <div
