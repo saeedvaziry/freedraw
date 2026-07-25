@@ -75,6 +75,22 @@ function isSelected(label: string): boolean {
   return option(label).className.includes('border-primary')
 }
 
+function permissionTrigger(): HTMLElement {
+  return screen.getByLabelText('Permission')
+}
+
+function openPermissionPicker(): void {
+  const trigger = permissionTrigger()
+  fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+  fireEvent.pointerUp(trigger, { button: 0, pointerType: 'mouse' })
+}
+
+function pickPermission(label: string): void {
+  const item = screen.getByRole('option', { name: label })
+  fireEvent.pointerMove(item, { pointerType: 'mouse' })
+  fireEvent.pointerUp(item, { button: 0, pointerType: 'mouse' })
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   persistence.isCsrfExpired.mockReturnValue(false)
@@ -177,6 +193,79 @@ describe('SharePageModal visibility changes', () => {
     })
     expect(isSelected('Only me')).toBe(true)
     expect(isSelected('Anyone with the link')).toBe(false)
+  })
+})
+
+describe('SharePageModal permission picker', () => {
+  it('keeps the options out of the tree until the picker is opened', () => {
+    open(boardPage('organization', 'view'))
+
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(screen.queryAllByRole('option')).toEqual([])
+    expect(permissionTrigger().getAttribute('data-state')).toBe('closed')
+  })
+
+  it('opens the picker and marks the saved permission as checked', () => {
+    open(boardPage('organization', 'view'))
+
+    openPermissionPicker()
+
+    expect(permissionTrigger().getAttribute('data-state')).toBe('open')
+    expect(screen.getByRole('listbox')).not.toBeNull()
+    expect(screen.getAllByRole('option').map((item) => item.textContent)).toEqual([
+      'Can view',
+      'Can edit',
+    ])
+    expect(screen.getByRole('option', { name: 'Can view' }).getAttribute('data-state')).toBe(
+      'checked',
+    )
+    expect(screen.getByRole('option', { name: 'Can edit' }).getAttribute('data-state')).toBe(
+      'unchecked',
+    )
+  })
+
+  it('saves the permission picked from the open list and closes it', async () => {
+    persistence.updateRemoteShare.mockResolvedValue(boardPage('organization', 'edit'))
+
+    open(boardPage('organization', 'view'))
+    openPermissionPicker()
+    pickPermission('Can edit')
+
+    expect(persistence.updateRemoteShare).toHaveBeenCalledWith('abc', {
+      visibility: 'organization',
+      permission: 'edit',
+    })
+    await waitFor(() => {
+      expect(permissionTrigger().textContent).toBe('Can edit')
+    })
+    expect(screen.queryByRole('listbox')).toBeNull()
+  })
+
+  it('rolls the permission back when the save fails', async () => {
+    persistence.updateRemoteShare.mockRejectedValue(new Error('boom'))
+
+    open(boardPage('organization', 'view'))
+    openPermissionPicker()
+    pickPermission('Can edit')
+
+    await waitFor(() => {
+      expect(toast).toHaveBeenCalledWith('Could not update sharing. Try again.', 'error')
+    })
+    expect(permissionTrigger().textContent).toBe('Can view')
+  })
+
+  it('refuses to reopen the picker while the change is saving', () => {
+    persistence.updateRemoteShare.mockReturnValue(deferred<BoardPage>().promise)
+
+    open(boardPage('organization', 'view'))
+    openPermissionPicker()
+    pickPermission('Can edit')
+
+    expect((permissionTrigger() as HTMLButtonElement).disabled).toBe(true)
+
+    openPermissionPicker()
+
+    expect(permissionTrigger().getAttribute('data-state')).toBe('closed')
   })
 })
 
