@@ -6,11 +6,19 @@ import { labelRect } from '../geometry/shape-outline.js'
 import { labelEditRequest } from '../text/label-edit.js'
 import { arrowRoute } from '../connectors/resolve.js'
 import { arrowLabelEditRect } from '../text/arrow-label.js'
-import type { Rect } from '../geometry/rect.js'
+import { intersects, type Rect } from '../geometry/rect.js'
 import type { SnapGuide } from '../geometry/snap.js'
 import { InputManager } from '../input/input-manager.js'
 import type { PinchDelta } from '../input/pinch.js'
-import type { CameraState, Element, ElementId, Label, Point, ShapeType } from '../model/types.js'
+import type {
+  CameraState,
+  Element,
+  ElementId,
+  Label,
+  Point,
+  SceneSnapshot,
+  ShapeType,
+} from '../model/types.js'
 import { isArrowElement } from '../model/guards.js'
 import {
   inferSpawnDirection,
@@ -96,6 +104,8 @@ export class EditorController {
   private preview: Element | null = null
   private transientElements: Element[] | null = null
   private transientById: Map<ElementId, Element> | null = null
+  private lockedSource: SceneSnapshot | null = null
+  private lockedElements: Element[] = []
   private spawnPreview: SpawnPreview | null = null
   private marquee: Rect | null = null
   private guides: SnapGuide[] = []
@@ -770,6 +780,7 @@ export class EditorController {
       selection,
       selectedArrows,
       hover,
+      lockedBadges: this.visibleLockedBadges(snapshot),
       ports,
       targetHighlight,
       guides: snapshot.appState.snapGuidesEnabled ? this.guides : [],
@@ -780,6 +791,24 @@ export class EditorController {
 
   private overlayElement(id: ElementId, elements: Record<ElementId, Element>): Element | null {
     return this.transientById?.get(id) ?? elements[id] ?? null
+  }
+
+  private visibleLockedBadges(snapshot: SceneSnapshot): Element[] {
+    if (this.lockedSource !== snapshot) {
+      this.lockedSource = snapshot
+      this.lockedElements = snapshot.order
+        .map((id) => snapshot.elements[id])
+        .filter((element): element is Element => element !== undefined && element.locked === true)
+    }
+    if (this.lockedElements.length === 0) return this.lockedElements
+    const { width, height } = this.viewportSize
+    const view = this.camera.viewportWorldRect(width, height)
+    const visible: Element[] = []
+    for (const locked of this.lockedElements) {
+      const element = this.transientById?.get(locked.id) ?? locked
+      if (intersects(elementBounds(element), view)) visible.push(element)
+    }
+    return visible
   }
 
   private commitCamera(): void {

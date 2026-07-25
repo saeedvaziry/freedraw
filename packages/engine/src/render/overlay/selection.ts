@@ -68,7 +68,7 @@ export function paintHover(
   if (element.locked) paintLockBadge(ctx, element, camera, colors)
 }
 
-function paintLockBadge(
+export function paintLockBadge(
   ctx: CanvasRenderingContext2D,
   element: Element,
   camera: Camera,

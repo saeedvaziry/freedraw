@@ -313,3 +313,96 @@ describe('EditorController overlay chrome during transient drags', () => {
     expect(dragging.selection?.bounds).toEqual({ x: 50, y: 0, width: 120, height: 80 })
   })
 })
+
+describe('EditorController locked badges', () => {
+  let renderOverlay: MockInstance<Renderer['renderOverlay']>
+  let cleanup: (() => void) | null = null
+
+  function mountWith(seeded: SceneStore): HTMLCanvasElement {
+    const overlayCanvas = fakeCanvas()
+    cleanup = new EditorController(seeded, fakeCanvas(), overlayCanvas).mount()
+    renderOverlay.mockClear()
+    return overlayCanvas
+  }
+
+  function lastOverlay(): OverlayState {
+    const calls = renderOverlay.mock.calls
+    expect(calls.length).toBeGreaterThan(0)
+    return calls[calls.length - 1]![1] ?? {}
+  }
+
+  beforeEach(() => {
+    stubEnvironment()
+    renderOverlay = vi.spyOn(Renderer.prototype, 'renderOverlay')
+  })
+
+  afterEach(() => {
+    cleanup?.()
+    cleanup = null
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  it('reports every locked element in view without requiring selection or hover', () => {
+    const store = new SceneStore()
+    mountWith(store)
+    store.transact((api) => {
+      api.addElement(createShape({ id: 'free', type: 'rect', x: 0, y: 0, width: 40, height: 40 }))
+      api.addElement(createShape({ id: 'locked', type: 'rect', x: 60, y: 0, width: 40, height: 40 }))
+    })
+    store.lockElements(['locked'])
+    flushFrame()
+
+    const overlay = lastOverlay()
+    expect(overlay.lockedBadges?.map((element) => element.id)).toEqual(['locked'])
+    expect(overlay.selection ?? null).toBeNull()
+    expect(overlay.hover ?? null).toBeNull()
+  })
+
+  it('culls locked elements outside the viewport', () => {
+    const store = new SceneStore()
+    mountWith(store)
+    store.transact((api) => {
+      api.addElement(createShape({ id: 'near', type: 'rect', x: 0, y: 0, width: 40, height: 40 }))
+      api.addElement(
+        createShape({ id: 'far', type: 'rect', x: 100_000, y: 100_000, width: 40, height: 40 }),
+      )
+    })
+    store.lockElements(['near', 'far'])
+    flushFrame()
+
+    expect(lastOverlay().lockedBadges?.map((element) => element.id)).toEqual(['near'])
+  })
+
+  it('drops the badge when an element is unlocked', () => {
+    const store = new SceneStore()
+    mountWith(store)
+    store.transact((api) =>
+      api.addElement(createShape({ id: 'a', type: 'rect', x: 0, y: 0, width: 40, height: 40 })),
+    )
+    store.lockElements(['a'])
+    flushFrame()
+    expect(lastOverlay().lockedBadges).toHaveLength(1)
+
+    store.unlockElements(['a'])
+    flushFrame()
+
+    expect(lastOverlay().lockedBadges).toHaveLength(0)
+  })
+
+  it('reuses the cached list across overlay frames when the scene is unchanged', () => {
+    const store = new SceneStore()
+    mountWith(store)
+    store.transact((api) =>
+      api.addElement(createShape({ id: 'a', type: 'rect', x: 0, y: 0, width: 40, height: 40 })),
+    )
+    flushFrame()
+    const first = lastOverlay().lockedBadges
+
+    store.setUiState({ selectedIds: new Set(['a']) })
+    flushFrame()
+
+    expect(first).toHaveLength(0)
+    expect(lastOverlay().lockedBadges).toBe(first)
+  })
+})

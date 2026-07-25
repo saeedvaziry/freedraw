@@ -20,7 +20,7 @@ import {
   type CanvasColorOverrides,
   type CanvasColors,
 } from './color-config.js'
-import { paintHover, paintMarquee, paintSelection } from './overlay/selection.js'
+import { paintHover, paintLockBadge, paintMarquee, paintSelection } from './overlay/selection.js'
 import { paintPorts, paintTargetHighlight } from './overlay/ports.js'
 import { paintArrowHandles } from './overlay/arrow-handles.js'
 import { paintGuides } from './overlay/guides.js'
@@ -38,6 +38,7 @@ export interface OverlayState {
   selection?: SelectionFrame | null
   selectedArrows?: ArrowElement[]
   hover?: Element | null
+  lockedBadges?: Element[]
   ports?: Element[]
   targetHighlight?: Element | null
   guides?: SnapGuide[]
@@ -202,6 +203,9 @@ export class Renderer {
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     const colors = overlayColorsFrom(this.colors)
+    if (overlay.lockedBadges) {
+      for (const element of overlay.lockedBadges) paintLockBadge(ctx, element, camera, colors)
+    }
     if (overlay.hover) paintHover(ctx, overlay.hover, camera, colors)
     if (overlay.selection) paintSelection(ctx, overlay.selection, camera, colors)
     if (overlay.selectedArrows) {
