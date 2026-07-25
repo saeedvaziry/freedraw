@@ -29,12 +29,15 @@ import { SelectionToolbarHost } from './selection-toolbar/selection-toolbar-host
 import { ShortcutsSheetHost } from './shortcuts-sheet.js'
 import { StylePanelHost } from './style-panel-host.js'
 import { SyncStatus } from './sync-status.js'
+import { VersionPanelHost } from './version-panel-host.js'
+import { VersionPreviewBanner } from './versions/version-preview-banner.js'
 import { ZoomIndicator } from './zoom-indicator.js'
 import { createBoard, type Board as CreatedBoard } from './create-board.js'
 import { useBoardClipboard } from '@/hooks/board/use-board-clipboard.js'
 import { useExport } from '@/hooks/board/use-export.js'
 import { useBoardActions } from '@/hooks/board/use-board-actions.js'
 import { usePresentMode } from '@/hooks/board/use-present-mode.js'
+import { useVersions } from '@/hooks/board/use-versions.js'
 import { useAppearance } from '@/hooks/use-appearance'
 import type { BoardPage } from '@/types'
 
@@ -168,24 +171,29 @@ interface BoardProps {
   assetSource: AssetSource
 }
 
-function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
+function Board({ store: liveStore, readOnly = false, sync, assetSource }: BoardProps) {
   const sceneRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
   const [controller, setController] = useState<EditorController | null>(null)
   const [diagramOpen, setDiagramOpen] = useState(false)
   const [libraryOpen, setLibraryOpen] = useState(false)
+  const [versionsOpen, setVersionsOpen] = useState(false)
+  const versions = useVersions()
+  const previewing = versions.previewStore !== null
+  const store = versions.previewStore ?? liveStore
+  const locked = readOnly || previewing
   // The board consumes the app-wide appearance (light / dark / system) hook; the
   // canvas and export only care about the *resolved* light/dark value.
   const { resolvedAppearance: theme } = useAppearance()
   const boardExport = useExport(controller, store)
   const imageInsert = useImageInsert(controller, store, assetSource)
-  const stencilDrop = useStencilDrop(controller, store, !readOnly)
+  const stencilDrop = useStencilDrop(controller, store, !locked)
   useBoardActions({
     store,
     controller,
     boardExport,
     theme,
-    readOnly,
+    readOnly: locked,
     openImagePicker: imageInsert.openPicker,
   })
   useBoardClipboard(store, controller)
@@ -215,8 +223,8 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
   // Read-only public shares can still pan, zoom, copy and export; only document
   // mutation (drawing, moving, deleting, text editing) is suppressed.
   useEffect(() => {
-    controller?.setReadOnly(readOnly)
-  }, [controller, readOnly])
+    controller?.setReadOnly(locked)
+  }, [controller, locked])
 
   const context = useMemo<BoardContextValue>(
     () => ({
@@ -224,12 +232,12 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
       controller,
       boardExport,
       theme,
-      readOnly,
-      scope: readOnly ? 'view' : 'edit',
+      readOnly: locked,
+      scope: locked ? 'view' : 'edit',
       openImagePicker: imageInsert.openPicker,
       sync,
     }),
-    [store, controller, boardExport, theme, readOnly, imageInsert.openPicker, sync],
+    [store, controller, boardExport, theme, locked, imageInsert.openPicker, sync],
   )
 
   return (
@@ -238,10 +246,12 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
         className="relative h-full w-full"
         onDragOver={(event) => {
           if (stencilDrop.onDragOver(event)) return
+          if (previewing) return
           imageInsert.onDragOver(event)
         }}
         onDrop={(event) => {
           if (stencilDrop.onDrop(event)) return
+          if (previewing) return
           imageInsert.onDrop(event)
         }}
       >
@@ -295,6 +305,28 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
                 <LibraryPanelHost onClose={() => setLibraryOpen(false)} />
               </div>
             ) : null}
+            {versionsOpen ? (
+              <div
+                className="pointer-events-none absolute top-16 hidden justify-start transition-[left] duration-200 ease-linear sm:flex"
+                style={{ left: 'calc(0.75rem + var(--board-sidebar-width, 0px))' }}
+              >
+                <VersionPanelHost versions={versions} onClose={() => setVersionsOpen(false)} />
+              </div>
+            ) : null}
+            {versions.previewVersion ? (
+              <div className="pointer-events-none absolute inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] flex justify-center px-3 sm:px-16">
+                <VersionPreviewBanner
+                  version={versions.previewVersion}
+                  canManage={versions.canManage}
+                  pendingRestore={versions.pendingRestoreId === versions.previewVersion.id}
+                  restoring={versions.restoringId === versions.previewVersion.id}
+                  onExit={versions.closePreview}
+                  onRequestRestore={versions.requestRestore}
+                  onCancelRestore={versions.cancelRestore}
+                  onConfirmRestore={versions.confirmRestore}
+                />
+              </div>
+            ) : null}
             <div
               className="pointer-events-none absolute bottom-3 hidden justify-center px-3 transition-[left] duration-200 ease-linear sm:flex"
               style={{ left: 'calc(0.75rem + var(--board-sidebar-width, 0px))', right: '0.75rem' }}
@@ -302,8 +334,11 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
               <BottomBar
                 diagramOpen={diagramOpen}
                 libraryOpen={libraryOpen}
+                versionsOpen={versionsOpen}
+                versionsAvailable={versions.available && !readOnly}
                 onToggleDiagram={() => setDiagramOpen((open) => !open)}
                 onToggleLibrary={() => setLibraryOpen((open) => !open)}
+                onToggleVersions={() => setVersionsOpen((open) => !open)}
               />
             </div>
             <div className="pointer-events-none absolute right-3 bottom-3 hidden items-center gap-2 sm:flex">

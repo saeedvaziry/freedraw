@@ -19,6 +19,14 @@ export {
 export { createAssetLoader } from './asset-loader.js'
 export type { AssetSource } from './asset-loader.js'
 export type { DeletePageResult, SavePagePayload, SharePagePayload } from './page-api.js'
+export {
+  createPageVersion,
+  fetchPageVersion,
+  fetchPageVersions,
+  restorePageVersion,
+  VersionRequestError,
+} from './version-api.js'
+export type { PageVersion, PageVersionCreator, PageVersionState } from './version-api.js'
 export { createPageSync } from './page-sync.js'
 export type { PageSync, SyncStatus } from './page-sync.js'
 export { createCollabSync, deriveSyncStatus } from './collab-provider.js'

@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react'
-import { LibraryBig, Wrench } from 'lucide-react'
+import { History, LibraryBig, Wrench } from 'lucide-react'
 import { ExportMenu, ToolButton } from '@/components/board/ui-kit'
 import { useBoardContext } from './board-context.js'
 import { ActionsMenu } from './actions-menu.js'
@@ -9,8 +9,11 @@ import { ToolbarHost } from './toolbar-host.js'
 interface BottomBarProps {
   diagramOpen: boolean
   libraryOpen: boolean
+  versionsOpen: boolean
+  versionsAvailable: boolean
   onToggleDiagram(): void
   onToggleLibrary(): void
+  onToggleVersions(): void
 }
 
 /**
@@ -22,8 +25,11 @@ interface BottomBarProps {
 export function BottomBar({
   diagramOpen,
   libraryOpen,
+  versionsOpen,
+  versionsAvailable,
   onToggleDiagram,
   onToggleLibrary,
+  onToggleVersions,
 }: BottomBarProps) {
   const { store, controller, boardExport, theme, readOnly } = useBoardContext()
   // Signed-in users reach their account from the sidebar, so the bar's user menu
@@ -41,6 +47,11 @@ export function BottomBar({
           {!readOnly ? (
             <ToolButton label="Library" active={libraryOpen} onClick={onToggleLibrary}>
               <LibraryBig />
+            </ToolButton>
+          ) : null}
+          {versionsAvailable ? (
+            <ToolButton label="Version history" active={versionsOpen} onClick={onToggleVersions}>
+              <History />
             </ToolButton>
           ) : null}
           <ActionsMenu
