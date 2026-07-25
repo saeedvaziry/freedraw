@@ -15,6 +15,7 @@ export interface PresenceOverlayBuildOptions {
     scene?: unknown;
     now?: number;
     ttlMs?: number;
+    halos?: boolean;
 }
 
 export interface PresenceOverlayMapper {
@@ -157,6 +158,12 @@ export function createPresenceOverlayMapper(): PresenceOverlayMapper {
         },
         build(participants, options) {
             const at = options.now ?? Date.now();
+            const withHalos = options.halos !== false;
+
+            if (!withHalos && cache.size > 0) {
+                cache.clear();
+            }
+
             let cursors: PresenceCursor[] | null = null;
             let halos: PresenceHalo[] | null = null;
             let remote = 0;
@@ -182,6 +189,10 @@ export function createPresenceOverlayMapper(): PresenceOverlayMapper {
                         color: participant.user.color,
                         label: participant.user.name,
                     });
+                }
+
+                if (!withHalos) {
+                    continue;
                 }
 
                 const halo = haloFor(participant, options);

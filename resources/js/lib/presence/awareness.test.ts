@@ -311,6 +311,83 @@ describe('createPresenceWriter', () => {
         expect(awareness.publishes).toBe(0);
     });
 
+    it('never publishes selection, tool or drag for a read-only viewer', () => {
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'), {
+            readOnly: true,
+        });
+        awareness.publishes = 0;
+
+        writer.setSelection(['a', 'b']);
+        writer.setTool('freedraw');
+        writer.setDrag({ kind: 'move', frame: null });
+
+        expect(writer.readOnly).toBe(true);
+        expect(awareness.publishes).toBe(0);
+        expect(writer.getState().selection).toEqual([]);
+        expect(writer.getState().tool).toBeNull();
+        expect(writer.getState().drag).toBeNull();
+    });
+
+    it('still publishes cursor and viewport for a read-only viewer', () => {
+        vi.useFakeTimers();
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'), {
+            cursorIntervalMs: 30,
+            readOnly: true,
+        });
+        awareness.publishes = 0;
+
+        writer.setCursor({ x: 1, y: 2 });
+        writer.setViewport({ x: 0, y: 0, width: 10, height: 10, zoom: 1 });
+        vi.advanceTimersByTime(30);
+
+        expect(awareness.publishes).toBe(1);
+        expect(readLocal(awareness)?.cursor).toEqual({ x: 1, y: 2 });
+        expect(readLocal(awareness)?.viewport?.zoom).toBe(1);
+    });
+
+    it('drops an already published selection when the viewer is locked', () => {
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'));
+        writer.setSelection(['a']);
+        writer.setTool('freedraw');
+        awareness.publishes = 0;
+
+        writer.setReadOnly(true);
+
+        expect(awareness.publishes).toBe(1);
+        expect(readLocal(awareness)?.selection).toEqual([]);
+        expect(readLocal(awareness)?.tool).toBeNull();
+    });
+
+    it('publishes nothing when locking a viewer that shared nothing', () => {
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'));
+        awareness.publishes = 0;
+
+        writer.setReadOnly(true);
+        writer.setReadOnly(true);
+
+        expect(awareness.publishes).toBe(0);
+    });
+
+    it('resumes publishing selection once the lock is lifted', () => {
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'), {
+            readOnly: true,
+        });
+        writer.setSelection(['a']);
+        awareness.publishes = 0;
+
+        writer.setReadOnly(false);
+        writer.setSelection(['a']);
+
+        expect(writer.readOnly).toBe(false);
+        expect(awareness.publishes).toBe(1);
+        expect(readLocal(awareness)?.selection).toEqual(['a']);
+    });
+
     it('writes through a real y-protocols awareness instance', () => {
         const doc = new Y.Doc();
         const awareness = new Awareness(doc);

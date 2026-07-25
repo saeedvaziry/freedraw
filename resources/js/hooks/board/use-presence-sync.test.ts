@@ -1,6 +1,12 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createShape, type CameraState, type Element, type ToolId } from '@freedraw/engine'
-import { resolvePresenceIdentity, type PresenceParticipant } from '@/lib/presence'
+import {
+  createPresenceWriter,
+  readPresenceParticipants,
+  resolvePresenceIdentity,
+  type PresenceAwareness,
+  type PresenceParticipant,
+} from '@/lib/presence'
 import type { PageSync } from '@/lib/persistence'
 import {
   attachPresenceOverlay,
@@ -214,6 +220,33 @@ function fakeAwareness(): Record<string, unknown> {
   }
 }
 
+function localAwareness(clientID = 1): PresenceAwareness {
+  const states = new Map<number, Record<string, unknown>>()
+
+  return {
+    clientID,
+    getLocalState: () => states.get(clientID) ?? null,
+    setLocalState(state) {
+      if (state === null) states.delete(clientID)
+      else states.set(clientID, state)
+    },
+    setLocalStateField(field, value) {
+      states.set(clientID, { ...(states.get(clientID) ?? {}), [field]: value })
+    },
+    getStates: () => states,
+    on: () => undefined,
+    off: () => undefined,
+  }
+}
+
+beforeEach(() => {
+  vi.useFakeTimers()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 describe('presenceAwarenessFrom', () => {
   it('returns null without a sync', () => {
     expect(presenceAwarenessFrom(null)).toBeNull()
@@ -344,6 +377,57 @@ describe('attachPresencePublisher', () => {
     expect(publisher.viewports).toHaveLength(1)
   })
 
+  it('cannot leak selection, tool or drag through a read-only writer', () => {
+    const awareness = localAwareness()
+    const writer = createPresenceWriter(
+      awareness,
+      resolvePresenceIdentity({ user: { id: 1, name: 'Ada' } }),
+      { readOnly: true },
+    )
+    const canvas = createCanvas()
+    const scene = createScene()
+
+    attachPresencePublisher({ canvas, scene, publisher: writer, readOnly: true })
+    scene.select(['a'])
+    scene.setTool('shape')
+    writer.setSelection(['a'])
+    writer.setTool('shape')
+    writer.setDrag({ kind: 'move', frame: null })
+    canvas.moveCursor({ x: 3, y: 4 })
+    writer.flush()
+
+    const local = readPresenceParticipants(awareness)[0]
+
+    expect(local.selection).toEqual([])
+    expect(local.tool).toBeNull()
+    expect(local.drag).toBeNull()
+    expect(local.cursor).toEqual({ x: 3, y: 4 })
+    expect(local.viewport?.zoom).toBe(1)
+
+    writer.destroy()
+  })
+
+  it('publishes selection and tool through an editable writer', () => {
+    const awareness = localAwareness()
+    const writer = createPresenceWriter(
+      awareness,
+      resolvePresenceIdentity({ user: { id: 1, name: 'Ada' } }),
+    )
+    const canvas = createCanvas()
+    const scene = createScene()
+
+    attachPresencePublisher({ canvas, scene, publisher: writer })
+    scene.select(['a'])
+    scene.setTool('shape')
+
+    const local = readPresenceParticipants(awareness)[0]
+
+    expect(local.selection).toEqual(['a'])
+    expect(local.tool).toBe('shape')
+
+    writer.destroy()
+  })
+
   it('clears the local state and detaches every listener on cleanup', () => {
     const canvas = createCanvas()
     const scene = createScene()
@@ -445,6 +529,124 @@ describe('attachPresenceOverlay', () => {
     ])
 
     attachPresenceOverlay({ canvas, scene, reader, now: () => NOW })
+
+    expect(canvas.overlays).toEqual([null])
+  })
+
+  it('drops a peer that goes silent once the ttl elapses', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const reader = createReader([participant(2, { cursor: { x: 1, y: 1 }, selection: ['a'] })])
+    let clock = NOW
+
+    attachPresenceOverlay({ canvas, scene, reader, now: () => clock, ttlMs: 1_000 })
+
+    expect(canvas.overlays).toEqual([{ cursors: 1, halos: 1 }])
+
+    clock = NOW + 1_001
+    vi.advanceTimersByTime(1_001)
+
+    expect(canvas.overlays).toEqual([{ cursors: 1, halos: 1 }, null])
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('arms no sweep timer when no peer is heading for the ttl', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const reader = createReader([participant(2, { isLocal: true, cursor: { x: 1, y: 1 } })])
+
+    attachPresenceOverlay({ canvas, scene, reader, now: () => NOW, ttlMs: 1_000 })
+
+    expect(vi.getTimerCount()).toBe(0)
+
+    reader.emit([])
+
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('stops sweeping once every peer has expired', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const reader = createReader([
+      participant(2, { cursor: { x: 1, y: 1 } }),
+      participant(3, { cursor: { x: 2, y: 2 }, updatedAt: NOW + 500 }),
+    ])
+    let clock = NOW
+    const advance = (ms: number): void => {
+      clock += ms
+      vi.advanceTimersByTime(ms)
+    }
+
+    attachPresenceOverlay({ canvas, scene, reader, now: () => clock, ttlMs: 1_000 })
+    advance(1_001)
+
+    expect(canvas.overlays).toEqual([{ cursors: 2, halos: 0 }, { cursors: 1, halos: 0 }])
+    expect(vi.getTimerCount()).toBe(1)
+
+    advance(500)
+
+    expect(canvas.overlays).toEqual([{ cursors: 2, halos: 0 }, { cursors: 1, halos: 0 }, null])
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('pushes the sweep back while a peer keeps publishing', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const reader = createReader([participant(2, { cursor: { x: 1, y: 1 } })])
+    let clock = NOW
+    const advance = (ms: number): void => {
+      clock += ms
+      vi.advanceTimersByTime(ms)
+    }
+
+    attachPresenceOverlay({ canvas, scene, reader, now: () => clock, ttlMs: 1_000 })
+    advance(900)
+    reader.emit([participant(2, { cursor: { x: 2, y: 2 }, updatedAt: clock })])
+    advance(900)
+
+    expect(canvas.overlays).toEqual([
+      { cursors: 1, halos: 0 },
+      { cursors: 1, halos: 0 },
+    ])
+    expect(vi.getTimerCount()).toBe(1)
+  })
+
+  it('cancels the pending sweep on cleanup', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const reader = createReader([participant(2, { cursor: { x: 1, y: 1 } })])
+
+    const detach = attachPresenceOverlay({
+      canvas,
+      scene,
+      reader,
+      now: () => NOW,
+      ttlMs: 1_000,
+    })
+
+    expect(vi.getTimerCount()).toBe(1)
+
+    detach()
+
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('suspends peer halos while a version preview owns the scene', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const reader = createReader([participant(2, { cursor: { x: 1, y: 1 }, selection: ['a'] })])
+
+    attachPresenceOverlay({ canvas, scene, reader, now: () => NOW, halos: false })
+
+    expect(canvas.overlays).toEqual([{ cursors: 1, halos: 0 }])
+  })
+
+  it('paints nothing while previewing when peers only share a selection', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const reader = createReader([participant(2, { selection: ['a'] })])
+
+    attachPresenceOverlay({ canvas, scene, reader, now: () => NOW, halos: false })
 
     expect(canvas.overlays).toEqual([null])
   })

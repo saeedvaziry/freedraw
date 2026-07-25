@@ -22,6 +22,7 @@ export interface UsePresenceOptions {
   awareness: PresenceAwareness | null
   user?: PresenceUserInput | null
   enabled?: boolean
+  readOnly?: boolean
   cursorIntervalMs?: number
   viewportIntervalMs?: number
 }
@@ -42,7 +43,13 @@ export interface UsePresenceResult {
 }
 
 export function usePresence(options: UsePresenceOptions): UsePresenceResult {
-  const { awareness, enabled = true, cursorIntervalMs, viewportIntervalMs } = options
+  const {
+    awareness,
+    enabled = true,
+    readOnly = false,
+    cursorIntervalMs,
+    viewportIntervalMs,
+  } = options
   const authUser = usePage().props.auth?.user ?? null
   const source = options.user !== undefined ? options.user : authUser
   const userId = source?.id ?? null
@@ -59,6 +66,7 @@ export function usePresence(options: UsePresenceOptions): UsePresenceResult {
 
   const target = enabled ? awareness : null
   const writerRef = useRef<PresenceWriter | null>(null)
+  const readOnlyRef = useRef(readOnly)
 
   useEffect(() => {
     if (!target) return
@@ -66,6 +74,7 @@ export function usePresence(options: UsePresenceOptions): UsePresenceResult {
     const writer = createPresenceWriter(target, identity, {
       cursorIntervalMs,
       viewportIntervalMs,
+      readOnly: readOnlyRef.current,
     })
     writerRef.current = writer
 
@@ -74,6 +83,11 @@ export function usePresence(options: UsePresenceOptions): UsePresenceResult {
       if (writerRef.current === writer) writerRef.current = null
     }
   }, [target, identity, cursorIntervalMs, viewportIntervalMs])
+
+  useEffect(() => {
+    readOnlyRef.current = readOnly
+    writerRef.current?.setReadOnly(readOnly)
+  }, [readOnly])
 
   const store = useMemo(() => createPresenceRosterStore(target), [target])
   const roster = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot)

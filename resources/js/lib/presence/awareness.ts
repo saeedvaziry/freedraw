@@ -80,17 +80,20 @@ export interface PresenceRosterEntry {
 export interface PresenceWriterOptions {
     cursorIntervalMs?: number;
     viewportIntervalMs?: number;
+    readOnly?: boolean;
     now?: () => number;
 }
 
 export interface PresenceWriter {
     readonly identity: PresenceIdentity;
+    readonly readOnly: boolean;
     getState(): PresenceState;
     setCursor(point: PresencePoint | null): void;
     setSelection(ids: readonly string[]): void;
     setTool(tool: ToolId | null): void;
     setViewport(viewport: PresenceViewport | null): void;
     setDrag(drag: PresenceDrag | null): void;
+    setReadOnly(readOnly: boolean): void;
     flush(): void;
     clear(): void;
     destroy(): void;
@@ -517,6 +520,7 @@ export function createPresenceWriter(
     const viewportInterval =
         options.viewportIntervalMs ?? PRESENCE_VIEWPORT_INTERVAL_MS;
 
+    let readOnly = options.readOnly ?? false;
     let destroyed = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let deadline = Number.POSITIVE_INFINITY;
@@ -584,6 +588,9 @@ export function createPresenceWriter(
 
     return {
         identity,
+        get readOnly() {
+            return readOnly;
+        },
         getState: () => ({ ...state, selection: [...state.selection] }),
         setCursor(point) {
             const next = point === null ? null : { x: point.x, y: point.y };
@@ -603,7 +610,7 @@ export function createPresenceWriter(
             schedule(cursorInterval);
         },
         setSelection(ids) {
-            if (sameSelection(state.selection, ids)) {
+            if (readOnly || sameSelection(state.selection, ids)) {
                 return;
             }
 
@@ -611,7 +618,7 @@ export function createPresenceWriter(
             publish();
         },
         setTool(tool) {
-            if (state.tool === tool) {
+            if (readOnly || state.tool === tool) {
                 return;
             }
 
@@ -634,7 +641,7 @@ export function createPresenceWriter(
             schedule(viewportInterval);
         },
         setDrag(drag) {
-            if (sameDrag(state.drag, drag)) {
+            if (readOnly || sameDrag(state.drag, drag)) {
                 return;
             }
 
@@ -655,6 +662,30 @@ export function createPresenceWriter(
             }
 
             schedule(cursorInterval);
+        },
+        setReadOnly(next) {
+            if (readOnly === next) {
+                return;
+            }
+
+            readOnly = next;
+
+            if (!next) {
+                return;
+            }
+
+            const published =
+                state.selection.length > 0 ||
+                state.tool !== null ||
+                state.drag !== null;
+
+            state.selection = [];
+            state.tool = null;
+            state.drag = null;
+
+            if (published) {
+                publish();
+            }
         },
         flush() {
             if (timer === null) {

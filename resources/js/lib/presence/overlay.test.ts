@@ -249,6 +249,52 @@ describe('createPresenceOverlayMapper', () => {
         expect(resolveFrame).toHaveBeenCalledTimes(2);
     });
 
+    it('suspends halos while the caller previews another scene', () => {
+        const mapper = createPresenceOverlayMapper();
+        const resolveFrame = resolver(frameAt(0, 0));
+        const peer = participant(2, {
+            cursor: { x: 4, y: 6 },
+            selection: ['a'],
+        });
+
+        const overlay = mapper.build([peer], {
+            resolveFrame,
+            scene: {},
+            now: NOW,
+            halos: false,
+        });
+
+        expect(overlay.cursors).toHaveLength(1);
+        expect(overlay.halos).toHaveLength(0);
+        expect(resolveFrame).not.toHaveBeenCalled();
+    });
+
+    it('returns the shared empty overlay when only halos are suspended', () => {
+        const mapper = createPresenceOverlayMapper();
+
+        const overlay = mapper.build([participant(2, { selection: ['a'] })], {
+            resolveFrame: resolver(frameAt(0, 0)),
+            scene: {},
+            now: NOW,
+            halos: false,
+        });
+
+        expect(overlay).toBe(EMPTY_PRESENCE_OVERLAY);
+    });
+
+    it('drops cached halos when halos are suspended so no scene is held', () => {
+        const mapper = createPresenceOverlayMapper();
+        const resolveFrame = resolver(frameAt(0, 0));
+        const scene = {};
+        const peer = participant(2, { selection: ['a'] });
+
+        mapper.build([peer], { resolveFrame, scene, now: NOW });
+        mapper.build([peer], { resolveFrame, scene, now: NOW, halos: false });
+        mapper.build([peer], { resolveFrame, scene, now: NOW });
+
+        expect(resolveFrame).toHaveBeenCalledTimes(2);
+    });
+
     it('returns the shared empty overlay when nobody is present', () => {
         const mapper = createPresenceOverlayMapper();
 

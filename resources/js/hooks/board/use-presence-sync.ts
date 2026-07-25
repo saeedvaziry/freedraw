@@ -13,6 +13,7 @@ import {
   createPresenceOverlayMapper,
   isEmptyPresenceOverlay,
   samePresenceOverlay,
+  PRESENCE_STALE_MS,
   type PresenceAwareness,
   type PresenceParticipant,
   type PresencePoint,
@@ -65,6 +66,7 @@ export interface AttachPresenceOverlayOptions {
   reader: PresenceReader
   now?: () => number
   ttlMs?: number
+  halos?: boolean
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -175,9 +177,12 @@ export function attachPresencePublisher(options: AttachPresencePublisherOptions)
 }
 
 export function attachPresenceOverlay(options: AttachPresenceOverlayOptions): () => void {
-  const { canvas, scene, reader, now = Date.now, ttlMs } = options
+  const { canvas, scene, reader, now = Date.now, halos = true } = options
+  const ttlMs = options.ttlMs ?? PRESENCE_STALE_MS
   const mapper = createPresenceOverlayMapper()
   let painted: PresenceOverlay | null = null
+  let timer: ReturnType<typeof setTimeout> | null = null
+  let deadline = Number.POSITIVE_INFINITY
 
   const resolveFrame = (ids: readonly string[]): SelectionFrame | null => {
     const { elements } = scene.getSnapshot()
@@ -189,13 +194,41 @@ export function attachPresenceOverlay(options: AttachPresenceOverlayOptions): ()
     return found.length === 0 ? null : selectionFrameFor(found)
   }
 
+  const cancel = (): void => {
+    if (timer !== null) clearTimeout(timer)
+    timer = null
+    deadline = Number.POSITIVE_INFINITY
+  }
+
+  const sweep = (participants: readonly PresenceParticipant[], at: number): void => {
+    let next = Number.POSITIVE_INFINITY
+    for (const participant of participants) {
+      if (participant.isLocal) continue
+      const expires = participant.updatedAt + ttlMs
+      if (expires >= at && expires < next) next = expires
+    }
+    if (next === deadline) return
+    cancel()
+    if (next === Number.POSITIVE_INFINITY) return
+    deadline = next
+    timer = setTimeout(() => {
+      timer = null
+      deadline = Number.POSITIVE_INFINITY
+      render()
+    }, next - at + 1)
+  }
+
   const render = (): void => {
-    const next = mapper.build(reader.readParticipants(), {
+    const at = now()
+    const participants = reader.readParticipants()
+    const next = mapper.build(participants, {
       resolveFrame,
       scene: scene.getSnapshot(),
-      now: now(),
+      now: at,
       ttlMs,
+      halos,
     })
+    sweep(participants, at)
     if (painted !== null && samePresenceOverlay(painted, next)) return
     painted = next
     canvas.setPresenceOverlay(isEmptyPresenceOverlay(next) ? null : next)
@@ -205,6 +238,7 @@ export function attachPresenceOverlay(options: AttachPresenceOverlayOptions): ()
   render()
 
   return () => {
+    cancel()
     cleanups.forEach((cleanup) => cleanup())
     canvas.setPresenceOverlay(null)
   }
@@ -215,13 +249,22 @@ export interface UsePresenceSyncOptions {
   store: SceneStore
   sync: PageSync | null
   readOnly?: boolean
+  previewing?: boolean
   enabled?: boolean
 }
 
 export function usePresenceSync(options: UsePresenceSyncOptions): UsePresenceResult {
-  const { controller, store, sync, readOnly = false, enabled = true } = options
+  const {
+    controller,
+    store,
+    sync,
+    readOnly = false,
+    previewing = false,
+    enabled = true,
+  } = options
+  const muted = readOnly || previewing
   const awareness = useMemo(() => presenceAwarenessFrom(sync), [sync])
-  const presence = usePresence({ awareness, enabled })
+  const presence = usePresence({ awareness, enabled, readOnly: muted })
   const { active, readParticipants, setCursor, setSelection, setTool, setViewport, subscribe } =
     presence
 
@@ -236,13 +279,23 @@ export function usePresenceSync(options: UsePresenceSyncOptions): UsePresenceRes
 
   useEffect(() => {
     if (!controller || !active) return
-    return attachPresencePublisher({ canvas: controller, scene: store, publisher, readOnly })
-  }, [active, controller, publisher, readOnly, store])
+    return attachPresencePublisher({
+      canvas: controller,
+      scene: store,
+      publisher,
+      readOnly: muted,
+    })
+  }, [active, controller, muted, publisher, store])
 
   useEffect(() => {
     if (!controller || !active) return
-    return attachPresenceOverlay({ canvas: controller, scene: store, reader })
-  }, [active, controller, reader, store])
+    return attachPresenceOverlay({
+      canvas: controller,
+      scene: store,
+      reader,
+      halos: !previewing,
+    })
+  }, [active, controller, previewing, reader, store])
 
   return presence
 }
