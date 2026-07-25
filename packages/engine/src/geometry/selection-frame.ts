@@ -1,10 +1,11 @@
-import type { Element } from '../model/types.js'
+import type { Element, Point } from '../model/types.js'
 import { elementBounds, elementCenter, selectionBounds } from './hit-test.js'
 import type { SelectionFrame } from './handles.js'
 import { rotatePoint } from './rotate.js'
 
 const ROTATION_EPSILON = 1e-9
 const SIZE_EPSILON = 1e-9
+const FULL_TURN = Math.PI * 2
 
 export function selectionFrameFor(
   elements: Element[],
@@ -28,10 +29,45 @@ function boundsFrame(elements: Element[]): SelectionFrame | null {
   }
   const bounds = selectionBounds(elements)
   if (!bounds) return null
+  const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
+  const rotation = sharedRotation(elements)
+  if (rotation === null) return { bounds, rotation: 0, center }
+  return tiltedFrame(elements, rotation, center)
+}
+
+function sharedRotation(elements: Element[]): number | null {
+  const rotation = elements[0]?.rotation ?? 0
+  if (Math.abs(rotation) < ROTATION_EPSILON) return null
+  for (const element of elements) {
+    if (!sameOrientation(element.rotation, rotation)) return null
+  }
+  return rotation
+}
+
+function sameOrientation(a: number, b: number): boolean {
+  const diff = Math.abs(a - b) % FULL_TURN
+  return Math.min(diff, FULL_TURN - diff) < ROTATION_EPSILON
+}
+
+function tiltedFrame(elements: Element[], rotation: number, pivot: Point): SelectionFrame {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const element of elements) {
+    const local = rotatePoint(elementCenter(element), pivot, -rotation)
+    minX = Math.min(minX, local.x - element.width / 2)
+    minY = Math.min(minY, local.y - element.height / 2)
+    maxX = Math.max(maxX, local.x + element.width / 2)
+    maxY = Math.max(maxY, local.y + element.height / 2)
+  }
+  const width = maxX - minX
+  const height = maxY - minY
+  const center = rotatePoint({ x: minX + width / 2, y: minY + height / 2 }, pivot, rotation)
   return {
-    bounds,
-    rotation: 0,
-    center: { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 },
+    bounds: { x: center.x - width / 2, y: center.y - height / 2, width, height },
+    rotation,
+    center,
   }
 }
 

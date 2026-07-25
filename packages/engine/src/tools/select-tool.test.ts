@@ -3,6 +3,9 @@ import { createBinding } from '../connectors/binding.js'
 import { arrowRoute } from '../connectors/resolve.js'
 import { spawnConnectedShape, type SpawnDirection } from '../connectors/spawn.js'
 import { Camera } from '../geometry/camera.js'
+import type { SelectionFrame } from '../geometry/handles.js'
+import { rotatePoint } from '../geometry/rotate.js'
+import { selectionFrameFor } from '../geometry/selection-frame.js'
 import { createArrow, createShape } from '../model/factory.js'
 import type { ArrowElement, Element, ElementId, Point, ShapeType } from '../model/types.js'
 import { SceneStore } from '../store/scene-store.js'
@@ -91,6 +94,104 @@ function setup(): { store: SceneStore; ctx: ToolContext; flowCalls: FlowCall[] }
     },
   }
 }
+
+function frameCorners(frame: SelectionFrame): Point[] {
+  const { bounds, center, rotation } = frame
+  return [
+    { x: bounds.x, y: bounds.y },
+    { x: bounds.x + bounds.width, y: bounds.y },
+    { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
+    { x: bounds.x, y: bounds.y + bounds.height },
+  ].map((corner) => rotatePoint(corner, center, rotation))
+}
+
+function closeTo(actual: Point, expected: Point): void {
+  expect(actual.x).toBeCloseTo(expected.x, 6)
+  expect(actual.y).toBeCloseTo(expected.y, 6)
+}
+
+function tiltedPairStore(rotation: number): { store: SceneStore; ctx: ToolContext } {
+  const { store, ctx } = setup()
+  const pivot = { x: 150, y: 50 }
+  store.transact((api) => {
+    api.removeElements(['shape-1'])
+    for (const [id, origin] of [
+      ['a', { x: 0, y: 0 }],
+      ['b', { x: 200, y: 0 }],
+    ] as const) {
+      const center = rotatePoint({ x: origin.x + 50, y: origin.y + 50 }, pivot, rotation)
+      api.addElement(
+        createShape({
+          id,
+          x: center.x - 50,
+          y: center.y - 50,
+          width: 100,
+          height: 100,
+          rotation,
+        }),
+      )
+    }
+  })
+  store.setUiState({ selectedIds: new Set(['a', 'b']) })
+  return { store, ctx }
+}
+
+function selectedShapes(store: SceneStore): Element[] {
+  return [...store.getUiState().selectedIds]
+    .map((id) => store.getSnapshot().elements[id])
+    .filter(Boolean) as Element[]
+}
+
+describe('SelectTool multi-select resize on a tilted frame', () => {
+  it('stretches the group along the frame axis and pins the opposite edge', () => {
+    const rotation = 0.6
+    const { store, ctx } = tiltedPairStore(rotation)
+    const tool = new SelectTool()
+    const frame = selectionFrameFor(selectedShapes(store))!
+
+    expect(frame.rotation).toBeCloseTo(rotation, 6)
+    expect(frame.bounds.width).toBeCloseTo(300, 6)
+    expect(frame.bounds.height).toBeCloseTo(100, 6)
+
+    const before = frameCorners(frame)
+    tool.onPointerDown(pointerAt(rotatePoint({ x: 300, y: 50 }, frame.center, rotation)), ctx)
+    tool.onPointerMove(pointerAt(rotatePoint({ x: 600, y: 50 }, frame.center, rotation)), ctx)
+    tool.onPointerUp(pointerAt(rotatePoint({ x: 600, y: 50 }, frame.center, rotation)), ctx)
+
+    const resized = selectionFrameFor(selectedShapes(store))!
+    expect(resized.rotation).toBeCloseTo(rotation, 6)
+    expect(resized.bounds.height).toBeCloseTo(100, 6)
+    expect(resized.bounds.width).toBeGreaterThan(400)
+
+    const after = frameCorners(resized)
+    closeTo(after[0]!, before[0]!)
+    closeTo(after[3]!, before[3]!)
+  })
+
+  it('keeps every shape on the frame axis instead of dragging it along the world axis', () => {
+    const rotation = -1.1
+    const { store, ctx } = tiltedPairStore(rotation)
+    const tool = new SelectTool()
+    const frame = selectionFrameFor(selectedShapes(store))!
+
+    tool.onPointerDown(pointerAt(rotatePoint({ x: 300, y: 50 }, frame.center, rotation)), ctx)
+    tool.onPointerMove(pointerAt(rotatePoint({ x: 480, y: 50 }, frame.center, rotation)), ctx)
+    tool.onPointerUp(pointerAt(rotatePoint({ x: 480, y: 50 }, frame.center, rotation)), ctx)
+
+    const resized = selectionFrameFor(selectedShapes(store))!
+    for (const shape of selectedShapes(store)) {
+      expect(shape.rotation).toBeCloseTo(rotation, 6)
+      expect(shape.height).toBeCloseTo(100, 6)
+      expect(shape.width).toBeGreaterThan(100)
+      const local = rotatePoint(
+        { x: shape.x + shape.width / 2, y: shape.y + shape.height / 2 },
+        resized.center,
+        -resized.rotation,
+      )
+      expect(local.y).toBeCloseTo(resized.bounds.y + resized.bounds.height / 2, 6)
+    }
+  })
+})
 
 describe('SelectTool ports', () => {
   it('does not reveal ports for an unselected nearby shape', () => {

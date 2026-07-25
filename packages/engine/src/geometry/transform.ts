@@ -1,6 +1,7 @@
 import type { Element, Point } from '../model/types.js'
 import { GRID_SIZE } from './grid.js'
 import type { Rect } from './rect.js'
+import { rotatePoint } from './rotate.js'
 import type { ResizeHandleId, SelectionFrame } from './handles.js'
 
 export interface ResizeResult {
@@ -10,16 +11,27 @@ export interface ResizeResult {
 
 const MIN_DIMENSION = GRID_SIZE
 
-function unrotate(point: Point, center: Point, rotation: number): Point {
-  if (!rotation) return point
-  const cos = Math.cos(-rotation)
-  const sin = Math.sin(-rotation)
-  const dx = point.x - center.x
-  const dy = point.y - center.y
-  return {
-    x: center.x + dx * cos - dy * sin,
-    y: center.y + dx * sin + dy * cos,
-  }
+function toFrameLocal(point: Point, frame: SelectionFrame): Point {
+  return rotatePoint(point, frame.center, -frame.rotation)
+}
+
+function toFrameWorld(point: Point, frame: SelectionFrame): Point {
+  return rotatePoint(point, frame.center, frame.rotation)
+}
+
+function localOrigin(element: Element, frame: SelectionFrame): Point {
+  if (!frame.rotation) return { x: element.x, y: element.y }
+  const center = toFrameLocal(
+    { x: element.x + element.width / 2, y: element.y + element.height / 2 },
+    frame,
+  )
+  return { x: center.x - element.width / 2, y: center.y - element.height / 2 }
+}
+
+function worldOrigin(origin: Point, width: number, height: number, frame: SelectionFrame): Point {
+  if (!frame.rotation) return origin
+  const center = toFrameWorld({ x: origin.x + width / 2, y: origin.y + height / 2 }, frame)
+  return { x: center.x - width / 2, y: center.y - height / 2 }
 }
 
 export function resizedBounds(
@@ -27,7 +39,7 @@ export function resizedBounds(
   handle: ResizeHandleId,
   pointer: Point,
 ): Rect {
-  const local = unrotate(pointer, frame.center, frame.rotation)
+  const local = toFrameLocal(pointer, frame)
   let left = frame.bounds.x
   let top = frame.bounds.y
   let right = frame.bounds.x + frame.bounds.width
@@ -61,10 +73,20 @@ export function resizeElements(
   const sx = next.width / frame.bounds.width
   const sy = next.height / frame.bounds.height
   return elements.map((element) => {
-    const x = next.x + (element.x - frame.bounds.x) * sx
-    const y = next.y + (element.y - frame.bounds.y) * sy
+    const origin = localOrigin(element, frame)
     const width = Math.max(MIN_DIMENSION, element.width * sx)
     const height = Math.max(MIN_DIMENSION, element.height * sy)
+    const placed = worldOrigin(
+      {
+        x: next.x + (origin.x - frame.bounds.x) * sx,
+        y: next.y + (origin.y - frame.bounds.y) * sy,
+      },
+      width,
+      height,
+      frame,
+    )
+    const x = placed.x
+    const y = placed.y
     if (element.type === 'freedraw') {
       const points = element.points.map((point) => ({
         x: x + (point.x - element.x) * sx,

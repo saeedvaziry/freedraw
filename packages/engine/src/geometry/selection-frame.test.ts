@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { defaultStyle } from '../model/schema.js'
 import type { Element, Point } from '../model/types.js'
 import { selectionFrameFor } from './selection-frame.js'
+import { selectionBounds } from './hit-test.js'
 import { rotatePoint } from './rotate.js'
 import type { SelectionFrame } from './handles.js'
 
@@ -101,19 +102,75 @@ describe('selectionFrameFor during a multi-select rotation', () => {
     const tilted = [rect('a', 0, 0, 100, 100, 0.5), rect('b', 200, 0, 100, 100, 0.5)]
     const frame = selectionFrameFor(spinAround(tilted, origin, 0.3), tilted)
     expect(frame?.bounds.width).toBeCloseTo(selectionFrameFor(tilted)!.bounds.width, 6)
-    expect(frame?.rotation).toBeCloseTo(0.3, 6)
-  })
-
-  it('grows the axis-aligned box once the rotation is committed', () => {
-    const spun = spinAround(before, origin, Math.PI / 2)
-    const committed = selectionFrameFor(spun)
-    expect(committed?.bounds.width).toBeCloseTo(100, 6)
-    expect(committed?.bounds.height).toBeCloseTo(300, 6)
-    expect(committed?.rotation).toBe(0)
+    expect(frame?.rotation).toBeCloseTo(0.8, 6)
   })
 })
 
-describe('selectionFrameFor falls back to the axis-aligned frame', () => {
+describe('selectionFrameFor once a multi-select rotation is committed', () => {
+  const before = [rect('a', 0, 0), rect('b', 200, 0)]
+  const origin = { x: 150, y: 50 }
+
+  it('keeps the group orientation instead of popping to the axis-aligned box', () => {
+    const spun = spinAround(before, origin, Math.PI / 2)
+    const committed = selectionFrameFor(spun)
+    expect(committed?.bounds.width).toBeCloseTo(300, 6)
+    expect(committed?.bounds.height).toBeCloseTo(100, 6)
+    expect(committed?.rotation).toBeCloseTo(Math.PI / 2, 6)
+    closeTo(committed!.center, origin)
+  })
+
+  it('paints the committed frame exactly where the drag frame was', () => {
+    for (const delta of [0.2, Math.PI / 4, Math.PI / 2, 2.4, -1.1]) {
+      const spun = spinAround(before, origin, delta)
+      const dragging = frameCorners(selectionFrameFor(spun, before)!)
+      frameCorners(selectionFrameFor(spun)!).forEach((corner, index) =>
+        closeTo(corner, dragging[index]!),
+      )
+    }
+  })
+
+  it('does not pop when the rotation happened about an off-centre origin', () => {
+    const offOrigin = { x: -400, y: 260 }
+    const spun = spinAround(before, offOrigin, 1.1)
+    const dragging = frameCorners(selectionFrameFor(spun, before)!)
+    frameCorners(selectionFrameFor(spun)!).forEach((corner, index) =>
+      closeTo(corner, dragging[index]!),
+    )
+  })
+
+  it('keeps stacking rotations on a group that already carries one', () => {
+    const tilted = spinAround(before, origin, 0.5)
+    const committed = selectionFrameFor(spinAround(tilted, origin, 0.3))
+    expect(committed?.rotation).toBeCloseTo(0.8, 6)
+    expect(committed?.bounds.width).toBeCloseTo(300, 6)
+    expect(committed?.bounds.height).toBeCloseTo(100, 6)
+  })
+
+  it('wraps every shape in the tilted frame', () => {
+    const spun = spinAround([rect('a', 0, 0), rect('b', 200, 40, 60, 200)], origin, 0.6)
+    const frame = selectionFrameFor(spun)!
+    for (const element of spun) {
+      const local = rotatePoint(
+        { x: element.x + element.width / 2, y: element.y + element.height / 2 },
+        frame.center,
+        -frame.rotation,
+      )
+      expect(local.x - element.width / 2).toBeGreaterThanOrEqual(frame.bounds.x - 1e-6)
+      expect(local.y - element.height / 2).toBeGreaterThanOrEqual(frame.bounds.y - 1e-6)
+      expect(local.x + element.width / 2).toBeLessThanOrEqual(frame.bounds.x + frame.bounds.width + 1e-6)
+      expect(local.y + element.height / 2).toBeLessThanOrEqual(frame.bounds.y + frame.bounds.height + 1e-6)
+    }
+  })
+
+  it('falls back to the axis-aligned box for a group with mixed rotations', () => {
+    const mixed = [rect('a', 0, 0, 100, 100, 0.4), rect('b', 200, 0, 100, 100, 0.9)]
+    const frame = selectionFrameFor(mixed)
+    expect(frame?.rotation).toBe(0)
+    expect(frame?.bounds).toEqual(selectionBounds(mixed))
+  })
+})
+
+describe('selectionFrameFor falls back to the measured frame', () => {
   const before = [rect('a', 0, 0), rect('b', 200, 0)]
 
   it('for a move preview', () => {
@@ -142,7 +199,9 @@ describe('selectionFrameFor falls back to the axis-aligned frame', () => {
 
   it('when a previewed element has no committed counterpart', () => {
     const spun = spinAround(before, { x: 150, y: 50 }, 0.5)
-    expect(selectionFrameFor(spun, [before[0]!, rect('c', 400, 0)])?.rotation).toBe(0)
+    expect(selectionFrameFor(spun, [before[0]!, rect('c', 400, 0)])).toEqual(
+      selectionFrameFor(spun),
+    )
   })
 
   it('for a single rotating element, whose own rotation already drives the frame', () => {

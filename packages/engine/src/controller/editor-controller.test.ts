@@ -289,8 +289,9 @@ describe('EditorController overlay chrome during transient drags', () => {
 
     const released = lastOverlay().selection
     expect(store.getSnapshot().elements['a']!.rotation).toBeCloseTo(Math.PI, 6)
-    expect(released?.rotation).toBe(0)
+    expect(released?.rotation).toBeCloseTo(Math.PI, 6)
     expect(released?.bounds.width).toBeCloseTo(300, 6)
+    expect(released?.bounds.height).toBeCloseTo(100, 6)
   })
 
   it('moves the arrow handles with a transient endpoint preview', () => {
