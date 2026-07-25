@@ -7,7 +7,9 @@ use App\Actions\Pages\RestorePageVersion;
 use App\Http\Requests\Pages\RestorePageVersionRequest;
 use App\Http\Requests\Pages\StorePageVersionRequest;
 use App\Http\Resources\Pages\PageSnapshotResource;
+use App\Http\Resources\Pages\PageSnapshotStateResource;
 use App\Models\Page;
+use App\Models\PageSnapshot;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Attributes\Controllers\Middleware;
@@ -27,6 +29,14 @@ class PageVersionController extends Controller
             ->get();
 
         return response()->json(PageSnapshotResource::collection($versions)->resolve($request));
+    }
+
+    public function show(Request $request, Page $page, PageSnapshot $version): JsonResponse
+    {
+        abort_unless($request->user()?->can('view', $page) ?? false, 403);
+        abort_unless($version->page_id === $page->id && $version->label !== null, 404);
+
+        return response()->json(PageSnapshotStateResource::make($version->load('creator'))->resolve($request));
     }
 
     public function store(StorePageVersionRequest $request, Page $page, CreateNamedSnapshot $createNamedSnapshot): JsonResponse

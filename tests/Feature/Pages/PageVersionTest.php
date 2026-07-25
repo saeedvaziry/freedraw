@@ -63,6 +63,71 @@ test('version index is forbidden for users who cannot access the page', function
         ->assertForbidden();
 });
 
+test('version show returns the base64 encoded state of a labeled snapshot', function () {
+    $user = User::factory()->create();
+    $page = Page::factory()->create([
+        'organization_id' => $user->current_organization_id,
+        'created_by' => $user->id,
+    ]);
+
+    $version = PageSnapshot::factory()->for($page)->labelled('v1')->create([
+        'up_to_seq' => 12,
+        'state' => 'v1-state',
+        'created_by' => $user->id,
+    ]);
+
+    $this
+        ->actingAs($user)
+        ->getJson(route('pages.versions.show', ['page' => $page, 'version' => $version]))
+        ->assertOk()
+        ->assertJsonPath('id', $version->id)
+        ->assertJsonPath('label', 'v1')
+        ->assertJsonPath('upToSeq', 12)
+        ->assertJsonPath('creator.id', $user->id)
+        ->assertJsonPath('state', base64_encode('v1-state'));
+});
+
+test('version show rejects unlabeled snapshots and snapshots of another page', function () {
+    $user = User::factory()->create();
+    $page = Page::factory()->create([
+        'organization_id' => $user->current_organization_id,
+        'created_by' => $user->id,
+    ]);
+
+    $unlabeled = PageSnapshot::factory()->for($page)->create(['label' => null, 'up_to_seq' => 6]);
+
+    $otherPage = Page::factory()->create([
+        'organization_id' => $user->current_organization_id,
+        'created_by' => $user->id,
+    ]);
+    $foreign = PageSnapshot::factory()->for($otherPage)->labelled('v1')->create();
+
+    $this
+        ->actingAs($user)
+        ->getJson(route('pages.versions.show', ['page' => $page, 'version' => $unlabeled]))
+        ->assertNotFound();
+
+    $this
+        ->actingAs($user)
+        ->getJson(route('pages.versions.show', ['page' => $page, 'version' => $foreign]))
+        ->assertNotFound();
+});
+
+test('version show is forbidden for users who cannot access the page', function () {
+    $user = User::factory()->create();
+    $otherUser = User::factory()->create();
+    $page = Page::factory()->create([
+        'organization_id' => $otherUser->current_organization_id,
+        'created_by' => $otherUser->id,
+    ]);
+    $version = PageSnapshot::factory()->for($page)->labelled('v1')->create();
+
+    $this
+        ->actingAs($user)
+        ->getJson(route('pages.versions.show', ['page' => $page, 'version' => $version]))
+        ->assertForbidden();
+});
+
 test('storing a version copies the current head snapshot with a label', function () {
     $user = User::factory()->create();
     $page = Page::factory()->create([

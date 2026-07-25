@@ -70,6 +70,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('pages/{page}/versions', [PageVersionController::class, 'index'])->name('pages.versions.index');
     Route::post('pages/{page}/versions', [PageVersionController::class, 'store'])->name('pages.versions.store');
     Route::post('pages/{page}/versions/restore', [PageVersionController::class, 'restore'])->name('pages.versions.restore');
+    Route::get('pages/{page}/versions/{version}', [PageVersionController::class, 'show'])->name('pages.versions.show');
 
     Route::get('invitations/{invitation}/accept', [OrganizationInvitationController::class, 'accept'])->name('invitations.accept');
     Route::delete('invitations/{invitation}', [OrganizationInvitationController::class, 'decline'])->name('invitations.decline');
