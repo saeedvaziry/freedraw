@@ -1,9 +1,14 @@
 import { Link, router, usePage } from '@inertiajs/react'
-import { Check, ChevronsUpDown, House, LogIn, LogOut, Menu, Plus, Settings, Share2, UserPlus, Users } from 'lucide-react'
+import { Check, ChevronDown, ChevronsUpDown, House, LayoutTemplate, LogIn, LogOut, Menu, Plus, Settings, Share2, UserPlus, Users } from 'lucide-react'
 import { Fragment, useCallback, useMemo, useState, useSyncExternalStore } from 'react'
-import { shallowEqual, type SceneStore } from '@freedraw/engine'
+import { builtinTemplates, shallowEqual, type SceneStore } from '@freedraw/engine'
 import AppLogoIcon from '@/components/app-logo-icon'
 import CreateOrganizationModal from '@/components/create-organization-modal'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import {
   Sheet,
   SheetContent,
@@ -333,12 +338,14 @@ function PagesSection({
     setRenameDraft,
     resetEditing,
     createPage,
+    createFromTemplate,
     beginRename,
     beginDelete,
     saveRename,
     confirmDelete,
   } = pages
   const [shareOpen, setShareOpen] = useState(false)
+  const [templatesOpen, setTemplatesOpen] = useState(false)
 
   return (
     <div className="flex flex-col gap-0.5">
@@ -389,6 +396,35 @@ function PagesSection({
         <Plus className="size-4 shrink-0" />
         <span>{creating ? 'Creating…' : 'New page'}</span>
       </button>
+      <Collapsible open={templatesOpen} onOpenChange={setTemplatesOpen}>
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            data-test="board-mobile-new-from-template"
+            disabled={creating}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+          >
+            <LayoutTemplate className="size-4 shrink-0" />
+            <span className="flex-1 text-left">New from template</span>
+            <ChevronDown
+              className={cn('size-4 shrink-0 transition-transform', templatesOpen && 'rotate-180')}
+            />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="flex flex-col gap-0.5 pt-0.5">
+          {builtinTemplates.map((template) => (
+            <button
+              key={template.id}
+              type="button"
+              disabled={creating}
+              onClick={() => createFromTemplate(template)}
+              className="flex items-center rounded-md py-2 pr-2 pl-8 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+            >
+              <span className="truncate">{template.name}</span>
+            </button>
+          ))}
+        </CollapsibleContent>
+      </Collapsible>
       {activePage ? (
         <SharePageModal boardPage={activePage} open={shareOpen} onOpenChange={setShareOpen} />
       ) : null}
