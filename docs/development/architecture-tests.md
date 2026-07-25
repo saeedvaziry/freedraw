@@ -15,6 +15,6 @@ The tests enforce these project rules:
 - Actions expose `handle()` and accept a DTO as their first argument.
 - Services and Actions have focused tests.
 - Model metadata uses Laravel 13 attributes where the framework supports them.
-- Frontend source files remain kebab-case and avoid inline SVG icons.
+- Frontend files remain kebab-case. Non-test files also avoid inline SVG icons; `*.test.ts`/`*.test.tsx` are exempt from that check so tests can assert SVG export output.
 
 When adding a new endpoint, add the DTO, Action, Resource, and focused tests in the same change. If a rule needs an exception, document the reason in the architecture test instead of weakening the production code.
