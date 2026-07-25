@@ -95,6 +95,7 @@ export class EditorController {
   private readonly cleanups: Cleanup[] = []
   private preview: Element | null = null
   private transientElements: Element[] | null = null
+  private transientById: Map<ElementId, Element> | null = null
   private spawnPreview: SpawnPreview | null = null
   private marquee: Rect | null = null
   private guides: SnapGuide[] = []
@@ -716,8 +717,10 @@ export class EditorController {
 
   private setTransient(elements: Element[] | null): void {
     const next = elements && elements.length > 0 ? elements : null
-    if (!sameTransientIds(this.transientElements, next)) this.loop.markSceneDirty()
+    const index = next ? indexById(next) : null
+    if (!sameTransientIds(this.transientById, index)) this.loop.markSceneDirty()
     this.transientElements = next
+    this.transientById = index
     this.loop.markOverlayDirty()
   }
 
@@ -730,9 +733,7 @@ export class EditorController {
     const snapshot = this.store.getSnapshot()
     if (dirty.scene) {
       const editingId = this.editRequest?.elementId ?? null
-      const hiddenIds = this.transientElements
-        ? new Set(this.transientElements.map((element) => element.id))
-        : null
+      const hiddenIds = this.transientById ? new Set(this.transientById.keys()) : null
       this.renderer.renderScene(snapshot, this.camera, editingId, hiddenIds)
     }
     if (dirty.overlay) {
@@ -748,19 +749,20 @@ export class EditorController {
     const snapshot = this.store.getSnapshot()
     const ui = this.store.getUiState()
     const hoveredId = this.store.getHoveredId()
-    const selected = elementsFor(ui.selectedIds, snapshot.elements)
+    const elements = snapshot.elements
+    const selected = elementsFor(ui.selectedIds, elements, this.transientById)
     const shapes = selected.filter((element) => !isArrowElement(element) && !element.locked)
     const lockedSelected = selected.find((element) => element.locked) ?? null
     const selectedArrows = selected.filter(isArrowElement)
     const selection = selectionFrameFor(shapes)
     const hovered =
-      hoveredId && !ui.selectedIds.has(hoveredId)
-        ? snapshot.elements[hoveredId] ?? null
-        : null
+      hoveredId && !ui.selectedIds.has(hoveredId) ? this.overlayElement(hoveredId, elements) : null
     const hover =
       (hovered && (isArrowElement(hovered) || hovered.locked) ? hovered : null) ?? lockedSelected
     const ports = shapes
-    const targetHighlight = this.portTargetId ? snapshot.elements[this.portTargetId] ?? null : null
+    const targetHighlight = this.portTargetId
+      ? this.overlayElement(this.portTargetId, elements)
+      : null
     return {
       preview: this.preview,
       transient: this.transientElements,
@@ -774,6 +776,10 @@ export class EditorController {
       marquee: this.marquee,
       presence: this.presenceOverlay,
     }
+  }
+
+  private overlayElement(id: ElementId, elements: Record<ElementId, Element>): Element | null {
+    return this.transientById?.get(id) ?? elements[id] ?? null
   }
 
   private commitCamera(): void {
@@ -930,18 +936,32 @@ function exportBackground(options: ExportImageOptions): string | null {
   return EXPORT_BASE_BACKGROUND
 }
 
-function sameTransientIds(a: Element[] | null, b: Element[] | null): boolean {
-  const as = a ?? []
-  const bs = b ?? []
-  if (as.length !== bs.length) return false
-  const ids = new Set(as.map((element) => element.id))
-  return bs.every((element) => ids.has(element.id))
+function indexById(elements: Element[]): Map<ElementId, Element> {
+  const index = new Map<ElementId, Element>()
+  for (const element of elements) index.set(element.id, element)
+  return index
 }
 
-function elementsFor(ids: Set<ElementId>, elements: Record<ElementId, Element>): Element[] {
+function sameTransientIds(
+  a: ReadonlyMap<ElementId, Element> | null,
+  b: ReadonlyMap<ElementId, Element> | null,
+): boolean {
+  if (a === b) return true
+  if (!a || !b || a.size !== b.size) return false
+  for (const id of b.keys()) {
+    if (!a.has(id)) return false
+  }
+  return true
+}
+
+function elementsFor(
+  ids: Set<ElementId>,
+  elements: Record<ElementId, Element>,
+  transient: ReadonlyMap<ElementId, Element> | null,
+): Element[] {
   const result: Element[] = []
   for (const id of ids) {
-    const element = elements[id]
+    const element = transient?.get(id) ?? elements[id]
     if (element) result.push(element)
   }
   return result
