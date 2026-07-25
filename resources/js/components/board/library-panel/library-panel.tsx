@@ -1,6 +1,7 @@
 import { Search, X } from 'lucide-react'
 import type { BuiltinTemplate, Stencil } from '@freedraw/engine'
 import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 import type { LibraryStencilGroup } from '@/hooks/board/use-library.js'
 import { FloatingPanel } from '../ui/floating-panel.js'
 import { IconButton } from '../ui/icon-button.js'
@@ -11,6 +12,7 @@ export interface LibraryPanelProps {
   templates: BuiltinTemplate[]
   stencilGroups: LibraryStencilGroup[]
   userStencils: Stencil[]
+  className?: string
   onQueryChange(query: string): void
   onInsert(stencil: Stencil): void
   onRemoveUserStencil(id: string): void
@@ -22,6 +24,7 @@ export function LibraryPanel({
   templates,
   stencilGroups,
   userStencils,
+  className,
   onQueryChange,
   onInsert,
   onRemoveUserStencil,
@@ -34,7 +37,10 @@ export function LibraryPanel({
     <FloatingPanel
       orientation="vertical"
       gap={false}
-      className="pointer-events-auto max-h-[calc(100vh-3rem)] w-[22rem] max-w-[calc(100vw-3rem)] gap-3 p-3"
+      className={cn(
+        'pointer-events-auto max-h-[calc(100vh-3rem)] w-[22rem] max-w-[calc(100vw-3rem)] gap-3 p-3',
+        className,
+      )}
     >
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">Library</span>

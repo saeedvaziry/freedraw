@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
-import { Palette, PencilRuler, Shapes, type LucideIcon } from 'lucide-react'
+import { LibraryBig, Palette, PencilRuler, Shapes, type LucideIcon } from 'lucide-react'
 import type { SceneStore } from '@freedraw/engine'
 import {
   FloatingPanel,
@@ -14,10 +14,11 @@ import {
 } from '@/components/board/ui-kit'
 import { useBoardContext } from './board-context.js'
 import { ActionsBarHost } from './actions-bar-host.js'
+import { LibraryPanelHost } from './library-panel-host.js'
 import { StylePanelHost } from './style-panel-host.js'
 import { ToolbarHost } from './toolbar-host.js'
 
-type Section = 'tools' | 'style' | 'edit'
+type Section = 'tools' | 'style' | 'library' | 'edit'
 
 export function MobileBar() {
   const { store, controller, boardExport, theme, readOnly } = useBoardContext()
@@ -51,6 +52,20 @@ export function MobileBar() {
         onChange={setSection}
       >
         <StylePanelHost />
+      </SectionItem>
+
+      <SectionItem
+        label="Library"
+        Icon={LibraryBig}
+        value="library"
+        section={section}
+        onChange={setSection}
+      >
+        <LibraryPanelHost
+          closeOnInsert
+          className="max-h-[60vh]"
+          onClose={() => setSection(null)}
+        />
       </SectionItem>
 
       <SectionItem

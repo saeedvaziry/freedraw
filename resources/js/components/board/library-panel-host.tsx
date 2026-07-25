@@ -5,10 +5,16 @@ import { useBoardContext } from './board-context.js'
 import { LibraryPanel } from './library-panel/library-panel.js'
 
 interface LibraryPanelHostProps {
+  closeOnInsert?: boolean
+  className?: string
   onClose(): void
 }
 
-export function LibraryPanelHost({ onClose }: LibraryPanelHostProps) {
+export function LibraryPanelHost({
+  closeOnInsert = false,
+  className,
+  onClose,
+}: LibraryPanelHostProps) {
   const { store, controller, readOnly } = useBoardContext()
   const library = useLibrary()
 
@@ -16,8 +22,9 @@ export function LibraryPanelHost({ onClose }: LibraryPanelHostProps) {
     (stencil: Stencil): void => {
       const center = controller?.viewportCenter ?? { x: 0, y: 0 }
       store.insertStencil(stencil, center)
+      if (closeOnInsert) onClose()
     },
-    [store, controller],
+    [store, controller, closeOnInsert, onClose],
   )
 
   if (readOnly) return null
@@ -28,6 +35,7 @@ export function LibraryPanelHost({ onClose }: LibraryPanelHostProps) {
       templates={library.templates}
       stencilGroups={library.stencilGroups}
       userStencils={library.userStencils}
+      className={className}
       onQueryChange={library.setQuery}
       onInsert={insert}
       onRemoveUserStencil={library.removeStencil}

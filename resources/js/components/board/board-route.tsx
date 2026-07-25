@@ -9,6 +9,7 @@ import {
   type PageSync,
 } from '@/lib/persistence'
 import { useImageInsert } from '@/hooks/board/use-image-insert.js'
+import { useStencilDrop } from '@/hooks/board/use-stencil-drop.js'
 import { BoardMobileMenu } from './board-mobile-menu.js'
 import { BoardPagesBar } from './board-pages-bar.js'
 import { BoardSidebar } from './board-sidebar.js'
@@ -178,6 +179,7 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
   const { resolvedAppearance: theme } = useAppearance()
   const boardExport = useExport(controller, store)
   const imageInsert = useImageInsert(controller, store, assetSource)
+  const stencilDrop = useStencilDrop(controller, store, !readOnly)
   useBoardActions({
     store,
     controller,
@@ -234,8 +236,14 @@ function Board({ store, readOnly = false, sync, assetSource }: BoardProps) {
     <BoardProvider value={context}>
       <div
         className="relative h-full w-full"
-        onDragOver={imageInsert.onDragOver}
-        onDrop={imageInsert.onDrop}
+        onDragOver={(event) => {
+          if (stencilDrop.onDragOver(event)) return
+          imageInsert.onDragOver(event)
+        }}
+        onDrop={(event) => {
+          if (stencilDrop.onDrop(event)) return
+          imageInsert.onDrop(event)
+        }}
       >
         <CanvasHost sceneRef={sceneRef} overlayRef={overlayRef} controller={controller} />
         {present.active ? (

@@ -7,6 +7,7 @@ import {
   type Stencil,
 } from '@freedraw/engine'
 import { cn } from '@/lib/utils'
+import { STENCIL_DRAG_MIME } from '@/hooks/board/use-stencil-drop.js'
 import { IconButton } from '../ui/icon-button.js'
 
 const THUMBNAIL_CACHE = new Map<string, string | null>()
@@ -37,7 +38,14 @@ export function StencilTile({ stencil, onInsert, onRemove }: StencilTileProps) {
   const label = stencil.name || 'Untitled'
 
   return (
-    <div className="group relative">
+    <div
+      className="group relative"
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.setData(STENCIL_DRAG_MIME, stencil.id)
+        event.dataTransfer.effectAllowed = 'copy'
+      }}
+    >
       <button
         type="button"
         onClick={() => onInsert(stencil)}
