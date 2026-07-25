@@ -142,6 +142,27 @@ describe('SelectTool ports', () => {
     expect(store.getUiState().selectedIds).toEqual(new Set([created!.id]))
   })
 
+  it('leaves no dangling selected id when a port-drag arrow is undone', () => {
+    const { store, ctx } = setup()
+    const tool = new SelectTool()
+
+    store.stopCapturing()
+    store.setUiState({ selectedIds: new Set(['shape-1']) })
+    tool.onPointerDown(pointerAt({ x: 140, y: 40 }), ctx)
+    tool.onPointerMove(pointerAt({ x: 180, y: 40 }), ctx)
+    tool.onPointerUp(pointerAt({ x: 180, y: 40 }), ctx)
+
+    const created = Object.values(store.getSnapshot().elements).find(isArrow)
+    expect(created).toBeDefined()
+    expect(store.getUiState().selectedIds).toEqual(new Set([created!.id]))
+
+    store.undo()
+
+    const { elements } = store.getSnapshot()
+    expect(elements[created!.id]).toBeUndefined()
+    expect([...store.getUiState().selectedIds].filter((id) => !elements[id])).toEqual([])
+  })
+
   it('treats a jittered port click as a spawn instead of leaving a short arrow', () => {
     const { store, ctx } = setup()
     const tool = new SelectTool()

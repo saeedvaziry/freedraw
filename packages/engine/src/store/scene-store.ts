@@ -791,10 +791,21 @@ export class SceneStore {
 
   undo(): void {
     this.undoManager.undo()
+    this.pruneDanglingIds()
   }
 
   redo(): void {
     this.undoManager.redo()
+    this.pruneDanglingIds()
+  }
+
+  private pruneDanglingIds(): void {
+    const hovered = this.hover.get()
+    if (hovered !== null && !this.yElements.has(hovered)) this.hover.set(null)
+    const selected = this.uiState.selectedIds
+    const live = [...selected].filter((id) => this.yElements.has(id))
+    if (live.length === selected.size) return
+    this.setUiState({ selectedIds: new Set(live) })
   }
 
   get canUndo(): boolean {

@@ -707,6 +707,73 @@ describe('slides', () => {
   })
 })
 
+describe('history selection pruning', () => {
+  it('drops selected ids whose elements were removed by undo', () => {
+    const store = new SceneStore()
+    store.transact((api) => api.addElement(shapeAt('a', 0)))
+    store.stopCapturing()
+    store.transact((api) => api.addElement(shapeAt('b', 60)))
+    store.stopCapturing()
+    store.setUiState({ selectedIds: new Set(['a', 'b']) })
+
+    store.undo()
+
+    const { elements } = store.getSnapshot()
+    expect([...store.getUiState().selectedIds]).toEqual(['a'])
+    expect([...store.getUiState().selectedIds].every((id) => Boolean(elements[id]))).toBe(true)
+  })
+
+  it('drops selected ids whose elements were removed by redo', () => {
+    const store = new SceneStore()
+    store.transact((api) => {
+      api.addElement(shapeAt('a', 0))
+      api.addElement(shapeAt('b', 60))
+    })
+    store.stopCapturing()
+    store.deleteElements(['b'])
+    store.stopCapturing()
+    store.undo()
+    expect(store.getSnapshot().elements.b).toBeDefined()
+    store.setUiState({ selectedIds: new Set(['a', 'b']) })
+
+    store.redo()
+
+    expect(store.getSnapshot().elements.b).toBeUndefined()
+    expect([...store.getUiState().selectedIds]).toEqual(['a'])
+  })
+
+  it('clears a hovered id whose element was removed by undo', () => {
+    const store = new SceneStore()
+    store.transact((api) => api.addElement(shapeAt('a', 0)))
+    store.stopCapturing()
+    store.setHoveredId('a')
+
+    store.undo()
+
+    expect(store.getHoveredId()).toBeNull()
+  })
+
+  it('leaves a still-valid selection untouched on undo', () => {
+    const store = new SceneStore()
+    store.transact((api) => api.addElement(shapeAt('a', 0)))
+    store.stopCapturing()
+    store.transact((api) => api.updateElement('a', { x: 200 }))
+    store.stopCapturing()
+    const selected = new Set(['a'])
+    store.setUiState({ selectedIds: selected })
+    let selectionEvents = 0
+    store.subscribeSelection(() => {
+      selectionEvents += 1
+    })
+
+    store.undo()
+
+    expect(store.getSnapshot().elements.a?.x).toBe(0)
+    expect(store.getUiState().selectedIds).toBe(selected)
+    expect(selectionEvents).toBe(0)
+  })
+})
+
 describe('remote update isolation', () => {
   it('does not add remote-origin updates to the undo stack', () => {
     const store = new SceneStore()
