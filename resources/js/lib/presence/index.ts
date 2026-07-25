@@ -55,3 +55,14 @@ export type {
     PresenceWriter,
     PresenceWriterOptions,
 } from './awareness';
+export {
+    createPresenceOverlayMapper,
+    isEmptyPresenceOverlay,
+    samePresenceOverlay,
+    EMPTY_PRESENCE_OVERLAY,
+} from './overlay';
+export type {
+    PresenceFrameResolver,
+    PresenceOverlayBuildOptions,
+    PresenceOverlayMapper,
+} from './overlay';

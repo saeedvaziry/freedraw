@@ -36,6 +36,7 @@ import { createBoard, type Board as CreatedBoard } from './create-board.js'
 import { useBoardClipboard } from '@/hooks/board/use-board-clipboard.js'
 import { useExport } from '@/hooks/board/use-export.js'
 import { useBoardActions } from '@/hooks/board/use-board-actions.js'
+import { usePresenceSync } from '@/hooks/board/use-presence-sync.js'
 import { usePresentMode } from '@/hooks/board/use-present-mode.js'
 import { useVersions } from '@/hooks/board/use-versions.js'
 import { useAppearance } from '@/hooks/use-appearance'
@@ -198,6 +199,7 @@ function Board({ store: liveStore, readOnly = false, sync, assetSource }: BoardP
   })
   useBoardClipboard(store, controller)
   const present = usePresentMode(controller, store)
+  usePresenceSync({ controller, store, sync, readOnly: locked })
 
   useEffect(() => attachViewportPersistence(store, assetSource), [store, assetSource])
 
