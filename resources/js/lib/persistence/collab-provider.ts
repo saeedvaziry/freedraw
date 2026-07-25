@@ -16,31 +16,63 @@ export interface CollabSync extends PageSync {
   awareness: CollabAwareness | null
 }
 
+export interface SyncStatusContext {
+  hasConnected?: boolean
+  online?: boolean
+}
+
+export function isBrowserOnline(): boolean {
+  return typeof navigator === 'undefined' ? true : navigator.onLine !== false
+}
+
 export function deriveSyncStatus(
   status: WebSocketStatus,
   synced: boolean,
   unsyncedChanges: number,
+  context: SyncStatusContext = {},
 ): SyncStatus {
-  if (status === WebSocketStatus.Disconnected) return 'offline'
-  if (status === WebSocketStatus.Connected && synced && unsyncedChanges === 0) return 'saved'
-  return 'saving'
+  const { hasConnected = false, online = true } = context
+
+  if (!online) return 'offline'
+  if (status === WebSocketStatus.Connected) {
+    return synced && unsyncedChanges === 0 ? 'saved' : 'saving'
+  }
+  if (hasConnected) return 'reconnecting'
+  return status === WebSocketStatus.Disconnected ? 'offline' : 'saving'
 }
 
 export function createCollabSync(options: CollabSyncOptions): CollabSync {
   const { doc, room, url, tokenUrl } = options
 
   let destroyed = false
-  let status: SyncStatus = 'saving'
   let connection: WebSocketStatus = WebSocketStatus.Connecting
   let synced = false
   let unsynced = 0
+  let hasConnected = false
+  let online = isBrowserOnline()
+  let status: SyncStatus = deriveSyncStatus(connection, synced, unsynced, { online })
   const listeners = new Set<() => void>()
 
   const refresh = (): void => {
-    const next = deriveSyncStatus(connection, synced, unsynced)
+    const next = deriveSyncStatus(connection, synced, unsynced, { hasConnected, online })
     if (destroyed || status === next) return
     status = next
     listeners.forEach((listener) => listener())
+  }
+
+  const handleOnline = (): void => {
+    online = true
+    refresh()
+  }
+
+  const handleOffline = (): void => {
+    online = false
+    refresh()
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
   }
 
   const provider = new HocuspocusProvider({
@@ -50,6 +82,7 @@ export function createCollabSync(options: CollabSyncOptions): CollabSync {
     token: () => fetchRealtimeToken(tokenUrl),
     onStatus: ({ status: next }) => {
       connection = next
+      if (next === WebSocketStatus.Connected) hasConnected = true
       refresh()
     },
     onSynced: ({ state }) => {
@@ -77,6 +110,10 @@ export function createCollabSync(options: CollabSyncOptions): CollabSync {
       if (destroyed) return
       destroyed = true
       listeners.clear()
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('online', handleOnline)
+        window.removeEventListener('offline', handleOffline)
+      }
       provider.destroy()
     },
     getStatus: () => status,

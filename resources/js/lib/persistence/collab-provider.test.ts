@@ -25,19 +25,41 @@ import { createCollabSync, deriveSyncStatus } from './collab-provider.js'
 import { fetchRealtimeToken } from './page-api.js'
 
 describe('deriveSyncStatus', () => {
-  it('reports offline while disconnected', () => {
+  it('reports offline while disconnected before the first connection', () => {
     expect(deriveSyncStatus(WebSocketStatus.Disconnected, true, 0)).toBe('offline')
     expect(deriveSyncStatus(WebSocketStatus.Disconnected, false, 5)).toBe('offline')
   })
 
   it('reports saved only when connected, synced and fully flushed', () => {
     expect(deriveSyncStatus(WebSocketStatus.Connected, true, 0)).toBe('saved')
+    expect(deriveSyncStatus(WebSocketStatus.Connected, true, 0, { hasConnected: true })).toBe(
+      'saved',
+    )
   })
 
-  it('reports saving while connecting or with pending changes', () => {
+  it('reports saving while connecting for the first time or with pending changes', () => {
     expect(deriveSyncStatus(WebSocketStatus.Connecting, false, 0)).toBe('saving')
+    expect(deriveSyncStatus(WebSocketStatus.Connecting, false, 0, { hasConnected: false })).toBe(
+      'saving',
+    )
     expect(deriveSyncStatus(WebSocketStatus.Connected, false, 0)).toBe('saving')
     expect(deriveSyncStatus(WebSocketStatus.Connected, true, 2)).toBe('saving')
+  })
+
+  it('reports reconnecting once a connection has been established and lost', () => {
+    expect(deriveSyncStatus(WebSocketStatus.Connecting, false, 0, { hasConnected: true })).toBe(
+      'reconnecting',
+    )
+    expect(deriveSyncStatus(WebSocketStatus.Disconnected, false, 3, { hasConnected: true })).toBe(
+      'reconnecting',
+    )
+  })
+
+  it('reports offline whenever the browser has no network, whatever the socket says', () => {
+    expect(deriveSyncStatus(WebSocketStatus.Connected, true, 0, { online: false })).toBe('offline')
+    expect(
+      deriveSyncStatus(WebSocketStatus.Connecting, false, 2, { hasConnected: true, online: false }),
+    ).toBe('offline')
   })
 })
 
@@ -82,9 +104,48 @@ describe('createCollabSync', () => {
     expect(sync.getStatus()).toBe('saved')
 
     providerRef.current.onDisconnect({})
-    expect(sync.getStatus()).toBe('offline')
+    expect(sync.getStatus()).toBe('reconnecting')
+
+    providerRef.current.onStatus({ status: WebSocketStatus.Connecting })
+    expect(sync.getStatus()).toBe('reconnecting')
+
+    providerRef.current.onStatus({ status: WebSocketStatus.Connected })
+    providerRef.current.onSynced({ state: true })
+    expect(sync.getStatus()).toBe('saved')
 
     expect(listener).toHaveBeenCalled()
+  })
+
+  it('stays offline while it has never reached the server', () => {
+    const doc = new Y.Doc()
+    const sync = createCollabSync({ doc, room: 'r', url: 'wss://x', tokenUrl: '/t' })
+
+    expect(sync.getStatus()).toBe('saving')
+
+    providerRef.current.onStatus({ status: WebSocketStatus.Disconnected })
+    expect(sync.getStatus()).toBe('offline')
+  })
+
+  it('follows the browser network state and stops listening after destroy', () => {
+    const doc = new Y.Doc()
+    const sync = createCollabSync({ doc, room: 'r', url: 'wss://x', tokenUrl: '/t' })
+
+    providerRef.current.onStatus({ status: WebSocketStatus.Connected })
+    providerRef.current.onSynced({ state: true })
+    expect(sync.getStatus()).toBe('saved')
+
+    window.dispatchEvent(new Event('offline'))
+    expect(sync.getStatus()).toBe('offline')
+
+    window.dispatchEvent(new Event('online'))
+    expect(sync.getStatus()).toBe('saved')
+
+    sync.destroy()
+    const removed = createCollabSync({ doc, room: 'r2', url: 'wss://x', tokenUrl: '/t' })
+    window.dispatchEvent(new Event('offline'))
+    expect(sync.getStatus()).toBe('saved')
+    expect(removed.getStatus()).toBe('offline')
+    removed.destroy()
   })
 
   it('stops emitting and destroys the provider on destroy', () => {

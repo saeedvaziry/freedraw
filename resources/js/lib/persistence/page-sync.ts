@@ -3,7 +3,7 @@ import { encodeDocAsBase64, updateRemotePage } from './page-api.js'
 
 const SAVE_DELAY_MS = 800
 
-export type SyncStatus = 'saved' | 'saving' | 'offline'
+export type SyncStatus = 'saved' | 'saving' | 'reconnecting' | 'offline'
 
 export interface PageSync {
   flush(): Promise<void>
