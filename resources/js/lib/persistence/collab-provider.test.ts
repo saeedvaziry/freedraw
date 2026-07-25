@@ -61,6 +61,24 @@ describe('deriveSyncStatus', () => {
       deriveSyncStatus(WebSocketStatus.Connecting, false, 2, { hasConnected: true, online: false }),
     ).toBe('offline')
   })
+
+  it('reports no-access once authentication failed, whatever the socket or network says', () => {
+    expect(deriveSyncStatus(WebSocketStatus.Connected, true, 0, { authFailed: true })).toBe(
+      'no-access',
+    )
+    expect(
+      deriveSyncStatus(WebSocketStatus.Connecting, false, 3, {
+        hasConnected: true,
+        authFailed: true,
+      }),
+    ).toBe('no-access')
+    expect(
+      deriveSyncStatus(WebSocketStatus.Disconnected, false, 0, {
+        online: false,
+        authFailed: true,
+      }),
+    ).toBe('no-access')
+  })
 })
 
 describe('createCollabSync', () => {
@@ -146,6 +164,44 @@ describe('createCollabSync', () => {
     expect(sync.getStatus()).toBe('saved')
     expect(removed.getStatus()).toBe('offline')
     removed.destroy()
+  })
+
+  it('surfaces a terminal no-access status when realtime authentication fails', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const doc = new Y.Doc()
+    const sync = createCollabSync({ doc, room: 'r', url: 'wss://x', tokenUrl: '/t' })
+    const listener = vi.fn()
+    sync.subscribe(listener)
+
+    providerRef.current.onStatus({ status: WebSocketStatus.Connected })
+    providerRef.current.onSynced({ state: true })
+    expect(sync.getStatus()).toBe('saved')
+
+    providerRef.current.onAuthenticationFailed({ reason: 'expired' })
+    expect(sync.getStatus()).toBe('no-access')
+    expect(listener).toHaveBeenCalled()
+
+    providerRef.current.onDisconnect({})
+    providerRef.current.onStatus({ status: WebSocketStatus.Connecting })
+    expect(sync.getStatus()).toBe('no-access')
+
+    warn.mockRestore()
+  })
+
+  it('clears no-access once the provider authenticates again', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const doc = new Y.Doc()
+    const sync = createCollabSync({ doc, room: 'r', url: 'wss://x', tokenUrl: '/t' })
+
+    providerRef.current.onAuthenticationFailed({ reason: 'expired' })
+    expect(sync.getStatus()).toBe('no-access')
+
+    providerRef.current.onAuthenticated({})
+    providerRef.current.onStatus({ status: WebSocketStatus.Connected })
+    providerRef.current.onSynced({ state: true })
+    expect(sync.getStatus()).toBe('saved')
+
+    warn.mockRestore()
   })
 
   it('stops emitting and destroys the provider on destroy', () => {

@@ -19,6 +19,7 @@ export interface CollabSync extends PageSync {
 export interface SyncStatusContext {
   hasConnected?: boolean
   online?: boolean
+  authFailed?: boolean
 }
 
 export function isBrowserOnline(): boolean {
@@ -31,8 +32,9 @@ export function deriveSyncStatus(
   unsyncedChanges: number,
   context: SyncStatusContext = {},
 ): SyncStatus {
-  const { hasConnected = false, online = true } = context
+  const { hasConnected = false, online = true, authFailed = false } = context
 
+  if (authFailed) return 'no-access'
   if (!online) return 'offline'
   if (status === WebSocketStatus.Connected) {
     return synced && unsyncedChanges === 0 ? 'saved' : 'saving'
@@ -50,11 +52,12 @@ export function createCollabSync(options: CollabSyncOptions): CollabSync {
   let unsynced = 0
   let hasConnected = false
   let online = isBrowserOnline()
+  let authFailed = false
   let status: SyncStatus = deriveSyncStatus(connection, synced, unsynced, { online })
   const listeners = new Set<() => void>()
 
   const refresh = (): void => {
-    const next = deriveSyncStatus(connection, synced, unsynced, { hasConnected, online })
+    const next = deriveSyncStatus(connection, synced, unsynced, { hasConnected, online, authFailed })
     if (destroyed || status === next) return
     status = next
     listeners.forEach((listener) => listener())
@@ -98,8 +101,14 @@ export function createCollabSync(options: CollabSyncOptions): CollabSync {
       unsynced = number
       refresh()
     },
+    onAuthenticated: () => {
+      authFailed = false
+      refresh()
+    },
     onAuthenticationFailed: ({ reason }) => {
       console.warn('Realtime authentication failed', reason)
+      authFailed = true
+      refresh()
     },
   })
 

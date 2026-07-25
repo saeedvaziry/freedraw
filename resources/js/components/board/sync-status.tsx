@@ -1,4 +1,12 @@
-import { Check, CloudOff, Eye, LoaderCircle, RefreshCw, type LucideIcon } from 'lucide-react'
+import {
+  Check,
+  CloudOff,
+  Eye,
+  LoaderCircle,
+  RefreshCw,
+  ShieldAlert,
+  type LucideIcon,
+} from 'lucide-react'
 import {
   useConnectionStatus,
   type ConnectionStatus as ConnectionStatusValue,
@@ -17,6 +25,7 @@ const ICONS: Record<ConnectionStatusValue, LucideIcon> = {
   saving: RefreshCw,
   reconnecting: LoaderCircle,
   offline: CloudOff,
+  'no-access': ShieldAlert,
   'view-only': Eye,
 }
 
@@ -42,7 +51,7 @@ export function SyncStatus() {
   if (!visible) return null
 
   const Icon = ICONS[status]
-  const viewOnly = status === 'view-only'
+  const emphasized = status === 'view-only' || status === 'no-access'
   const spinning = status === 'saving' || status === 'reconnecting'
 
   return (
@@ -55,7 +64,7 @@ export function SyncStatus() {
           aria-label={description}
           className={cn(
             'pointer-events-auto h-9 gap-1.5 px-2.5 text-sm text-muted-foreground [&_svg]:size-4',
-            viewOnly &&
+            emphasized &&
               'border-amber-500/40 bg-amber-500/10 dark:border-amber-400/30 dark:bg-amber-400/10',
           )}
         >
@@ -63,7 +72,7 @@ export function SyncStatus() {
           <span
             className={cn(
               LABEL_TONES[tone],
-              viewOnly ? 'inline font-medium' : 'hidden md:inline',
+              emphasized ? 'inline font-medium' : 'hidden md:inline',
             )}
           >
             {label}

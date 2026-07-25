@@ -38,6 +38,12 @@ export const CONNECTION_STATUS_DESCRIPTORS: Record<ConnectionStatus, ConnectionS
     description: 'Offline — keep working, changes are saved on this device and sync later',
     tone: 'calm',
   },
+  'no-access': {
+    label: 'No access',
+    description:
+      'No access — your session no longer has permission to sync this board. Sign in again or ask for access; edits stay on this device until then',
+    tone: 'attention',
+  },
   'view-only': {
     label: 'View only',
     description: 'View only — you can pan, zoom and export, but not edit this board',
