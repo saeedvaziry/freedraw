@@ -130,11 +130,16 @@ describe('SelectTool ports', () => {
     tool.onPointerDown(pointerAt({ x: 140, y: 40 }), ctx)
     tool.onPointerMove(pointerAt({ x: 180, y: 40 }), ctx)
 
+    expect(store.getSnapshot().order).toEqual(['shape-1'])
+
+    tool.onPointerUp(pointerAt({ x: 180, y: 40 }), ctx)
+
     const created = store.getSnapshot().order
       .map((id) => store.getSnapshot().elements[id])
       .find((element) => element?.type === 'arrow')
 
     expect(created).toBeDefined()
+    expect(store.getUiState().selectedIds).toEqual(new Set([created!.id]))
   })
 
   it('treats a jittered port click as a spawn instead of leaving a short arrow', () => {
@@ -222,6 +227,7 @@ describe('SelectTool ports', () => {
     store.setUiState({ selectedIds: new Set(['arrow-1']) })
     tool.onPointerDown(pointerAt({ x: 210, y: 40 }), ctx)
     tool.onPointerMove(pointerAt({ x: 210, y: -20 }), ctx)
+    tool.onPointerUp(pointerAt({ x: 210, y: -20 }), ctx)
 
     const adjusted = store.getSnapshot().elements['arrow-1'] as ArrowElement
     expect(adjusted.start?.elementId).toBe('shape-1')
@@ -261,6 +267,7 @@ describe('SelectTool ports', () => {
     store.setUiState({ selectedIds: new Set(['arrow-1']) })
     tool.onPointerDown(pointerAt({ x: 80, y: 240 }), ctx)
     tool.onPointerMove(pointerAt({ x: 60, y: 240 }), ctx)
+    tool.onPointerUp(pointerAt({ x: 60, y: 240 }), ctx)
 
     const adjusted = store.getSnapshot().elements['arrow-1'] as ArrowElement
     const route = arrowRoute(adjusted)

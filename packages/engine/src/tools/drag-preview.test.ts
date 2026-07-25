@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createBinding } from '../connectors/binding.js'
 import { createArrow, createFreedraw, createShape } from '../model/factory.js'
-import type { ArrowElement } from '../model/types.js'
+import type { ArrowElement, FreedrawElement } from '../model/types.js'
 import { SceneStore } from '../store/scene-store.js'
 import { buildTransientElements, moveElementPatch } from './drag-preview.js'
 
@@ -13,7 +13,7 @@ describe('moveElementPatch', () => {
 
   it('translates freedraw points and recomputes bounds', () => {
     const freedraw = createFreedraw({ id: 'f', points: [{ x: 0, y: 0 }, { x: 20, y: 20 }] })
-    const patch = moveElementPatch(freedraw, 5, 5, new Set(['f']))
+    const patch = moveElementPatch(freedraw, 5, 5, new Set(['f'])) as Partial<FreedrawElement>
     expect(patch.points).toEqual([{ x: 5, y: 5 }, { x: 25, y: 25 }])
     expect(patch).toMatchObject({ x: 5, y: 5, width: 20, height: 20 })
   })
@@ -25,7 +25,7 @@ describe('moveElementPatch', () => {
       start: createBinding(createShape({ id: 's', x: -40, y: -40, width: 40, height: 40 }), { x: 0, y: 0 }, 0, { x: 100, y: 0 }),
       end: createBinding(createShape({ id: 'e', x: 100, y: -20, width: 40, height: 40 }), { x: 100, y: 0 }, 0, { x: 0, y: 0 }),
     })
-    const patch = moveElementPatch(arrow, 10, 10, new Set(['s', 'e']))
+    const patch = moveElementPatch(arrow, 10, 10, new Set(['s', 'e'])) as Partial<ArrowElement>
     expect(patch.start).toBeUndefined()
     expect(patch.end).toBeUndefined()
     expect('start' in patch).toBe(false)
@@ -40,7 +40,7 @@ describe('moveElementPatch', () => {
       start: createBinding(createShape({ id: 's', x: -40, y: -40, width: 40, height: 40 }), { x: 0, y: 0 }, 0, { x: 100, y: 0 }),
       end: createBinding(createShape({ id: 'e', x: 100, y: -20, width: 40, height: 40 }), { x: 100, y: 0 }, 0, { x: 0, y: 0 }),
     })
-    const patch = moveElementPatch(arrow, 10, 10, new Set())
+    const patch = moveElementPatch(arrow, 10, 10, new Set()) as Partial<ArrowElement>
     expect(patch.start).toBeUndefined()
     expect(patch.end).toBeUndefined()
     expect('start' in patch).toBe(true)

@@ -59,21 +59,22 @@ type Mode =
     }
   | {
       kind: 'portDrag'
-      arrowId: ElementId
+      arrow: ArrowElement
       start: Point
       startBinding: Binding
       sourceId: ElementId
       direction: SpawnDirection | null
       originScreen: Point
     }
-  | { kind: 'reshapeEndpoint'; arrowId: ElementId; handle: 'start' | 'end' }
-  | { kind: 'reshapeSegment'; arrowId: ElementId; segmentIndex: number; route: Point[] }
+  | { kind: 'reshapeEndpoint'; arrow: ArrowElement; handle: 'start' | 'end' }
+  | { kind: 'reshapeSegment'; arrow: ArrowElement; segmentIndex: number; route: Point[] }
 
 type ElementPatch = { id: ElementId; patch: Partial<Element> }
 
 type PendingCommit =
   | { kind: 'move'; ids: ElementId[]; dx: number; dy: number; movingShapeIds: Set<ElementId> }
   | { kind: 'patches'; patches: ElementPatch[] }
+  | { kind: 'create'; element: ArrowElement }
 
 export class SelectTool implements Tool {
   readonly id = 'select'
@@ -179,8 +180,8 @@ export class SelectTool implements Tool {
     } else if (mode.kind === 'portDrag') {
       if (!this.moved || screenDistance(info.screen, mode.originScreen) <= PORT_CLICK_RADIUS) {
         this.spawnFromPort(mode, ctx)
-      } else if (this.portDragEndedOnSource(info, mode, ctx)) {
-        ctx.store.deleteElements([mode.arrowId])
+      } else if (!this.portDragEndedOnSource(info, mode, ctx)) {
+        this.commitPending(ctx)
       }
     } else if (this.pending) {
       this.commitPending(ctx)
@@ -201,6 +202,11 @@ export class SelectTool implements Tool {
   private commitPending(ctx: ToolContext): void {
     const pending = this.pending
     if (!pending) return
+    if (pending.kind === 'create') {
+      ctx.store.transact((api) => api.addElement(pending.element))
+      ctx.store.setUiState({ selectedIds: new Set([pending.element.id]) })
+      return
+    }
     ctx.store.transact((api) => {
       const snapshot = ctx.store.getSnapshot()
       if (pending.kind === 'move') {
@@ -220,7 +226,7 @@ export class SelectTool implements Tool {
 
   private portDragEndedOnSource(
     info: PointerInfo,
-    mode: { arrowId: ElementId; sourceId: ElementId },
+    mode: { sourceId: ElementId },
     ctx: ToolContext,
   ): boolean {
     const hit = hitTest(info.world, ctx.store.getSnapshot())
@@ -228,10 +234,9 @@ export class SelectTool implements Tool {
   }
 
   private spawnFromPort(
-    mode: { arrowId?: ElementId; sourceId: ElementId; direction: SpawnDirection | null },
+    mode: { sourceId: ElementId; direction: SpawnDirection | null },
     ctx: ToolContext,
   ): void {
-    if (mode.arrowId) ctx.store.deleteElements([mode.arrowId])
     if (!mode.direction) return
     ctx.spawnChildAndEdit(mode.sourceId, mode.direction)
   }
@@ -364,13 +369,13 @@ export class SelectTool implements Tool {
     if (handle.id === 'midpoint') {
       this.mode = {
         kind: 'reshapeSegment',
-        arrowId: element.id,
+        arrow: element,
         segmentIndex: handle.segmentIndex,
         route: arrowRoute(element).map((point) => ({ ...point })),
       }
       return { overlay: true }
     }
-    this.mode = { kind: 'reshapeEndpoint', arrowId: element.id, handle: handle.id }
+    this.mode = { kind: 'reshapeEndpoint', arrow: element, handle: handle.id }
     return { overlay: true }
   }
 
@@ -420,11 +425,9 @@ export class SelectTool implements Tool {
       routing: 'orthogonal',
       style: ctx.store.getLastUsedStyle(),
     })
-    ctx.store.transact((api) => api.addElement(arrow))
-    ctx.store.setUiState({ selectedIds: new Set([arrow.id]) })
     this.mode = {
       kind: 'portDrag',
-      arrowId: arrow.id,
+      arrow,
       start: pending.start,
       startBinding: pending.startBinding,
       sourceId: pending.sourceId,
@@ -461,27 +464,33 @@ export class SelectTool implements Tool {
 
   private dragPort(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (this.mode.kind !== 'portDrag') return {}
-    const arrowId = this.mode.arrowId
+    const mode = this.mode
     const snapshot = ctx.store.getSnapshot()
-    const source = snapshot.elements[this.mode.sourceId]
+    const source = snapshot.elements[mode.sourceId]
     const snap = snapEndpoint(info.world, snapshot, {
       threshold: SNAP_DISTANCE / ctx.camera.zoom,
-      origin: this.mode.start,
-      ignoreId: arrowId,
+      origin: mode.start,
+      ignoreId: mode.arrow.id,
     })
-    const target = snap.target?.id === this.mode.sourceId ? null : snap.target
+    const target = snap.target?.id === mode.sourceId ? null : snap.target
     ctx.setGuides(snap.guides)
     ctx.setPortTarget(target?.id ?? null)
-    const startBinding = source ? createEndpointBinding(source, this.mode.start, snap.point) : this.mode.startBinding
-    const endBinding = target ? createEndpointBinding(target, snap.point, this.mode.start) : undefined
-    this.writeArrow(ctx, arrowId, [this.mode.start, snap.point], { start: startBinding, end: endBinding })
-    return { scene: true, overlay: true }
+    const arrow = createArrow({
+      id: mode.arrow.id,
+      points: [mode.start, snap.point],
+      start: source ? createEndpointBinding(source, mode.start, snap.point) : mode.startBinding,
+      end: target ? createEndpointBinding(target, snap.point, mode.start) : undefined,
+      routing: 'orthogonal',
+      style: mode.arrow.style,
+    })
+    ctx.setTransient?.([previewArrow(arrow, snapshot)])
+    this.pending = { kind: 'create', element: arrow }
+    return { overlay: true }
   }
 
   private dragEndpoint(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (this.mode.kind !== 'reshapeEndpoint') return {}
-    const arrow = ctx.store.getSnapshot().elements[this.mode.arrowId]
-    if (!arrow || !isArrowElement(arrow)) return {}
+    const arrow = this.mode.arrow
     const isStart = this.mode.handle === 'start'
     const route = arrowRoute(arrow)
     const fixedEnd = isStart ? route[route.length - 1]! : route[0]!
@@ -498,20 +507,19 @@ export class SelectTool implements Tool {
       ? [snap.point, ...currentPoints.slice(1)]
       : [...currentPoints.slice(0, -1), snap.point]
     const binding = rebindEnd(arrow, this.mode.handle, snap, approach)
-    this.writeArrow(ctx, arrow.id, points, isStart ? { start: binding } : { end: binding })
-    return { scene: true, overlay: true }
+    this.previewArrowEdit(ctx, arrow, points, isStart ? { start: binding } : { end: binding })
+    return { overlay: true }
   }
 
   private dragSegment(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (this.mode.kind !== 'reshapeSegment') return {}
-    const arrow = ctx.store.getSnapshot().elements[this.mode.arrowId]
-    if (!arrow || !isArrowElement(arrow)) return {}
+    const arrow = this.mode.arrow
     const target = snapRouteSegmentTarget(this.mode.route, this.mode.segmentIndex, info.world)
     let points = moveRouteSegment(this.mode.route, this.mode.segmentIndex, target)
     const bindings = this.slideEndpointBindings(arrow, this.mode.route, points, this.mode.segmentIndex, ctx.store.getSnapshot())
     if ('start' in bindings || 'end' in bindings) points = simplifyRoute(points)
-    this.writeArrow(ctx, arrow.id, points, bindings)
-    return { scene: true, overlay: true }
+    this.previewArrowEdit(ctx, arrow, points, bindings)
+    return { overlay: true }
   }
 
   private slideEndpointBindings(arrow: ArrowElement, originalRoute: Point[], points: Point[], segmentIndex: number, snapshot: SceneSnapshot): { start?: Binding | null; end?: Binding | null } {
@@ -545,22 +553,21 @@ export class SelectTool implements Tool {
     return bindings
   }
 
-  private writeArrow(
+  private previewArrowEdit(
     ctx: ToolContext,
-    id: ElementId,
+    arrow: ArrowElement,
     points: Point[],
     bindings: { start?: Binding | null; end?: Binding | null },
   ): void {
-    const arrow = ctx.store.getSnapshot().elements[id]
-    if (!arrow || !isArrowElement(arrow)) return
-    const nextPoints = points.map((point) => ({ ...point }))
     const patch: Partial<ArrowElement> = {
-      points: nextPoints,
+      points: points.map((point) => ({ ...point })),
       routing: routingForBindings(arrow, bindings),
     }
     if ('start' in bindings) patch.start = bindings.start ?? undefined
     if ('end' in bindings) patch.end = bindings.end ?? undefined
-    ctx.store.transact((api) => api.updateElement(id, patch))
+    const next = applyPatch(arrow, patch) as ArrowElement
+    ctx.setTransient?.(buildTransientElements(ctx.store, new Map([[arrow.id, next]])))
+    this.pending = { kind: 'patches', patches: [{ id: arrow.id, patch }] }
   }
 
   private trackHover(info: PointerInfo, ctx: ToolContext): ToolResult {
