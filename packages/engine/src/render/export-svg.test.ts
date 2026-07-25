@@ -38,6 +38,29 @@ function imageElement(): Element {
   })
 }
 
+function pathData(svg: string): string {
+  return /<path[^>]*\sd="([^"]+)"/.exec(svg)?.[1] ?? ''
+}
+
+function anchorBounds(d: string): { minX: number; minY: number; maxX: number; maxY: number } {
+  const xs: number[] = []
+  const ys: number[] = []
+  for (const command of d.match(/[MLCQ][^MLCQZ]*/g) ?? []) {
+    const numbers = (command.slice(1).match(/-?[\d.]+/g) ?? []).map(Number)
+    const y = numbers.pop()
+    const x = numbers.pop()
+    if (x === undefined || y === undefined) continue
+    xs.push(x)
+    ys.push(y)
+  }
+  return {
+    minX: Math.min(...xs),
+    minY: Math.min(...ys),
+    maxX: Math.max(...xs),
+    maxY: Math.max(...ys),
+  }
+}
+
 function stubImageDocument(): void {
   vi.stubGlobal('document', {
     createElement: () => ({
@@ -219,6 +242,123 @@ describe('SvgDrawTarget', () => {
     expect(out).toContain('stdDeviation="4"')
     expect(out).toContain('dx="3" dy="4"')
     expect(out).toContain('flood-color="#ff0000"')
+  })
+
+  it('derives the filter region from the blur radius and offset instead of a fixed percentage', () => {
+    const svg = target()
+    svg.fillStyle = '#000000'
+    svg.shadowColor = '#000000'
+    svg.shadowBlur = 4
+    svg.fillRect(10, 10, 20, 20)
+    const out = svg.toSvg()
+    expect(out).toContain('filterUnits="userSpaceOnUse" x="4" y="4" width="32" height="32"')
+    expect(out).not.toContain('x="-50%"')
+  })
+
+  it('grows the filter region for large blur radii and large offsets', () => {
+    const svg = target()
+    svg.fillStyle = '#000000'
+    svg.shadowColor = '#000000'
+    svg.shadowBlur = 40
+    svg.shadowOffsetY = 30
+    svg.fillRect(10, 10, 20, 20)
+    expect(svg.toSvg()).toContain(
+      'filterUnits="userSpaceOnUse" x="-50" y="-80" width="140" height="200"',
+    )
+  })
+
+  it('reuses one filter for repeated shadows with the same geometry', () => {
+    const svg = target()
+    svg.fillStyle = '#000000'
+    svg.shadowColor = '#000000'
+    svg.shadowBlur = 4
+    svg.fillRect(10, 10, 20, 20)
+    svg.fillRect(10, 10, 20, 20)
+    expect(svg.toSvg().match(/<filter /g) ?? []).toHaveLength(1)
+  })
+
+  it('applies the shadow filter to strokes with a region that survives a flat path', () => {
+    const svg = target()
+    svg.strokeStyle = '#123456'
+    svg.lineWidth = 2
+    svg.shadowColor = '#00ff00'
+    svg.shadowBlur = 6
+    svg.beginPath()
+    svg.moveTo(10, 50)
+    svg.lineTo(90, 50)
+    svg.stroke()
+    const out = svg.toSvg()
+    expect(out).toContain('flood-color="#00ff00"')
+    expect(out).toMatch(/<path[^>]*stroke="#123456"[^>]*filter="url\(#fd-shadow-/)
+    expect(out).toContain('filterUnits="userSpaceOnUse" x="0" y="40" width="100" height="20"')
+  })
+
+  it('applies the shadow filter to text', () => {
+    const svg = target()
+    svg.fillStyle = '#000000'
+    svg.font = '20px sans-serif'
+    svg.shadowColor = 'rgba(0, 0, 0, 0.5)'
+    svg.shadowBlur = 8
+    svg.shadowOffsetY = 2
+    svg.fillText('hi', 10, 20)
+    const out = svg.toSvg()
+    expect(out).toMatch(/<text[^>]*filter="url\(#fd-shadow-/)
+    expect(out).toContain('flood-color="rgba(0, 0, 0, 0.5)"')
+  })
+
+  it('applies the shadow filter to images', () => {
+    const svg = target()
+    svg.shadowColor = '#ff00ff'
+    svg.shadowBlur = 10
+    svg.drawImage(
+      {} as unknown as CanvasImageSource,
+      0,
+      0,
+      20,
+      20,
+      () => 'data:image/png;base64,X',
+    )
+    const out = svg.toSvg()
+    expect(out).toMatch(/<image[^>]*filter="url\(#fd-shadow-/)
+    expect(out).toContain('filterUnits="userSpaceOnUse" x="-15" y="-15" width="50" height="50"')
+  })
+
+  it('leaves strokes, text and images unfiltered when no shadow is set', () => {
+    const svg = target()
+    svg.strokeStyle = '#123456'
+    svg.beginPath()
+    svg.moveTo(0, 0)
+    svg.lineTo(10, 10)
+    svg.stroke()
+    svg.fillStyle = '#000000'
+    svg.fillText('hi', 0, 0)
+    expect(svg.toSvg()).not.toContain('filter="url(#fd-shadow-')
+  })
+
+  it('rotates ellipse points by the rotation argument', () => {
+    const svg = target()
+    svg.strokeStyle = '#000000'
+    svg.beginPath()
+    svg.ellipse(50, 50, 10, 2, Math.PI / 2, 0, Math.PI * 2)
+    svg.stroke()
+    const box = anchorBounds(pathData(svg.toSvg()))
+    expect(box.minX).toBeCloseTo(48, 3)
+    expect(box.maxX).toBeCloseTo(52, 3)
+    expect(box.minY).toBeCloseTo(40, 3)
+    expect(box.maxY).toBeCloseTo(60, 3)
+  })
+
+  it('keeps an unrotated ellipse axis aligned', () => {
+    const svg = target()
+    svg.strokeStyle = '#000000'
+    svg.beginPath()
+    svg.ellipse(50, 50, 10, 2, 0, 0, Math.PI * 2)
+    svg.stroke()
+    const box = anchorBounds(pathData(svg.toSvg()))
+    expect(box.minX).toBeCloseTo(40, 3)
+    expect(box.maxX).toBeCloseTo(60, 3)
+    expect(box.minY).toBeCloseTo(48, 3)
+    expect(box.maxY).toBeCloseTo(52, 3)
   })
 
   it('accepts font faces from its config without touching the global registry', () => {
