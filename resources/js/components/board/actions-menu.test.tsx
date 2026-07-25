@@ -1,6 +1,6 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createElement } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EditorController, SceneStore } from '@freedraw/engine'
 import type { BoardExport } from '@/hooks/board/use-export.js'
 import { ActionsMenu } from './actions-menu.js'
@@ -110,10 +110,6 @@ function entry(label: string): HTMLElement {
 function isDisabled(label: string): boolean {
   return entry(label).getAttribute('aria-disabled') === 'true'
 }
-
-afterEach(() => {
-  cleanup()
-})
 
 beforeEach(() => {
   vi.clearAllMocks()

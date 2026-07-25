@@ -5,6 +5,7 @@ export default defineConfig({
     test: {
         environment: 'happy-dom',
         include: ['resources/js/**/*.test.{ts,tsx}'],
+        setupFiles: ['./resources/js/test/setup.ts'],
     },
     resolve: {
         alias: {

@@ -1,6 +1,6 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EditorController, SceneStore } from '@freedraw/engine'
 import type { BoardExport } from '@/hooks/board/use-export.js'
 import type { BoardPage, Organization, User } from '@/types'
@@ -171,10 +171,6 @@ beforeEach(() => {
     boardPage: null,
     boardPages: [],
   }
-})
-
-afterEach(() => {
-  cleanup()
 })
 
 describe('BoardMobileMenu guest rendering', () => {

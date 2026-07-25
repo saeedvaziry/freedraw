@@ -1,4 +1,4 @@
-import { cleanup, renderHook } from '@testing-library/react'
+import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   SCENE_FILE_VERSION,
@@ -97,7 +97,6 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  cleanup()
   vi.restoreAllMocks()
 })
 

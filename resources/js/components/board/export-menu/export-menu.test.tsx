@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createShape, type EditorController, type SceneStore } from '@freedraw/engine'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import type { BoardExport } from '@/hooks/board/use-export.js'
@@ -111,10 +111,6 @@ function checkbox(label: string): HTMLInputElement {
 
 beforeEach(() => {
   vi.clearAllMocks()
-})
-
-afterEach(() => {
-  cleanup()
 })
 
 describe('ExportMenu entries', () => {
