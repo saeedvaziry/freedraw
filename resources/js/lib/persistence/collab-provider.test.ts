@@ -1,12 +1,13 @@
 import * as Y from 'yjs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { WS, destroySpy, providerRef } = vi.hoisted(() => ({
+const { WS, awarenessStub, destroySpy, providerRef } = vi.hoisted(() => ({
   WS: {
     Connecting: 'connecting',
     Connected: 'connected',
     Disconnected: 'disconnected',
   } as const,
+  awarenessStub: { clientID: 42 },
   destroySpy: vi.fn(),
   providerRef: { current: null as unknown as Record<string, (arg: unknown) => void> & Record<string, unknown> },
 }))
@@ -15,7 +16,7 @@ vi.mock('@hocuspocus/provider', () => ({
   WebSocketStatus: WS,
   HocuspocusProvider: vi.fn(function (config: Record<string, unknown>) {
     providerRef.current = config as (typeof providerRef)['current']
-    return { destroy: destroySpy }
+    return { destroy: destroySpy, awareness: awarenessStub }
   }),
 }))
 
@@ -53,6 +54,13 @@ describe('createCollabSync', () => {
     expect(providerRef.current.url).toBe('wss://x/collab')
     expect(providerRef.current.document).toBe(doc)
     expect(typeof providerRef.current.token).toBe('function')
+  })
+
+  it('exposes the provider awareness for presence writers', () => {
+    const doc = new Y.Doc()
+    const sync = createCollabSync({ doc, room: 'r', url: 'wss://x', tokenUrl: '/t' })
+
+    expect(sync.awareness).toBe(awarenessStub)
   })
 
   it('maps provider lifecycle events onto the sync status', () => {

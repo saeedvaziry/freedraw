@@ -10,6 +10,12 @@ export interface CollabSyncOptions {
   tokenUrl: string
 }
 
+export type CollabAwareness = NonNullable<HocuspocusProvider['awareness']>
+
+export interface CollabSync extends PageSync {
+  awareness: CollabAwareness | null
+}
+
 export function deriveSyncStatus(
   status: WebSocketStatus,
   synced: boolean,
@@ -20,7 +26,7 @@ export function deriveSyncStatus(
   return 'saving'
 }
 
-export function createCollabSync(options: CollabSyncOptions): PageSync {
+export function createCollabSync(options: CollabSyncOptions): CollabSync {
   const { doc, room, url, tokenUrl } = options
 
   let destroyed = false
@@ -65,6 +71,7 @@ export function createCollabSync(options: CollabSyncOptions): PageSync {
   })
 
   return {
+    awareness: provider.awareness ?? null,
     flush: () => Promise.resolve(),
     destroy() {
       if (destroyed) return

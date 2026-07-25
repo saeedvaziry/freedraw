@@ -22,7 +22,7 @@ export type { DeletePageResult, SavePagePayload, SharePagePayload } from './page
 export { createPageSync } from './page-sync.js'
 export type { PageSync, SyncStatus } from './page-sync.js'
 export { createCollabSync, deriveSyncStatus } from './collab-provider.js'
-export type { CollabSyncOptions } from './collab-provider.js'
+export type { CollabAwareness, CollabSync, CollabSyncOptions } from './collab-provider.js'
 export { readCollabConfig } from './collab-config.js'
 export type { CollabConfig } from './collab-config.js'
 export { createDocumentPersistence, DOCUMENT_DB_NAME } from './document-persistence.js'
