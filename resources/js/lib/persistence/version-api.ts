@@ -1,3 +1,4 @@
+import { csrfToken } from './http.js'
 import { PageRequestError } from './page-api.js'
 
 export interface PageVersionCreator {
@@ -25,22 +26,6 @@ export class VersionRequestError extends PageRequestError {
     super(status)
     this.name = 'VersionRequestError'
     if (detail) this.message = detail
-  }
-}
-
-function metaToken(): string {
-  return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
-}
-
-function csrfToken(): string {
-  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/)
-
-  if (!match) return metaToken()
-
-  try {
-    return decodeURIComponent(match[1])
-  } catch {
-    return metaToken()
   }
 }
 

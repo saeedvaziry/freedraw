@@ -1,5 +1,6 @@
 import * as Y from 'yjs'
 import type { BoardPage, PagePermission, PageVisibility } from '@/types'
+import { csrfToken } from './http.js'
 
 export interface SavePagePayload {
   title?: string | null
@@ -28,24 +29,6 @@ export class PageRequestError extends Error {
 /** True when the session's CSRF token has expired and the page must reload. */
 export function isCsrfExpired(error: unknown): boolean {
   return error instanceof PageRequestError && error.status === 419
-}
-
-/**
- * Read Laravel's XSRF-TOKEN cookie. Unlike the Blade meta tag this rotates with
- * the session, so long-lived board tabs keep sending a valid token instead of a
- * stale one. The cookie value is URL-encoded by Laravel.
- */
-function csrfToken(): string {
-  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/)
-  if (match) {
-    try {
-      return decodeURIComponent(match[1])
-    } catch {
-      // Fall through to the meta tag below.
-    }
-  }
-
-  return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
 }
 
 async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
