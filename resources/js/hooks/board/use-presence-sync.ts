@@ -15,6 +15,8 @@ import {
   samePresenceOverlay,
   PRESENCE_STALE_MS,
   type PresenceAwareness,
+  type PresenceDrag,
+  type PresenceDragKind,
   type PresenceParticipant,
   type PresencePoint,
   type PresenceViewport,
@@ -23,10 +25,12 @@ import type { PageSync } from '@/lib/persistence'
 import { usePresence, type UsePresenceResult } from './use-presence.js'
 
 const NO_SELECTION: readonly string[] = []
+const DRAG_EPSILON = 1e-6
 
 export interface PresenceCanvas {
   subscribeCursor(listener: (point: PresencePoint | null) => void): () => void
   subscribeCamera(listener: (camera: CameraState) => void): () => void
+  subscribeTransient(listener: (elements: readonly Element[] | null) => void): () => void
   setPresenceOverlay(presence: PresenceOverlay | null): void
   getViewport(): CameraState
   readonly cursorWorldPoint: PresencePoint | null
@@ -46,6 +50,7 @@ export interface PresencePublisher {
   setSelection(ids: readonly string[]): void
   setTool(tool: ToolId | null): void
   setViewport(viewport: PresenceViewport | null): void
+  setDrag(drag: PresenceDrag | null): void
 }
 
 export interface PresenceReader {
@@ -100,6 +105,25 @@ function sameIds(list: readonly string[], ids: ReadonlySet<string>): boolean {
   return true
 }
 
+function dragKindFor(
+  elements: readonly Element[],
+  committed: Record<string, Element>,
+): PresenceDragKind {
+  let rotated = false
+  for (const element of elements) {
+    const before = committed[element.id]
+    if (!before) return 'create'
+    if (
+      Math.abs(before.width - element.width) > DRAG_EPSILON ||
+      Math.abs(before.height - element.height) > DRAG_EPSILON
+    ) {
+      return 'resize'
+    }
+    if (Math.abs(before.rotation - element.rotation) > DRAG_EPSILON) rotated = true
+  }
+  return rotated ? 'rotate' : 'move'
+}
+
 export function attachPresencePublisher(options: AttachPresencePublisherOptions): () => void {
   const { canvas, scene, publisher, readOnly = false } = options
   const cleanups: Array<() => void> = []
@@ -150,6 +174,7 @@ export function attachPresencePublisher(options: AttachPresencePublisherOptions)
   if (readOnly) {
     publisher.setSelection(NO_SELECTION)
     publisher.setTool(null)
+    publisher.setDrag(null)
   } else {
     const publishSelection = (): void => {
       const ids = scene.getUiState().selectedIds
@@ -160,6 +185,22 @@ export function attachPresencePublisher(options: AttachPresencePublisherOptions)
     const publishTool = (): void => {
       publisher.setTool(scene.getUiState().activeTool)
     }
+    const publishDrag = (elements: readonly Element[] | null): void => {
+      if (elements === null || elements.length === 0) {
+        publisher.setDrag(null)
+        return
+      }
+      const ids = scene.getUiState().selectedIds
+      const owned = elements.filter((element) => ids.has(element.id))
+      const dragged = owned.length === 0 ? [...elements] : owned
+      const frame = selectionFrameFor(dragged)
+      if (frame === null) {
+        publisher.setDrag(null)
+        return
+      }
+      publisher.setDrag({ kind: dragKindFor(dragged, scene.getSnapshot().elements), frame })
+    }
+    cleanups.push(canvas.subscribeTransient(publishDrag))
     cleanups.push(scene.subscribeSelection(publishSelection))
     cleanups.push(scene.subscribeChrome(publishTool))
     publishSelection()
@@ -172,6 +213,7 @@ export function attachPresencePublisher(options: AttachPresencePublisherOptions)
     if (!readOnly) {
       publisher.setSelection(NO_SELECTION)
       publisher.setTool(null)
+      publisher.setDrag(null)
     }
   }
 }
@@ -265,12 +307,20 @@ export function usePresenceSync(options: UsePresenceSyncOptions): UsePresenceRes
   const muted = readOnly || previewing
   const awareness = useMemo(() => presenceAwarenessFrom(sync), [sync])
   const presence = usePresence({ awareness, enabled, readOnly: muted })
-  const { active, readParticipants, setCursor, setSelection, setTool, setViewport, subscribe } =
-    presence
+  const {
+    active,
+    readParticipants,
+    setCursor,
+    setDrag,
+    setSelection,
+    setTool,
+    setViewport,
+    subscribe,
+  } = presence
 
   const publisher = useMemo<PresencePublisher>(
-    () => ({ setCursor, setSelection, setTool, setViewport }),
-    [setCursor, setSelection, setTool, setViewport],
+    () => ({ setCursor, setSelection, setTool, setViewport, setDrag }),
+    [setCursor, setSelection, setTool, setViewport, setDrag],
   )
   const reader = useMemo<PresenceReader>(
     () => ({ readParticipants, subscribe }),

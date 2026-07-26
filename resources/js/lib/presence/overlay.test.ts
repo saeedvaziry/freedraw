@@ -249,6 +249,117 @@ describe('createPresenceOverlayMapper', () => {
         expect(resolveFrame).toHaveBeenCalledTimes(2);
     });
 
+    it('paints the live drag frame instead of the committed selection halo', () => {
+        const mapper = createPresenceOverlayMapper();
+        const resolveFrame = resolver(frameAt(0, 0));
+        const peer = participant(2, {
+            selection: ['a'],
+            drag: { kind: 'move', frame: frameAt(40, 40) },
+        });
+
+        const overlay = mapper.build([peer], {
+            resolveFrame,
+            scene: {},
+            now: NOW,
+        });
+
+        expect(overlay.halos).toEqual([
+            { id: '2', frame: frameAt(40, 40), color: peer.user.color },
+        ]);
+        expect(resolveFrame).not.toHaveBeenCalled();
+    });
+
+    it('paints a drag frame for a peer that has nothing selected', () => {
+        const mapper = createPresenceOverlayMapper();
+        const peer = participant(2, {
+            drag: { kind: 'create', frame: frameAt(5, 5) },
+        });
+
+        const overlay = mapper.build([peer], {
+            resolveFrame: resolver(null),
+            scene: {},
+            now: NOW,
+        });
+
+        expect(overlay.halos).toEqual([
+            { id: '2', frame: frameAt(5, 5), color: peer.user.color },
+        ]);
+    });
+
+    it('falls back to the committed halo once the drag ends', () => {
+        const mapper = createPresenceOverlayMapper();
+        const resolveFrame = resolver(frameAt(0, 0));
+        const scene = {};
+        const peer = participant(2, { selection: ['a'] });
+
+        mapper.build(
+            [{ ...peer, drag: { kind: 'move', frame: frameAt(40, 40) } }],
+            { resolveFrame, scene, now: NOW },
+        );
+        const overlay = mapper.build([peer], {
+            resolveFrame,
+            scene,
+            now: NOW,
+        });
+
+        expect(overlay.halos).toEqual([
+            { id: '2', frame: frameAt(0, 0), color: peer.user.color },
+        ]);
+        expect(resolveFrame).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores a drag that carries no frame yet', () => {
+        const mapper = createPresenceOverlayMapper();
+        const peer = participant(2, {
+            selection: ['a'],
+            drag: { kind: 'move', frame: null },
+        });
+
+        const overlay = mapper.build([peer], {
+            resolveFrame: resolver(frameAt(0, 0)),
+            scene: {},
+            now: NOW,
+        });
+
+        expect(overlay.halos).toEqual([
+            { id: '2', frame: frameAt(0, 0), color: peer.user.color },
+        ]);
+    });
+
+    it('drops the drag frame of a peer that has gone stale', () => {
+        const mapper = createPresenceOverlayMapper();
+        const peer = participant(2, {
+            drag: { kind: 'move', frame: frameAt(40, 40) },
+            updatedAt: NOW - PRESENCE_STALE_MS - 1,
+        });
+
+        const overlay = mapper.build([peer], {
+            resolveFrame: resolver(null),
+            scene: {},
+            now: NOW,
+        });
+
+        expect(isEmptyPresenceOverlay(overlay)).toBe(true);
+    });
+
+    it('suspends the drag frame while the caller previews another scene', () => {
+        const mapper = createPresenceOverlayMapper();
+        const peer = participant(2, {
+            cursor: { x: 4, y: 6 },
+            drag: { kind: 'move', frame: frameAt(40, 40) },
+        });
+
+        const overlay = mapper.build([peer], {
+            resolveFrame: resolver(null),
+            scene: {},
+            now: NOW,
+            halos: false,
+        });
+
+        expect(overlay.cursors).toHaveLength(1);
+        expect(overlay.halos).toHaveLength(0);
+    });
+
     it('suspends halos while the caller previews another scene', () => {
         const mapper = createPresenceOverlayMapper();
         const resolveFrame = resolver(frameAt(0, 0));

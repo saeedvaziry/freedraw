@@ -5,6 +5,8 @@ import {
   readPresenceParticipants,
   resolvePresenceIdentity,
   type PresenceAwareness,
+  type PresenceDrag,
+  type PresenceFrame,
   type PresenceParticipant,
 } from '@/lib/presence'
 import type { PageSync } from '@/lib/persistence'
@@ -24,13 +26,16 @@ interface FakeCanvas extends PresenceCanvas {
   overlays: Array<{ cursors: number; halos: number } | null>
   cursorSubscribers: number
   cameraSubscribers: number
+  transientSubscribers: number
   moveCursor(point: { x: number; y: number } | null): void
   moveCamera(camera: CameraState): void
+  drag(elements: Element[] | null): void
 }
 
 function createCanvas(camera: CameraState = { x: 0, y: 0, zoom: 1 }): FakeCanvas {
   const cursorListeners = new Set<(point: { x: number; y: number } | null) => void>()
   const cameraListeners = new Set<(camera: CameraState) => void>()
+  const transientListeners = new Set<(elements: readonly Element[] | null) => void>()
   let current = camera
   let world: { x: number; y: number } | null = null
 
@@ -41,6 +46,9 @@ function createCanvas(camera: CameraState = { x: 0, y: 0, zoom: 1 }): FakeCanvas
     },
     get cameraSubscribers() {
       return cameraListeners.size
+    },
+    get transientSubscribers() {
+      return transientListeners.size
     },
     get cursorWorldPoint() {
       return world
@@ -62,6 +70,10 @@ function createCanvas(camera: CameraState = { x: 0, y: 0, zoom: 1 }): FakeCanvas
       cameraListeners.add(listener)
       return () => cameraListeners.delete(listener)
     },
+    subscribeTransient(listener) {
+      transientListeners.add(listener)
+      return () => transientListeners.delete(listener)
+    },
     moveCursor(point) {
       world = point
       cursorListeners.forEach((listener) => listener(point))
@@ -69,6 +81,9 @@ function createCanvas(camera: CameraState = { x: 0, y: 0, zoom: 1 }): FakeCanvas
     moveCamera(next) {
       current = next
       cameraListeners.forEach((listener) => listener(next))
+    },
+    drag(elements) {
+      transientListeners.forEach((listener) => listener(elements))
     },
   }
 }
@@ -130,12 +145,14 @@ function createPublisher(): PresencePublisher & {
   selections: string[][]
   tools: Array<ToolId | null>
   viewports: number[]
+  drags: Array<PresenceDrag | null>
 } {
   return {
     cursors: [],
     selections: [],
     tools: [],
     viewports: [],
+    drags: [],
     setCursor(point) {
       this.cursors.push(point === null ? null : { x: point.x, y: point.y })
     },
@@ -147,6 +164,9 @@ function createPublisher(): PresencePublisher & {
     },
     setViewport(viewport) {
       this.viewports.push(viewport === null ? -1 : viewport.zoom)
+    },
+    setDrag(drag) {
+      this.drags.push(drag)
     },
   }
 }
@@ -194,8 +214,20 @@ function participant(
   }
 }
 
-function shape(id: string, x: number): Element {
-  return createShape({ id, x, y: 0, width: 10, height: 10 })
+function shape(
+  id: string,
+  x: number,
+  init: { width?: number; height?: number; rotation?: number } = {},
+): Element {
+  return createShape({ id, x, y: 0, width: 10, height: 10, ...init })
+}
+
+function frameAt(x: number, width = 10): PresenceFrame {
+  return {
+    bounds: { x, y: 0, width, height: 10 },
+    rotation: 0,
+    center: { x: x + width / 2, y: 5 },
+  }
 }
 
 function fakeSync(extra: Record<string, unknown> = {}): PageSync {
@@ -359,6 +391,163 @@ describe('attachPresencePublisher', () => {
     scene.select(['a'])
 
     expect(publisher.selections).toEqual([['a']])
+  })
+
+  it('publishes the live drag frame while the transient layer owns the geometry', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const publisher = createPublisher()
+
+    attachPresencePublisher({ canvas, scene, publisher })
+    scene.select(['a'])
+    canvas.drag([shape('a', 40)])
+
+    expect(publisher.drags).toEqual([{ kind: 'move', frame: frameAt(40) }])
+  })
+
+  it('clears the drag once the transient layer goes away', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const publisher = createPublisher()
+
+    attachPresencePublisher({ canvas, scene, publisher })
+    scene.select(['a'])
+    canvas.drag([shape('a', 40)])
+    canvas.drag(null)
+
+    expect(publisher.drags).toEqual([{ kind: 'move', frame: frameAt(40) }, null])
+  })
+
+  it('reports a resize when the dragged geometry changes size', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const publisher = createPublisher()
+
+    attachPresencePublisher({ canvas, scene, publisher })
+    scene.select(['a'])
+    canvas.drag([shape('a', 0, { width: 40 })])
+
+    expect(publisher.drags).toEqual([{ kind: 'resize', frame: frameAt(0, 40) }])
+  })
+
+  it('reports a rotation when only the angle changes', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const publisher = createPublisher()
+
+    attachPresencePublisher({ canvas, scene, publisher })
+    scene.select(['a'])
+    canvas.drag([shape('a', 0, { rotation: 0.5 })])
+
+    expect(publisher.drags[0]?.kind).toBe('rotate')
+    expect(publisher.drags[0]?.frame?.rotation).toBe(0.5)
+  })
+
+  it('reports a create for a transient element the scene never committed', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const publisher = createPublisher()
+
+    attachPresencePublisher({ canvas, scene, publisher })
+    canvas.drag([shape('ghost', 0)])
+
+    expect(publisher.drags[0]?.kind).toBe('create')
+  })
+
+  it('frames only the dragged selection while bound arrows re-route', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0), shape('b', 900)])
+    const publisher = createPublisher()
+
+    attachPresencePublisher({ canvas, scene, publisher })
+    scene.select(['a'])
+    canvas.drag([shape('a', 40), shape('b', 900)])
+
+    expect(publisher.drags).toEqual([{ kind: 'move', frame: frameAt(40) }])
+  })
+
+  it('frames the whole transient layer when it holds nothing selected', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0), shape('b', 90)])
+    const publisher = createPublisher()
+
+    attachPresencePublisher({ canvas, scene, publisher })
+    canvas.drag([shape('a', 0), shape('b', 90)])
+
+    expect(publisher.drags).toEqual([{ kind: 'move', frame: frameAt(0, 100) }])
+  })
+
+  it('coalesces drag frames onto the writer cursor interval', () => {
+    const awareness = localAwareness()
+    const writer = createPresenceWriter(
+      awareness,
+      resolvePresenceIdentity({ user: { id: 1, name: 'Ada' } }),
+      { cursorIntervalMs: 30 },
+    )
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const publishedX = (): number | undefined =>
+      readPresenceParticipants(awareness)[0].drag?.frame?.bounds.x
+
+    attachPresencePublisher({ canvas, scene, publisher: writer })
+    scene.select(['a'])
+    canvas.drag([shape('a', 10)])
+    canvas.drag([shape('a', 20)])
+    canvas.drag([shape('a', 30)])
+
+    expect(publishedX()).toBe(10)
+
+    vi.advanceTimersByTime(30)
+
+    expect(publishedX()).toBe(30)
+
+    writer.destroy()
+  })
+
+  it('never subscribes to the transient layer for a read-only viewer', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const publisher = createPublisher()
+
+    attachPresencePublisher({ canvas, scene, publisher, readOnly: true })
+    canvas.drag([shape('a', 40)])
+
+    expect(publisher.drags).toEqual([null])
+    expect(canvas.transientSubscribers).toBe(0)
+  })
+
+  it('cannot leak a drag frame through a read-only writer', () => {
+    const awareness = localAwareness()
+    const writer = createPresenceWriter(
+      awareness,
+      resolvePresenceIdentity({ user: { id: 1, name: 'Ada' } }),
+      { readOnly: true },
+    )
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+
+    attachPresencePublisher({ canvas, scene, publisher: writer, readOnly: true })
+    canvas.drag([shape('a', 40)])
+    writer.flush()
+
+    expect(readPresenceParticipants(awareness)[0].drag).toBeNull()
+
+    writer.destroy()
+  })
+
+  it('clears the drag and detaches the transient listener on cleanup', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const publisher = createPublisher()
+
+    const detach = attachPresencePublisher({ canvas, scene, publisher })
+    scene.select(['a'])
+    canvas.drag([shape('a', 40)])
+    detach()
+    canvas.drag([shape('a', 80)])
+
+    expect(publisher.drags).toEqual([{ kind: 'move', frame: frameAt(40) }, null])
+    expect(canvas.transientSubscribers).toBe(0)
   })
 
   it('keeps a read-only viewer to cursor and viewport only', () => {

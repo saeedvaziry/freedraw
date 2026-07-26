@@ -195,6 +195,19 @@ export function createPresenceOverlayMapper(): PresenceOverlayMapper {
                     continue;
                 }
 
+                const dragged = participant.drag?.frame ?? null;
+
+                if (dragged !== null) {
+                    halos ??= [];
+                    halos.push({
+                        id: String(participant.clientId),
+                        frame: dragged,
+                        color: participant.user.color,
+                    });
+
+                    continue;
+                }
+
                 const halo = haloFor(participant, options);
 
                 if (halo !== null) {
