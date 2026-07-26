@@ -77,6 +77,7 @@ export type {
   CursorListener,
   CameraListener,
   InteractionListener,
+  TransientListener,
 } from './controller/editor-controller.js'
 export { paintPresence } from './render/overlay/presence.js'
 export type { PresenceOverlay, PresenceCursor, PresenceHalo } from './render/overlay/presence.js'
@@ -102,8 +103,14 @@ export type {
   ExportSvgRenderOptions,
   SvgRenderResult,
 } from './render/export-scene.js'
-export { CanvasDrawTarget, SvgDrawTarget } from './render/draw-target.js'
-export type { DrawTarget, DrawTransform, SvgDrawTargetConfig } from './render/draw-target.js'
+export { CanvasDrawTarget, SvgDrawTarget, setSvgFontFaces } from './render/draw-target.js'
+export type {
+  DrawTarget,
+  DrawTransform,
+  SvgDrawTargetConfig,
+  SvgFontFace,
+  ImageHrefResolver,
+} from './render/draw-target.js'
 
 export { ToolManager } from './tools/tool-manager.js'
 export { ShapeTool } from './tools/shape-tool.js'

@@ -86,6 +86,7 @@ type ContextMenuListener = (request: ContextMenuRequest | null) => void
 export type CursorListener = (point: Point | null) => void
 export type CameraListener = (camera: CameraState) => void
 export type InteractionListener = (interaction: SelectionInteraction | null) => void
+export type TransientListener = (elements: readonly Element[] | null) => void
 
 export interface FlowContext {
   editingId: ElementId
@@ -120,6 +121,7 @@ export class EditorController {
   private readonly cameraFrameListeners = new Set<CameraListener>()
   private interaction: SelectionInteraction | null = null
   private readonly interactionListeners = new Set<InteractionListener>()
+  private readonly transientListeners = new Set<TransientListener>()
   private presenceOverlay: PresenceOverlay | null = null
   private isSpaceDown = false
   private isSpacePanning = false
@@ -282,8 +284,8 @@ export class EditorController {
     this.blobLoader = loader
   }
 
-  cacheImageBitmap(assetId: string, bitmap: ImageBitmap): void {
-    this.imageCache.set(assetId, bitmap)
+  cacheImageBitmap(assetId: string, bitmap: ImageBitmap, source?: Blob): void {
+    this.imageCache.set(assetId, bitmap, source)
     this.requestRepaint()
   }
 
@@ -455,6 +457,15 @@ export class EditorController {
     return () => this.interactionListeners.delete(listener)
   }
 
+  subscribeTransient(listener: TransientListener): () => void {
+    this.transientListeners.add(listener)
+    return () => this.transientListeners.delete(listener)
+  }
+
+  get activeTransient(): readonly Element[] | null {
+    return this.transientElements
+  }
+
   get activeInteraction(): SelectionInteraction | null {
     return this.interaction
   }
@@ -548,7 +559,7 @@ export class EditorController {
   async exportSvg(options: ExportSvgOptions = {}): Promise<ExportSvgResult> {
     const snapshot = this.store.getSnapshot()
     const elementIds = options.selectionOnly ? [...this.store.getUiState().selectedIds] : undefined
-    await this.imageCache.ensureBitmaps(exportImageAssetIds(snapshot))
+    await this.imageCache.ensureSources(exportImageAssetIds(snapshot))
     return renderSceneSvg(snapshot, {
       padding: options.padding,
       scale: options.scale,
@@ -745,6 +756,7 @@ export class EditorController {
     this.transientById = index
     this.store.setTransientIds(index ? [...index.keys()] : null)
     this.loop.markOverlayDirty()
+    this.transientListeners.forEach((listener) => listener(next))
   }
 
   private resize(): void {

@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } fr
 import * as Y from 'yjs'
 import { arrowRoute } from '../connectors/resolve.js'
 import { fitCamera } from '../geometry/fit.js'
-import { createArrow, createShape } from '../model/factory.js'
-import type { ArrowElement, CameraState, Point } from '../model/types.js'
+import { createArrow, createImage, createShape } from '../model/factory.js'
+import type { ArrowElement, CameraState, Element, Point } from '../model/types.js'
 import type { EditRequest } from '../text/edit.js'
 import { Renderer, type OverlayState } from '../render/renderer.js'
 import { SceneStore } from '../store/scene-store.js'
@@ -157,13 +157,15 @@ describe('EditorController.zoomToRect', () => {
 describe('EditorController overlay chrome during transient drags', () => {
   let renderOverlay: MockInstance<Renderer['renderOverlay']>
   let store: SceneStore
+  let controller: EditorController
   let overlayCanvas: HTMLCanvasElement
   let cleanup: (() => void) | null = null
 
   function mountWith(seeded: SceneStore): void {
     store = seeded
     overlayCanvas = fakeCanvas()
-    cleanup = new EditorController(seeded, fakeCanvas(), overlayCanvas).mount()
+    controller = new EditorController(seeded, fakeCanvas(), overlayCanvas)
+    cleanup = controller.mount()
     renderOverlay.mockClear()
   }
 
@@ -227,6 +229,36 @@ describe('EditorController overlay chrome during transient drags', () => {
     const released = lastOverlay()
     expect(released.transient).toBeNull()
     expect(released.selection?.bounds).toEqual({ x: 50, y: 0, width: 120, height: 80 })
+  })
+
+  it('publishes the transient layer to subscribers for the whole drag', () => {
+    mountWith(shapeScene())
+    store.setUiState({ selectedIds: new Set(['a']) })
+    flushFrame()
+
+    const frames: (readonly Element[] | null)[] = []
+    const unsubscribe = controller.subscribeTransient((elements) => frames.push(elements))
+    expect(controller.activeTransient).toBeNull()
+
+    dispatchPointer(overlayCanvas, 'pointerdown', { x: 60, y: 40 })
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 110, y: 40 })
+
+    expect(frames.at(-1)?.[0]?.x).toBe(50)
+    expect(controller.activeTransient?.[0]?.x).toBe(50)
+    expect(store.getSnapshot().elements['a']!.x).toBe(0)
+
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 160, y: 40 })
+    expect(frames.at(-1)?.[0]?.x).toBe(100)
+
+    dispatchPointer(overlayCanvas, 'pointerup', { x: 160, y: 40 })
+    expect(frames.at(-1)).toBeNull()
+    expect(controller.activeTransient).toBeNull()
+
+    unsubscribe()
+    const seen = frames.length
+    dispatchPointer(overlayCanvas, 'pointerdown', { x: 110, y: 40 })
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 140, y: 40 })
+    expect(frames).toHaveLength(seen)
   })
 
   it('grows the selection frame with a transient resize preview', () => {
@@ -592,5 +624,80 @@ describe('EditorController camera input signal', () => {
 
     expect(emitted).toHaveLength(0)
     expect(controller.getViewport()).toEqual({ x: 12, y: 34, zoom: 2 })
+  })
+})
+
+describe('EditorController.exportSvg image sources', () => {
+  const BITMAP = { width: 40, height: 30 } as unknown as ImageBitmap
+  const WEBP_BASE64 = btoa('\x01\x02\x03')
+  let controller: EditorController
+  let cleanup: () => void
+
+  function webpBlob(): Blob {
+    return new Blob([new Uint8Array([1, 2, 3])], { type: 'image/webp' })
+  }
+
+  function svgOf(result: Awaited<ReturnType<EditorController['exportSvg']>>): string {
+    if (!result.ok) throw new Error(`expected ok svg, got ${result.reason}`)
+    return result.svg
+  }
+
+  beforeEach(() => {
+    stubEnvironment()
+    vi.stubGlobal('createImageBitmap', () => Promise.resolve(BITMAP))
+    const store = new SceneStore()
+    store.transact((api) =>
+      api.addElement(
+        createImage({
+          id: 'img',
+          assetId: 'asset-1',
+          x: 0,
+          y: 0,
+          naturalWidth: 40,
+          naturalHeight: 30,
+          viewportWidth: VIEWPORT.width,
+          viewportHeight: VIEWPORT.height,
+        }),
+      ),
+    )
+    controller = new EditorController(store, fakeCanvas(), fakeCanvas())
+    cleanup = controller.mount()
+  })
+
+  afterEach(() => {
+    cleanup()
+    vi.unstubAllGlobals()
+  })
+
+  it('loads the original asset blob and embeds it with its own mime type', async () => {
+    const loadBlob = vi.fn(() => Promise.resolve(webpBlob()))
+    controller.setImageBlobLoader(loadBlob)
+
+    const svg = svgOf(await controller.exportSvg({}))
+
+    expect(loadBlob).toHaveBeenCalledWith('asset-1')
+    expect(svg).toContain(`href="data:image/webp;base64,${WEBP_BASE64}"`)
+  })
+
+  it('embeds a blob handed to cacheImageBitmap without loading the asset again', async () => {
+    const loadBlob = vi.fn(() => Promise.resolve(undefined))
+    controller.setImageBlobLoader(loadBlob)
+    controller.cacheImageBitmap('asset-1', BITMAP, webpBlob())
+
+    const svg = svgOf(await controller.exportSvg({}))
+
+    expect(loadBlob).not.toHaveBeenCalled()
+    expect(svg).toContain(`href="data:image/webp;base64,${WEBP_BASE64}"`)
+  })
+
+  it('fetches the source for a bitmap that was cached without one', async () => {
+    const loadBlob = vi.fn(() => Promise.resolve(webpBlob()))
+    controller.setImageBlobLoader(loadBlob)
+    controller.cacheImageBitmap('asset-1', BITMAP)
+
+    const svg = svgOf(await controller.exportSvg({}))
+
+    expect(loadBlob).toHaveBeenCalledTimes(1)
+    expect(svg).toContain(`href="data:image/webp;base64,${WEBP_BASE64}"`)
   })
 })
