@@ -10,31 +10,26 @@ import {
 import type { RefObject } from 'react'
 import {
   MIXED,
+  rotateHandleScreen,
   selectionBounds,
+  selectionFrameFor,
   shallowEqual,
   type EditorController,
   type Element,
   type ElementId,
+  type Point,
   type SceneStore,
 } from '@freedraw/engine'
 import type { BoardActionContext } from '../board-actions.js'
 import { useBoardContext } from '../board-context.js'
 import { SelectionToolbar } from './selection-toolbar.js'
-
-const GAP = 12
-const MARGIN = 8
+import { TOOLBAR_GAP, toolbarPlacement, type ToolbarAnchor } from './toolbar-placement.js'
 
 interface ToolbarState {
   count: number
   stroke: string | null
   editableId: ElementId | null
   grouped: boolean
-}
-
-interface Anchor {
-  centerX: number
-  top: number
-  bottom: number
 }
 
 export function SelectionToolbarHost() {
@@ -72,7 +67,11 @@ export function SelectionToolbarHost() {
       className="pointer-events-none absolute top-0 left-0 z-30"
       style={
         anchor
-          ? { left: anchor.centerX, top: anchor.top - GAP, transform: 'translate(-50%, -100%)' }
+          ? {
+              left: anchor.centerX,
+              top: anchor.top - TOOLBAR_GAP,
+              transform: 'translate(-50%, -100%)',
+            }
           : { visibility: 'hidden' }
       }
     >
@@ -113,7 +112,7 @@ function selectedElements(store: SceneStore): Element[] {
     .filter((element): element is Element => Boolean(element))
 }
 
-function selectionAnchor(store: SceneStore, controller: EditorController): Anchor | null {
+function selectionAnchor(store: SceneStore, controller: EditorController): ToolbarAnchor | null {
   const bounds = selectionBounds(selectedElements(store))
   if (!bounds) return null
   const topLeft = controller.worldToScreen({ x: bounds.x, y: bounds.y })
@@ -149,16 +148,15 @@ function usePositionSync(
       el.style.visibility = 'hidden'
       return
     }
-    const width = el.offsetWidth
-    const height = el.offsetHeight
-    const viewportWidth = controller.viewportSize.width
-    const half = width / 2
-    const left = clamp(anchor.centerX, half + MARGIN, viewportWidth - half - MARGIN)
-    const below = anchor.top - GAP - height < MARGIN
-    const top = below ? anchor.bottom + GAP : anchor.top - GAP
-    el.style.left = `${left}px`
-    el.style.top = `${top}px`
-    el.style.transform = below ? 'translateX(-50%)' : 'translate(-50%, -100%)'
+    const placement = toolbarPlacement(
+      anchor,
+      { width: el.offsetWidth, height: el.offsetHeight },
+      controller.viewportSize.width,
+      rotateHandlePoint(store, controller),
+    )
+    el.style.left = `${placement.left}px`
+    el.style.top = `${placement.top}px`
+    el.style.transform = placement.below ? 'translateX(-50%)' : 'translate(-50%, -100%)'
     el.style.visibility = 'visible'
   }, [ref, store, controller])
 
@@ -205,7 +203,8 @@ function useSelectionInteraction(controller: EditorController | null): boolean {
   return interacting
 }
 
-function clamp(value: number, min: number, max: number): number {
-  if (max < min) return (min + max) / 2
-  return Math.min(Math.max(value, min), max)
+function rotateHandlePoint(store: SceneStore, controller: EditorController): Point | null {
+  const frame = selectionFrameFor(selectedElements(store))
+  if (!frame) return null
+  return rotateHandleScreen(frame, controller.camera).position
 }
