@@ -1,6 +1,9 @@
 import type { AppState, CameraState, Style } from './types.js'
 
-export const SCHEMA_VERSION = 5
+export const SCHEMA_VERSION = 6
+
+export const FONT_WEIGHT_NORMAL = 400
+export const FONT_WEIGHT_BOLD = 700
 
 export const defaultStyle: Style = {
   stroke: '#454545',
@@ -12,6 +15,8 @@ export const defaultStyle: Style = {
   sloppiness: 0.5,
   fontSize: 31,
   fontFamily: "'Architects Daughter', cursive",
+  fontWeight: FONT_WEIGHT_NORMAL,
+  fontStyle: 'normal',
   textColor: '#454545',
   textAlign: 'center',
 }

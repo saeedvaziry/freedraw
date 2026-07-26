@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createElement } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { EditorController, SceneStore } from '@freedraw/engine'
+import { createArrow, createShape, defaultStyle } from '@freedraw/engine'
+import type { Element, EditorController, SceneStore } from '@freedraw/engine'
 import type { BoardExport } from '@/hooks/board/use-export.js'
 import { ActionsMenu } from './actions-menu.js'
 import { BoardProvider, type BoardContextValue } from './board-context.js'
@@ -12,6 +13,23 @@ interface StoreState {
   selectedIds?: string[]
   clipboardElementCount?: number
   snapGuidesEnabled?: boolean
+  elements?: Element[]
+}
+
+function connectedGraph(): Element[] {
+  return [
+    createShape({ id: 'n1', type: 'rect', x: 0, y: 0, width: 120, height: 80 }),
+    createShape({ id: 'n2', type: 'rect', x: 480, y: 360, width: 120, height: 80 }),
+    createArrow({
+      id: 'e1',
+      points: [
+        { x: 120, y: 40 },
+        { x: 480, y: 400 },
+      ],
+      start: { elementId: 'n1', anchor: { nx: 1, ny: 0.5 }, gap: 0, side: 'right' },
+      end: { elementId: 'n2', anchor: { nx: 0, ny: 0.5 }, gap: 0, side: 'left' },
+    }),
+  ]
 }
 
 function createStore(state: StoreState = {}) {
@@ -19,11 +37,13 @@ function createStore(state: StoreState = {}) {
     selectedIds: new Set(state.selectedIds ?? []),
     clipboardElementCount: state.clipboardElementCount ?? 0,
   }
+  const graph = state.elements ?? []
   const snapshot = {
-    order: [...(state.selectedIds ?? [])],
-    elements: {},
-    appState: { snapGuidesEnabled: state.snapGuidesEnabled ?? false },
+    order: graph.length > 0 ? graph.map((element) => element.id) : [...(state.selectedIds ?? [])],
+    elements: Object.fromEntries(graph.map((element) => [element.id, element])),
+    appState: { snapGuidesEnabled: state.snapGuidesEnabled ?? false, lastUsedStyle: defaultStyle },
   }
+  const updateElement = vi.fn()
 
   return {
     canUndo: state.canUndo ?? false,
@@ -41,6 +61,11 @@ function createStore(state: StoreState = {}) {
     cutElements: vi.fn(),
     pasteElements: vi.fn(),
     setSnapGuidesEnabled: vi.fn(),
+    stopCapturing: vi.fn(),
+    transact: vi.fn((run: (api: { updateElement: typeof updateElement }) => void) =>
+      run({ updateElement }),
+    ),
+    updateElement,
   }
 }
 
@@ -160,6 +185,24 @@ describe('ActionsMenu entries', () => {
 
     expect([...store.copyElements.mock.calls[0][0]]).toEqual(['a', 'b'])
   })
+
+  it('offers Tidy diagram but gates it on a connected graph', async () => {
+    await openMenu()
+
+    expect(isDisabled('Tidy diagram')).toBe(true)
+  })
+
+  it('enables Tidy diagram once the scene holds a connected graph', async () => {
+    await openMenu({ elements: connectedGraph() })
+
+    expect(isDisabled('Tidy diagram')).toBe(false)
+  })
+
+  it('disables Tidy diagram on a read-only board', async () => {
+    await openMenu({ elements: connectedGraph() }, true)
+
+    expect(isDisabled('Tidy diagram')).toBe(true)
+  })
 })
 
 describe('ActionsMenu behaviour', () => {
@@ -203,6 +246,28 @@ describe('ActionsMenu behaviour', () => {
     fireEvent.click(entry('Snap guides'))
 
     expect(store.setSnapGuidesEnabled).toHaveBeenCalledWith(false)
+  })
+
+  it('reflows the connected graph through one transaction when Tidy runs', async () => {
+    const store = await openMenu({ elements: connectedGraph() })
+
+    fireEvent.click(entry('Tidy diagram'))
+
+    const ids = store.updateElement.mock.calls.map(([id]) => id)
+    expect(store.transact).toHaveBeenCalledTimes(1)
+    expect(ids).toContain('n2')
+    expect(ids.every((id) => id === 'n1' || id === 'n2')).toBe(true)
+    for (const [, patch] of store.updateElement.mock.calls) {
+      expect(Object.keys(patch).sort()).toEqual(['x', 'y'])
+    }
+  })
+
+  it('ignores a Tidy click when there is no connected graph', async () => {
+    const store = await openMenu()
+
+    fireEvent.click(entry('Tidy diagram'))
+
+    expect(store.transact).not.toHaveBeenCalled()
   })
 
   it('closes after running a one-shot action', async () => {

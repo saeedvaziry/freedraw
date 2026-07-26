@@ -1,9 +1,9 @@
-import type { MeasureContext } from './measure.js'
+import type { FontEmphasis, MeasureContext } from './measure.js'
 
 export type TextAlign = 'left' | 'center' | 'right'
 export type VerticalAlign = 'top' | 'middle' | 'bottom'
 
-export interface TextLayoutInput {
+export interface TextLayoutInput extends FontEmphasis {
   text: string
   width: number
   fontSize: number

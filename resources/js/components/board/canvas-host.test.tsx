@@ -48,6 +48,10 @@ function overlayCursor(): string {
   return (canvases[1] as HTMLCanvasElement).style.cursor
 }
 
+function overlay(): HTMLCanvasElement {
+  return document.querySelectorAll('canvas')[1] as HTMLCanvasElement
+}
+
 describe('CanvasHost cursor', () => {
   it('renders the default cursor before a controller exists', () => {
     renderHost(null)
@@ -95,5 +99,58 @@ describe('CanvasHost cursor', () => {
     view.unmount()
 
     expect(listeners.size).toBe(0)
+  })
+})
+
+describe('CanvasHost accessibility', () => {
+  it('makes the overlay canvas focusable with a name and a role', () => {
+    renderHost(null)
+
+    const canvas = overlay()
+
+    expect(canvas.getAttribute('tabindex')).toBe('0')
+    expect(canvas.getAttribute('role')).toBe('application')
+    expect(canvas.getAttribute('aria-label')).toBe('Board canvas')
+    expect(canvas.getAttribute('aria-keyshortcuts')).toContain('PageDown')
+    expect(canvas.getAttribute('aria-keyshortcuts')).toContain('Shift+ArrowUp')
+  })
+
+  it('points the overlay canvas at a hidden description of the keyboard scheme', () => {
+    renderHost(null)
+
+    const id = overlay().getAttribute('aria-describedby')
+    const help = id ? document.getElementById(id) : null
+
+    expect(help).not.toBeNull()
+    expect(help?.className).toContain('sr-only')
+    expect(help?.className).not.toContain('hidden')
+    expect(help?.textContent).toContain('Page Down')
+    expect(help?.textContent).toContain('arrow key')
+  })
+
+  it('hides the scene canvas from assistive technology', () => {
+    renderHost(null)
+
+    const scene = document.querySelectorAll('canvas')[0] as HTMLCanvasElement
+
+    expect(scene.getAttribute('aria-hidden')).toBe('true')
+    expect(scene.getAttribute('tabindex')).toBeNull()
+  })
+
+  it('renders a polite live region that stays out of the layout without display none', () => {
+    renderHost(null)
+
+    const region = document.querySelector('[data-test="canvas-live-region"]')
+
+    expect(region?.getAttribute('aria-live')).toBe('polite')
+    expect(region?.getAttribute('role')).toBe('status')
+    expect(region?.className).toContain('sr-only')
+    expect(region?.className).not.toContain('hidden')
+  })
+
+  it('keeps the focus ring inside the full bleed canvas', () => {
+    renderHost(null)
+
+    expect(overlay().className).toContain('focus-visible:-outline-offset-2')
   })
 })

@@ -20,6 +20,8 @@ export function deriveSelectionStyle(elements: Element[], fallback: Style): Sele
     sloppiness: sharedValue(elements, 'sloppiness'),
     fontSize: sharedValue(elements, 'fontSize'),
     fontFamily: sharedValue(elements, 'fontFamily'),
+    fontWeight: sharedValue(elements, 'fontWeight'),
+    fontStyle: sharedValue(elements, 'fontStyle'),
     textColor: sharedValue(elements, 'textColor'),
     textAlign: sharedValue(elements, 'textAlign'),
   }

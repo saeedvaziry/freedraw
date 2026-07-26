@@ -90,6 +90,82 @@ describe('migrateDoc', () => {
     expect(new SceneStore(doc).getSnapshot().appState.slides).toEqual([])
   })
 
+  it('gives v5 element and last-used styles the text emphasis defaults', () => {
+    const doc = new Y.Doc()
+    const elements = doc.getMap<Y.Map<unknown>>('elements')
+    const appState = doc.getMap('appState')
+    appState.set('schemaVersion', 5)
+
+    const legacyStyle = { ...defaultStyle } as Record<string, unknown>
+    delete legacyStyle.fontWeight
+    delete legacyStyle.fontStyle
+    appState.set('lastUsedStyle', { ...legacyStyle })
+
+    const shape = new Y.Map<unknown>()
+    shape.set('id', 'shape')
+    shape.set('type', 'rect')
+    shape.set('x', 0)
+    shape.set('y', 0)
+    shape.set('width', 100)
+    shape.set('height', 80)
+    shape.set('rotation', 0)
+    shape.set('style', { ...legacyStyle })
+    elements.set('shape', shape)
+
+    migrateDoc(doc)
+
+    expect(appState.get('schemaVersion')).toBe(SCHEMA_VERSION)
+    expect(shape.get('style')).toMatchObject({
+      fontWeight: defaultStyle.fontWeight,
+      fontStyle: defaultStyle.fontStyle,
+      fontFamily: defaultStyle.fontFamily,
+    })
+    expect(appState.get('lastUsedStyle')).toMatchObject({
+      fontWeight: defaultStyle.fontWeight,
+      fontStyle: defaultStyle.fontStyle,
+    })
+  })
+
+  it('keeps emphasis already present on a v5 doc', () => {
+    const doc = new Y.Doc()
+    const elements = doc.getMap<Y.Map<unknown>>('elements')
+    doc.getMap('appState').set('schemaVersion', 5)
+
+    const shape = new Y.Map<unknown>()
+    shape.set('style', { ...defaultStyle, fontWeight: 700, fontStyle: 'italic' })
+    elements.set('shape', shape)
+
+    migrateDoc(doc)
+
+    expect(shape.get('style')).toMatchObject({ fontWeight: 700, fontStyle: 'italic' })
+  })
+
+  it('walks a v1 doc all the way to the current schema version', () => {
+    const doc = new Y.Doc()
+    const elements = doc.getMap<Y.Map<unknown>>('elements')
+    doc.getMap('appState').set('schemaVersion', 1)
+
+    const legacyStyle = { ...defaultStyle } as Record<string, unknown>
+    delete legacyStyle.sloppiness
+    delete legacyStyle.fontWeight
+    delete legacyStyle.fontStyle
+
+    const shape = new Y.Map<unknown>()
+    shape.set('id', 'shape')
+    shape.set('type', 'rect')
+    shape.set('style', legacyStyle)
+    elements.set('shape', shape)
+
+    migrateDoc(doc)
+
+    expect(doc.getMap('appState').get('schemaVersion')).toBe(SCHEMA_VERSION)
+    expect(shape.get('style')).toMatchObject({
+      sloppiness: 0,
+      fontWeight: defaultStyle.fontWeight,
+      fontStyle: defaultStyle.fontStyle,
+    })
+  })
+
   it('is idempotent when run twice on a v4 doc', () => {
     const doc = new Y.Doc()
     doc.getMap('appState').set('schemaVersion', 4)

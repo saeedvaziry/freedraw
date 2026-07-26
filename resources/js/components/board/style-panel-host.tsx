@@ -15,6 +15,13 @@ import {
   type PanelStylePatch,
   type StylePanelSelection,
 } from '@/components/board/ui-kit'
+import { normalizeHex } from './style-panel/color.js'
+import {
+  readRecentColors,
+  rememberColor,
+  writeRecentColors,
+} from './style-panel/recent-colors.js'
+import { COLOR_PATCH_KEYS, type PanelPalette } from './style-panel/types.js'
 
 interface StylePanelHostProps {
   /**
@@ -36,7 +43,10 @@ interface PanelSnapshot {
   selection: StylePanelSelection
   style: PanelStyle
   arrow: ArrowPanelState
+  documentColors: string[]
 }
+
+export const MAX_DOCUMENT_COLORS = 12
 
 const FILL_LESS = new Set(['arrow', 'line', 'text'])
 const DEFAULT_SELECTION: StylePanelSelection = {
@@ -65,9 +75,30 @@ export function StylePanelHost({ collapsible = false }: StylePanelHostProps) {
   const collapse = useCallback(() => setCollapsed(true), [])
   const expand = useCallback(() => setCollapsed(false), [])
 
+  const [recent, setRecent] = useState<string[]>(readRecentColors)
+  const remember = useCallback((value: string) => {
+    setRecent((current) => {
+      const next = rememberColor(current, value)
+      if (next.length === current.length && next.every((color, i) => color === current[i])) {
+        return current
+      }
+      writeRecentColors(next)
+      return next
+    })
+  }, [])
+
+  const palette = useMemo<PanelPalette>(
+    () => ({ recent, document: snapshot.documentColors }),
+    [recent, snapshot.documentColors],
+  )
+
   if (readOnly) return null
 
   const updateStyle = (patch: PanelStylePatch): void => {
+    for (const key of COLOR_PATCH_KEYS) {
+      const value = patch[key]
+      if (typeof value === 'string') remember(value)
+    }
     const selectedIds = store.getUiState().selectedIds
     if (selectedIds.size === 0) {
       store.updateLastUsedStyle(patch)
@@ -106,6 +137,7 @@ export function StylePanelHost({ collapsible = false }: StylePanelHostProps) {
       selection={snapshot.selection}
       style={snapshot.style}
       arrow={snapshot.arrow}
+      palette={palette}
       onStyleChange={updateStyle}
       onArrowChange={updateArrow}
       onInteractStart={() => store.stopCapturing()}
@@ -145,7 +177,29 @@ function readSnapshot(store: SceneStore): PanelSnapshot {
     selection,
     style: selectionStyle as PanelStyle,
     arrow,
+    documentColors: documentColors(store),
   }
+}
+
+export function documentColors(store: SceneStore): string[] {
+  const snapshot = store.getSnapshot()
+  const colors: string[] = []
+  const push = (value: string | undefined): void => {
+    if (colors.length >= MAX_DOCUMENT_COLORS) return
+    if (!value) return
+    const hex = normalizeHex(value)
+    if (!hex || colors.includes(hex)) return
+    colors.push(hex)
+  }
+  for (const id of snapshot.order) {
+    const element = snapshot.elements[id]
+    if (!element) continue
+    push(element.style.stroke)
+    push(element.style.fill)
+    push(element.style.textColor)
+    if (colors.length >= MAX_DOCUMENT_COLORS) break
+  }
+  return colors
 }
 
 function panelEquals(a: PanelSnapshot, b: PanelSnapshot): boolean {

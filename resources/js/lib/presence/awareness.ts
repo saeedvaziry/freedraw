@@ -60,6 +60,11 @@ export interface PresenceDrag {
     preview?: boolean;
 }
 
+export interface PresenceLaserTrail {
+    points: PresencePoint[];
+    alpha?: number;
+}
+
 export interface PresenceState {
     user: PresenceIdentity;
     cursor: PresencePoint | null;
@@ -67,6 +72,7 @@ export interface PresenceState {
     tool: string | null;
     viewport: PresenceViewport | null;
     drag: PresenceDrag | null;
+    laser: PresenceLaserTrail | null;
     updatedAt: number;
 }
 
@@ -88,6 +94,7 @@ export interface PresenceRosterEntry {
 export interface PresenceWriterOptions {
     cursorIntervalMs?: number;
     viewportIntervalMs?: number;
+    laserIntervalMs?: number;
     readOnly?: boolean;
     now?: () => number;
 }
@@ -101,6 +108,7 @@ export interface PresenceWriter {
     setTool(tool: ToolId | null): void;
     setViewport(viewport: PresenceViewport | null): void;
     setDrag(drag: PresenceDrag | null): void;
+    setLaser(laser: PresenceLaserTrail | null): void;
     setReadOnly(readOnly: boolean): void;
     flush(): void;
     clear(): void;
@@ -116,8 +124,10 @@ export interface PresenceRosterStore {
 export const PRESENCE_FIELD = 'presence';
 export const PRESENCE_CURSOR_INTERVAL_MS = 30;
 export const PRESENCE_VIEWPORT_INTERVAL_MS = 100;
+export const PRESENCE_LASER_INTERVAL_MS = 40;
 export const PRESENCE_STALE_MS = 20_000;
 export const PRESENCE_MAX_SELECTION = 256;
+export const PRESENCE_MAX_LASER_POINTS = 32;
 
 const DRAG_KINDS: readonly PresenceDragKind[] = [
     'move',
@@ -266,6 +276,44 @@ function normalizeDrag(value: unknown): PresenceDrag | null {
     };
 }
 
+export function normalizePresenceLaser(
+    value: unknown,
+): PresenceLaserTrail | null {
+    if (!isRecord(value) || !Array.isArray(value.points)) {
+        return null;
+    }
+
+    const points: PresencePoint[] = [];
+
+    for (const entry of value.points) {
+        const point = normalizePoint(entry);
+
+        if (point !== null) {
+            points.push(point);
+        }
+
+        if (points.length >= PRESENCE_MAX_LASER_POINTS) {
+            break;
+        }
+    }
+
+    if (points.length === 0) {
+        return null;
+    }
+
+    const alpha = finite(value.alpha);
+
+    if (alpha === null) {
+        return { points };
+    }
+
+    if (alpha <= 0) {
+        return null;
+    }
+
+    return { points, alpha: Math.min(1, alpha) };
+}
+
 function normalizeTool(value: unknown): string | null {
     if (typeof value !== 'string' || value.trim() === '') {
         return null;
@@ -329,6 +377,7 @@ export function normalizePresenceState(value: unknown): PresenceState | null {
         tool: normalizeTool(value.tool),
         viewport: normalizePresenceViewport(value.viewport),
         drag: normalizeDrag(value.drag),
+        laser: normalizePresenceLaser(value.laser),
         updatedAt: finite(value.updatedAt) ?? 0,
     };
 }
@@ -546,6 +595,45 @@ function sameDrag(a: PresenceDrag | null, b: PresenceDrag | null): boolean {
     );
 }
 
+function sameLaser(
+    a: PresenceLaserTrail | null,
+    b: PresenceLaserTrail | null,
+): boolean {
+    if (a === null || b === null) {
+        return a === b;
+    }
+
+    return (
+        (a.alpha ?? 1) === (b.alpha ?? 1) &&
+        a.points.length === b.points.length &&
+        a.points.every((point, index) => samePoint(point, b.points[index]))
+    );
+}
+
+function cloneLaser(
+    laser: PresenceLaserTrail | null,
+): PresenceLaserTrail | null {
+    if (laser === null) {
+        return null;
+    }
+
+    const points = laser.points
+        .slice(-PRESENCE_MAX_LASER_POINTS)
+        .map((point) => ({ x: point.x, y: point.y }));
+
+    if (points.length === 0) {
+        return null;
+    }
+
+    const alpha = laser.alpha ?? 1;
+
+    if (alpha <= 0) {
+        return null;
+    }
+
+    return alpha >= 1 ? { points } : { points, alpha };
+}
+
 function cloneFrame(frame: PresenceFrame | null): PresenceFrame | null {
     if (frame === null) {
         return null;
@@ -576,6 +664,7 @@ export function createPresenceWriter(
         options.cursorIntervalMs ?? PRESENCE_CURSOR_INTERVAL_MS;
     const viewportInterval =
         options.viewportIntervalMs ?? PRESENCE_VIEWPORT_INTERVAL_MS;
+    const laserInterval = options.laserIntervalMs ?? PRESENCE_LASER_INTERVAL_MS;
 
     let readOnly = options.readOnly ?? false;
     let destroyed = false;
@@ -590,6 +679,7 @@ export function createPresenceWriter(
         tool: null,
         viewport: null,
         drag: null,
+        laser: null,
         updatedAt: 0,
     };
 
@@ -732,6 +822,29 @@ export function createPresenceWriter(
 
             schedule(cursorInterval);
         },
+        setLaser(laser) {
+            if (readOnly) {
+                return;
+            }
+
+            const next = cloneLaser(laser);
+
+            if (sameLaser(state.laser, next)) {
+                return;
+            }
+
+            const structural = (state.laser === null) !== (next === null);
+
+            state.laser = next;
+
+            if (structural) {
+                publish();
+
+                return;
+            }
+
+            schedule(laserInterval);
+        },
         setReadOnly(next) {
             if (readOnly === next) {
                 return;
@@ -746,11 +859,13 @@ export function createPresenceWriter(
             const published =
                 state.selection.length > 0 ||
                 state.tool !== null ||
-                state.drag !== null;
+                state.drag !== null ||
+                state.laser !== null;
 
             state.selection = [];
             state.tool = null;
             state.drag = null;
+            state.laser = null;
 
             if (published) {
                 publish();

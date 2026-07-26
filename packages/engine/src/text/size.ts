@@ -12,9 +12,16 @@ export interface TextSize {
 }
 
 export function measureTextBox(text: string, style: Style): TextSize {
-  const measure = offscreenMeasureContext(style.fontSize, style.fontFamily)
+  const measure = offscreenMeasureContext(style.fontSize, style.fontFamily, style)
   const layout = layoutText(
-    { text: text || ' ', width: Infinity, fontSize: style.fontSize, fontFamily: style.fontFamily },
+    {
+      text: text || ' ',
+      width: Infinity,
+      fontSize: style.fontSize,
+      fontFamily: style.fontFamily,
+      fontWeight: style.fontWeight,
+      fontStyle: style.fontStyle,
+    },
     measure,
   )
   const lineHeight = lineHeightFor(style.fontSize)

@@ -7,6 +7,7 @@ import { labelEditRequest } from '../text/label-edit.js'
 import { arrowRoute } from '../connectors/resolve.js'
 import { arrowLabelEditRect } from '../text/arrow-label.js'
 import { intersects, type Rect } from '../geometry/rect.js'
+import type { SceneScope } from '../geometry/spatial-index.js'
 import type { SnapGuide } from '../geometry/snap.js'
 import { InputManager } from '../input/input-manager.js'
 import type { PinchDelta } from '../input/pinch.js'
@@ -827,12 +828,14 @@ export class EditorController {
     this.loop.markDirty()
   }
 
+  private readonly sceneScope: SceneScope = (rect) => this.store.scopedSnapshot(rect)
+
   private paint(dirty: RenderDirty): void {
     const snapshot = this.store.getSnapshot()
     if (dirty.scene) {
       const editingId = this.editRequest?.elementId ?? null
       const hiddenIds = this.transientById ? new Set(this.transientById.keys()) : null
-      this.renderer.renderScene(snapshot, this.camera, editingId, hiddenIds)
+      this.renderer.renderScene(snapshot, this.camera, editingId, hiddenIds, this.sceneScope)
     }
     if (dirty.overlay) {
       this.renderer.renderOverlay(this.camera, this.buildOverlay())

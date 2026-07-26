@@ -20,6 +20,7 @@ import { ContextMenuHost } from './context-menu/context-menu-host.js'
 import { DiagramPanelHost } from './diagram-panel-host.js'
 import { EmptyState } from './empty-state.js'
 import { LibraryPanelHost } from './library-panel-host.js'
+import { LaserToggle } from './laser-toggle.js'
 import { LinksBar } from './links-bar.js'
 import { MobileBar } from './mobile-bar.js'
 import { PresenceFollowBanner } from './presence-follow-banner.js'
@@ -29,8 +30,7 @@ import { SaveStencilHost } from './save-stencil-host.js'
 import { SceneImportHost } from './scene-import-host.js'
 import { SelectionToolbarHost } from './selection-toolbar/selection-toolbar-host.js'
 import { ShortcutsSheetHost } from './shortcuts-sheet.js'
-import { SlidesButton } from './slides/slides-button.js'
-import { SlidesPanelHost } from './slides/slides-panel-host.js'
+import { SlidesPanelHost } from './slides-panel-host.js'
 import { StylePanelHost } from './style-panel-host.js'
 import { SyncStatus } from './sync-status.js'
 import { VersionPanelHost } from './version-panel-host.js'
@@ -41,6 +41,7 @@ import { useBoardClipboard } from '@/hooks/board/use-board-clipboard.js'
 import { useExport } from '@/hooks/board/use-export.js'
 import { useBoardActions } from '@/hooks/board/use-board-actions.js'
 import { useFollowPeer } from '@/hooks/board/use-follow-peer.js'
+import { useLaser } from '@/hooks/board/use-laser.js'
 import { usePresenceRoster } from '@/hooks/board/use-presence-roster.js'
 import { usePresenceSync } from '@/hooks/board/use-presence-sync.js'
 import { usePresentMode } from '@/hooks/board/use-present-mode.js'
@@ -206,7 +207,15 @@ function Board({ store: liveStore, readOnly = false, sync, assetSource }: BoardP
   })
   useBoardClipboard(store, controller)
   const present = usePresentMode(controller, store)
-  const presence = usePresenceSync({ controller, store, sync, readOnly: locked, previewing })
+  const laser = useLaser({ controller, readOnly: locked })
+  const presence = usePresenceSync({
+    controller,
+    store,
+    sync,
+    laser: laser.source,
+    readOnly: locked,
+    previewing,
+  })
   const roster = usePresenceRoster(presence, { previewing })
   const follow = useFollowPeer({ controller, source: presence, peers: roster.peers })
 
@@ -278,7 +287,7 @@ function Board({ store: liveStore, readOnly = false, sync, assetSource }: BoardP
       >
         <CanvasHost sceneRef={sceneRef} overlayRef={overlayRef} controller={controller} />
         {present.active ? (
-          <PresentOverlay present={present} />
+          <PresentOverlay present={present} laser={laser} />
         ) : (
           <>
             <ContextMenuHost />
@@ -384,20 +393,17 @@ function Board({ store: liveStore, readOnly = false, sync, assetSource }: BoardP
               <BottomBar
                 diagramOpen={diagramOpen}
                 libraryOpen={libraryOpen}
+                slidesOpen={slidesOpen}
                 versionsOpen={versionsOpen}
                 versionsAvailable={versions.available && !readOnly}
                 onToggleDiagram={() => setDiagramOpen((open) => !open)}
                 onToggleLibrary={() => setLibraryOpen((open) => !open)}
+                onToggleSlides={() => setSlidesOpen((open) => !open)}
                 onToggleVersions={() => setVersionsOpen((open) => !open)}
               />
             </div>
             <div className="pointer-events-none absolute right-3 bottom-3 hidden items-center gap-2 sm:flex">
-              {!locked ? (
-                <SlidesButton
-                  active={slidesOpen}
-                  onToggle={() => setSlidesOpen((open) => !open)}
-                />
-              ) : null}
+              <LaserToggle laser={laser} />
               <PresentButton onEnter={present.enter} />
               <LinksBar />
               <ZoomIndicator />

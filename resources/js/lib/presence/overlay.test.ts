@@ -13,6 +13,7 @@ import {
     isEmptyPresenceOverlay,
     samePresenceOverlay,
     EMPTY_PRESENCE_OVERLAY,
+    LOCAL_LASER_ID,
 } from './overlay';
 
 const NOW = 1_000_000;
@@ -32,6 +33,7 @@ function participant(
         tool: null,
         viewport: null,
         drag: null,
+        laser: null,
         updatedAt: NOW,
         ...overrides,
     };
@@ -860,5 +862,232 @@ describe('isEmptyPresenceOverlay', () => {
                 ghosts: [{ id: '2', frames: [frameAt(0, 0)], color: '#fff' }],
             }),
         ).toBe(false);
+    });
+});
+
+describe('presence laser overlay', () => {
+    it('paints the local trail without any awareness peer', () => {
+        const mapper = createPresenceOverlayMapper();
+
+        const overlay = mapper.build([], {
+            resolveFrame: resolver(null),
+            scene: {},
+            now: NOW,
+            laser: {
+                points: [
+                    { x: 0, y: 0 },
+                    { x: 5, y: 5 },
+                ],
+                color: '#ff0000',
+                alpha: 0.75,
+            },
+        });
+
+        expect(overlay.lasers).toEqual([
+            {
+                id: LOCAL_LASER_ID,
+                points: [
+                    { x: 0, y: 0 },
+                    { x: 5, y: 5 },
+                ],
+                color: '#ff0000',
+                alpha: 0.75,
+            },
+        ]);
+        expect(isEmptyPresenceOverlay(overlay)).toBe(false);
+    });
+
+    it('leaves the fade off a local trail that carries none', () => {
+        const mapper = createPresenceOverlayMapper();
+
+        const overlay = mapper.build([], {
+            resolveFrame: resolver(null),
+            now: NOW,
+            laser: { points: [{ x: 1, y: 1 }], color: '#ff0000' },
+        });
+
+        expect(overlay.lasers?.[0].alpha).toBeUndefined();
+    });
+
+    it('ignores a local trail with no points', () => {
+        const mapper = createPresenceOverlayMapper();
+
+        const overlay = mapper.build([], {
+            resolveFrame: resolver(null),
+            now: NOW,
+            laser: { points: [], color: '#ff0000' },
+        });
+
+        expect(overlay).toBe(EMPTY_PRESENCE_OVERLAY);
+    });
+
+    it('paints a remote trail in the peer color', () => {
+        const mapper = createPresenceOverlayMapper();
+        const peer = participant(2, {
+            laser: { points: [{ x: 7, y: 8 }], alpha: 0.4 },
+        });
+
+        const overlay = mapper.build([peer], {
+            resolveFrame: resolver(null),
+            now: NOW,
+        });
+
+        expect(overlay.lasers).toEqual([
+            {
+                id: '2',
+                points: [{ x: 7, y: 8 }],
+                color: peer.user.color,
+                alpha: 0.4,
+            },
+        ]);
+    });
+
+    it('keeps the local trail ahead of remote trails', () => {
+        const mapper = createPresenceOverlayMapper();
+        const peer = participant(2, { laser: { points: [{ x: 7, y: 8 }] } });
+
+        const overlay = mapper.build([peer], {
+            resolveFrame: resolver(null),
+            now: NOW,
+            laser: { points: [{ x: 1, y: 1 }], color: '#ff0000' },
+        });
+
+        expect(overlay.lasers?.map((laser) => laser.id)).toEqual([
+            LOCAL_LASER_ID,
+            '2',
+        ]);
+    });
+
+    it('never echoes the trail the local peer published', () => {
+        const mapper = createPresenceOverlayMapper();
+        const local = participant(1, {
+            isLocal: true,
+            laser: { points: [{ x: 7, y: 8 }] },
+        });
+
+        const overlay = mapper.build([local], {
+            resolveFrame: resolver(null),
+            now: NOW,
+        });
+
+        expect(overlay.lasers ?? []).toEqual([]);
+    });
+
+    it('drops the trail of a peer that went stale', () => {
+        const mapper = createPresenceOverlayMapper();
+        const peer = participant(2, {
+            laser: { points: [{ x: 7, y: 8 }] },
+            updatedAt: NOW - PRESENCE_STALE_MS - 1,
+        });
+
+        const overlay = mapper.build([peer], {
+            resolveFrame: resolver(null),
+            now: NOW,
+        });
+
+        expect(overlay).toBe(EMPTY_PRESENCE_OVERLAY);
+    });
+
+    it('still paints trails while halos are suppressed', () => {
+        const mapper = createPresenceOverlayMapper();
+        const peer = participant(2, {
+            selection: ['a'],
+            laser: { points: [{ x: 7, y: 8 }] },
+        });
+
+        const overlay = mapper.build([peer], {
+            resolveFrame: resolver(frameAt(0, 0)),
+            now: NOW,
+            halos: false,
+            laser: { points: [{ x: 1, y: 1 }], color: '#ff0000' },
+        });
+
+        expect(overlay.halos).toEqual([]);
+        expect(overlay.lasers).toHaveLength(2);
+    });
+});
+
+describe('samePresenceOverlay lasers', () => {
+    const trail = {
+        id: LOCAL_LASER_ID,
+        points: [{ x: 1, y: 1 }],
+        color: '#f00',
+        alpha: 0.5,
+    };
+    const withTrail = {
+        cursors: [],
+        halos: [],
+        ghosts: [],
+        lasers: [trail],
+    };
+
+    it('treats an unchanged trail as unchanged', () => {
+        expect(
+            samePresenceOverlay(withTrail, {
+                ...withTrail,
+                lasers: [{ ...trail, points: [{ x: 1, y: 1 }] }],
+            }),
+        ).toBe(true);
+    });
+
+    it('notices a moved head, a new fade and a lost trail', () => {
+        expect(
+            samePresenceOverlay(withTrail, {
+                ...withTrail,
+                lasers: [{ ...trail, points: [{ x: 2, y: 1 }] }],
+            }),
+        ).toBe(false);
+        expect(
+            samePresenceOverlay(withTrail, {
+                ...withTrail,
+                lasers: [{ ...trail, alpha: 0.25 }],
+            }),
+        ).toBe(false);
+        expect(
+            samePresenceOverlay(withTrail, {
+                ...withTrail,
+                lasers: [{ ...trail, points: [] }],
+            }),
+        ).toBe(false);
+        expect(
+            samePresenceOverlay(withTrail, { ...withTrail, lasers: [] }),
+        ).toBe(false);
+    });
+
+    it('treats a missing laser list as an empty one', () => {
+        const bare = { cursors: [], halos: [], ghosts: [] };
+
+        expect(samePresenceOverlay(bare, { ...bare, lasers: [] })).toBe(true);
+        expect(samePresenceOverlay(bare, withTrail)).toBe(false);
+    });
+});
+
+describe('isEmptyPresenceOverlay lasers', () => {
+    it('reports an overlay with only a trail as painted', () => {
+        expect(
+            isEmptyPresenceOverlay({
+                cursors: [],
+                halos: [],
+                ghosts: [],
+                lasers: [
+                    {
+                        id: LOCAL_LASER_ID,
+                        points: [{ x: 1, y: 1 }],
+                        color: '#f00',
+                    },
+                ],
+            }),
+        ).toBe(false);
+    });
+
+    it('reports an overlay with an empty trail list as empty', () => {
+        expect(
+            isEmptyPresenceOverlay({
+                cursors: [],
+                halos: [],
+                ghosts: [],
+                lasers: [],
+            }),
+        ).toBe(true);
     });
 });

@@ -28,6 +28,7 @@ export {
     normalizePresenceDragGhost,
     normalizePresenceFrame,
     normalizePresenceIdentity,
+    normalizePresenceLaser,
     normalizePresenceState,
     normalizePresenceViewport,
     readPresenceParticipants,
@@ -36,6 +37,8 @@ export {
     toPresenceRosterEntry,
     PRESENCE_CURSOR_INTERVAL_MS,
     PRESENCE_FIELD,
+    PRESENCE_LASER_INTERVAL_MS,
+    PRESENCE_MAX_LASER_POINTS,
     PRESENCE_MAX_SELECTION,
     PRESENCE_STALE_MS,
     PRESENCE_VIEWPORT_INTERVAL_MS,
@@ -47,6 +50,7 @@ export type {
     PresenceDragGhost,
     PresenceDragKind,
     PresenceFrame,
+    PresenceLaserTrail,
     PresenceParticipant,
     PresencePoint,
     PresenceRect,
@@ -57,15 +61,24 @@ export type {
     PresenceWriter,
     PresenceWriterOptions,
 } from './awareness';
+export { createLaserStore, LASER_MIN_DISTANCE, LASER_TRAIL_MS } from './laser';
+export type {
+    LaserStore,
+    LaserTrailFrame,
+    LaserTrailOptions,
+    PresenceLaserSource,
+} from './laser';
 export {
     createPresenceOverlayMapper,
     isEmptyPresenceOverlay,
     samePresenceOverlay,
     EMPTY_PRESENCE_OVERLAY,
+    LOCAL_LASER_ID,
 } from './overlay';
 export type {
     PresenceFrameResolver,
     PresenceGhostResolver,
+    PresenceLocalLaser,
     PresenceOverlayBuildOptions,
     PresenceOverlayMapper,
 } from './overlay';

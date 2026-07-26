@@ -56,9 +56,16 @@ export function arrowLabelHitRect(points: Point[], text: string, style: Style): 
 }
 
 function arrowLabelTextSize(text: string, style: Style): { width: number; height: number } {
-  const measure = offscreenMeasureContext(style.fontSize, style.fontFamily)
+  const measure = offscreenMeasureContext(style.fontSize, style.fontFamily, style)
   const layout = layoutText(
-    { text: text || ' ', width: Infinity, fontSize: style.fontSize, fontFamily: style.fontFamily },
+    {
+      text: text || ' ',
+      width: Infinity,
+      fontSize: style.fontSize,
+      fontFamily: style.fontFamily,
+      fontWeight: style.fontWeight,
+      fontStyle: style.fontStyle,
+    },
     measure,
   )
 

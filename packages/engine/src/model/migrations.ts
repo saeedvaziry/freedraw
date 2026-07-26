@@ -1,6 +1,6 @@
 import * as Y from 'yjs'
-import { SCHEMA_VERSION, defaultAppState } from './schema.js'
-import type { Binding, Point } from './types.js'
+import { SCHEMA_VERSION, defaultAppState, defaultStyle } from './schema.js'
+import type { Binding, FontStyle, Point } from './types.js'
 
 export type Migration = (doc: Y.Doc) => void
 
@@ -62,7 +62,46 @@ const addGrouping: Migration = () => {}
 
 const addSlides: Migration = () => {}
 
-export const migrations: Migration[] = [noop, addSloppiness, migrateArrowsToIntent, addGrouping, addSlides]
+const addTextEmphasis: Migration = (doc) => {
+  const elements = doc.getMap('elements')
+  elements.forEach((value) => {
+    if (!(value instanceof Y.Map)) return
+    const style = value.get('style')
+    if (!isStyleObject(style)) return
+    const next = withTextEmphasis(style)
+    if (next) value.set('style', next)
+  })
+  const appState = doc.getMap('appState')
+  const lastUsedStyle = appState.get('lastUsedStyle')
+  if (isStyleObject(lastUsedStyle)) {
+    const next = withTextEmphasis(lastUsedStyle)
+    if (next) appState.set('lastUsedStyle', next)
+  }
+}
+
+function withTextEmphasis(style: Record<string, unknown>): Record<string, unknown> | null {
+  const needsWeight = !isFiniteNumber(style.fontWeight)
+  const needsStyle = !isFontStyle(style.fontStyle)
+  if (!needsWeight && !needsStyle) return null
+  return {
+    ...style,
+    ...(needsWeight ? { fontWeight: defaultStyle.fontWeight } : {}),
+    ...(needsStyle ? { fontStyle: defaultStyle.fontStyle } : {}),
+  }
+}
+
+function isFontStyle(value: unknown): value is FontStyle {
+  return value === 'normal' || value === 'italic'
+}
+
+export const migrations: Migration[] = [
+  noop,
+  addSloppiness,
+  migrateArrowsToIntent,
+  addGrouping,
+  addSlides,
+  addTextEmphasis,
+]
 
 export function readSchemaVersion(doc: Y.Doc): number {
   const version = doc.getMap('appState').get('schemaVersion')

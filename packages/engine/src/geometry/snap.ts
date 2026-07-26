@@ -2,8 +2,10 @@ import type { Element, Point, SceneSnapshot } from '../model/types.js'
 import { snapPointToGrid, snapValueToGrid } from './grid.js'
 import { elementBounds, elementCenter, hitTestElement, toLocalPoint } from './hit-test.js'
 import { isArrowElement } from '../model/guards.js'
+import { pointRect } from './rect.js'
 import { rotatePoint } from './rotate.js'
 import { getOutline, type Outline } from './shape-outline.js'
+import type { SceneScope } from './spatial-index.js'
 
 export const SNAP_DISTANCE = 8
 const EDGE_CENTER_MAGNET_FACTOR = 0.5
@@ -162,20 +164,24 @@ function shapeUnder(world: Point, snapshot: SceneSnapshot, ignoreId?: string): E
   return null
 }
 
-export function snapEndpoint(
-  world: Point,
-  snapshot: SceneSnapshot,
-  options: { threshold: number; origin?: Point; ignoreId?: string },
-): SnapResult {
-  const shapeSnap = snapToShapes(world, snapshot, options.threshold * EDGE_CENTER_MAGNET_FACTOR, options.ignoreId)
+export interface SnapEndpointOptions {
+  threshold: number
+  origin?: Point
+  ignoreId?: string
+  scope?: SceneScope
+}
+
+export function snapEndpoint(world: Point, snapshot: SceneSnapshot, options: SnapEndpointOptions): SnapResult {
+  const scene = options.scope ? options.scope(pointRect(world, options.threshold)) : snapshot
+  const shapeSnap = snapToShapes(world, scene, options.threshold * EDGE_CENTER_MAGNET_FACTOR, options.ignoreId)
   if (shapeSnap.target) {
     return { point: shapeSnap.point, target: shapeSnap.target, guides: [{ kind: 'point', at: shapeSnap.point }] }
   }
-  const surfaceSnap = snapToShapeSurface(world, snapshot, options.threshold, options.ignoreId)
+  const surfaceSnap = snapToShapeSurface(world, scene, options.threshold, options.ignoreId)
   if (surfaceSnap.target) {
     return { point: surfaceSnap.point, target: surfaceSnap.target, guides: [{ kind: 'point', at: surfaceSnap.point }] }
   }
-  const over = shapeUnder(world, snapshot, options.ignoreId)
+  const over = shapeUnder(world, scene, options.ignoreId)
   if (over) {
     const port = nearestSurfacePoint(over, world)
     return { point: port, target: over, guides: [{ kind: 'point', at: port }] }

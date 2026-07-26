@@ -3,7 +3,13 @@ import { ArrowControls } from './arrow-controls.js'
 import { FontControls } from './font-controls.js'
 import { StrokeControls } from './stroke-controls.js'
 import { FloatingPanel } from '../ui/floating-panel.js'
-import type { ArrowPanelPatch, ArrowPanelState, PanelStyle, PanelStylePatch } from './types.js'
+import type {
+  ArrowPanelPatch,
+  ArrowPanelState,
+  PanelPalette,
+  PanelStyle,
+  PanelStylePatch,
+} from './types.js'
 
 export interface StylePanelSelection {
   hasShape: boolean
@@ -17,6 +23,7 @@ export interface StylePanelProps {
   selection: StylePanelSelection
   style: PanelStyle
   arrow: ArrowPanelState
+  palette?: PanelPalette
   onStyleChange(patch: PanelStylePatch): void
   onArrowChange(patch: ArrowPanelPatch): void
   onInteractStart(): void
@@ -29,6 +36,7 @@ export function StylePanel({
   selection,
   style,
   arrow,
+  palette,
   onStyleChange,
   onArrowChange,
   onInteractStart,
@@ -52,6 +60,7 @@ export function StylePanel({
           style={style}
           showFill={selection.hasFill}
           showRoundness={selection.hasRoundness}
+          palette={palette}
           onChange={onStyleChange}
           onInteractStart={onInteractStart}
           onInteractEnd={onInteractEnd}
@@ -67,6 +76,7 @@ export function StylePanel({
             <Divider />
             <FontControls
               style={style}
+              palette={palette}
               onChange={onStyleChange}
               onInteractStart={onInteractStart}
               onInteractEnd={onInteractEnd}

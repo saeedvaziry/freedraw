@@ -2,6 +2,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Focus,
+  Highlighter,
   Pause,
   Play,
   Presentation,
@@ -9,9 +10,11 @@ import {
   Timer,
   X,
 } from 'lucide-react'
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { EditorController } from '@freedraw/engine'
 import { Button, cn, FloatingPanel, IconButton } from '@/components/board/ui-kit'
+import type { LaserToggleState } from './laser-toggle.js'
+import { LASER_LABEL_OFF, LASER_LABEL_ON } from './laser-toggle.js'
 import {
   usePresentTimer,
   type PresentMode,
@@ -34,12 +37,37 @@ export function PresentButton({ onEnter }: { onEnter: () => void }) {
   )
 }
 
-export function PresentOverlay({ present }: { present: PresentMode }) {
+export const LASER_KEY = 'l'
+
+export interface PresentOverlayProps {
+  present: PresentMode
+  laser?: LaserToggleState
+}
+
+export function PresentOverlay({ present, laser }: PresentOverlayProps) {
   const { index, count, slideRect, next, previous, exit } = present
   const { controller } = useBoardContext()
   const [spotlight, setSpotlight] = useState(true)
   const timer = usePresentTimer()
   const hasSlides = count > 0
+  const laserOn = laser?.active ?? false
+  const laserAvailable = laser !== undefined && laser.available
+  const toggleLaser = laser?.toggle
+
+  useEffect(() => {
+    if (!laserAvailable || toggleLaser === undefined) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== LASER_KEY) return
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      toggleLaser()
+    }
+
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+  }, [laserAvailable, toggleLaser])
 
   return (
     <>
@@ -118,6 +146,17 @@ export function PresentOverlay({ present }: { present: PresentMode }) {
           >
             <Timer className="size-4" />
           </IconButton>
+          {laserAvailable ? (
+            <IconButton
+              aria-label={laserOn ? LASER_LABEL_ON : LASER_LABEL_OFF}
+              title={`${laserOn ? LASER_LABEL_ON : LASER_LABEL_OFF} (L)`}
+              active={laserOn}
+              onClick={toggleLaser}
+              className="size-8 rounded-md"
+            >
+              <Highlighter className="size-4" />
+            </IconButton>
+          ) : null}
           {hasSlides ? (
             <IconButton
               aria-label={spotlight ? 'Turn off spotlight' : 'Turn on spotlight'}

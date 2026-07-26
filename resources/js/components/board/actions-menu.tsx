@@ -13,6 +13,7 @@ import {
 import type { BoardExport } from '@/hooks/board/use-export.js'
 import { BOARD_ACTIONS_BY_ID, type BoardAction, type BoardActionContext } from './board-actions.js'
 import { useBoardContext } from './board-context.js'
+import { TIDY_ACTION } from './diagram-panel/tidy-action.js'
 
 interface ActionsMenuProps {
   store: SceneStore
@@ -70,6 +71,10 @@ export function ActionsMenu({
         {EDIT_ACTION_IDS.map((id) => (
           <ActionMenuRow key={id} action={BOARD_ACTIONS_BY_ID[id]} ctx={ctx} />
         ))}
+
+        <DropdownMenuSeparator />
+
+        <ActionMenuRow action={TIDY_ACTION} ctx={ctx} />
 
         <DropdownMenuSeparator />
 

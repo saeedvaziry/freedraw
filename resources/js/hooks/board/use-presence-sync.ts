@@ -19,6 +19,9 @@ import {
   type PresenceDrag,
   type PresenceDragGhost,
   type PresenceDragKind,
+  type PresenceLaserSource,
+  type PresenceLaserTrail,
+  type PresenceLocalLaser,
   type PresenceParticipant,
   type PresencePoint,
   type PresenceViewport,
@@ -28,6 +31,7 @@ import { usePresence, type UsePresenceResult } from './use-presence.js'
 
 const NO_SELECTION: readonly string[] = []
 const DRAG_EPSILON = 1e-6
+const DEFAULT_LASER_COLOR = '#ef4444'
 
 export interface PresenceCanvas {
   subscribeCursor(listener: (point: PresencePoint | null) => void): () => void
@@ -55,6 +59,7 @@ export interface PresencePublisher {
   setTool(tool: ToolId | null): void
   setViewport(viewport: PresenceViewport | null): void
   setDrag(drag: PresenceDrag | null): void
+  setLaser(laser: PresenceLaserTrail | null): void
 }
 
 export interface PresenceReader {
@@ -66,13 +71,17 @@ export interface AttachPresencePublisherOptions {
   canvas: PresenceCanvas
   scene: PresenceScene
   publisher: PresencePublisher
+  laser?: PresenceLaserSource | null
   readOnly?: boolean
+  now?: () => number
 }
 
 export interface AttachPresenceOverlayOptions {
   canvas: PresenceCanvas
   scene: PresenceScene
   reader: PresenceReader
+  laser?: PresenceLaserSource | null
+  laserColor?: string
   now?: () => number
   ttlMs?: number
   halos?: boolean
@@ -156,7 +165,7 @@ function ghostFor(
 }
 
 export function attachPresencePublisher(options: AttachPresencePublisherOptions): () => void {
-  const { canvas, scene, publisher, readOnly = false } = options
+  const { canvas, scene, publisher, laser = null, readOnly = false, now = Date.now } = options
   const cleanups: Array<() => void> = []
   let inside = false
   let selection: readonly string[] = NO_SELECTION
@@ -206,7 +215,18 @@ export function attachPresencePublisher(options: AttachPresencePublisherOptions)
     publisher.setSelection(NO_SELECTION)
     publisher.setTool(null)
     publisher.setDrag(null)
+    publisher.setLaser(null)
   } else {
+    if (laser) {
+      const publishLaser = (): void => {
+        const frame = laser.read(now())
+        publisher.setLaser(
+          frame === null ? null : { points: frame.points, alpha: frame.alpha },
+        )
+      }
+      cleanups.push(laser.subscribe(publishLaser))
+      publishLaser()
+    }
     const publishSelection = (): void => {
       const ids = scene.getUiState().selectedIds
       if (sameIds(selection, ids)) return
@@ -263,12 +283,14 @@ export function attachPresencePublisher(options: AttachPresencePublisherOptions)
       publisher.setSelection(NO_SELECTION)
       publisher.setTool(null)
       publisher.setDrag(null)
+      publisher.setLaser(null)
     }
   }
 }
 
 export function attachPresenceOverlay(options: AttachPresenceOverlayOptions): () => void {
-  const { canvas, scene, reader, now = Date.now, halos = true } = options
+  const { canvas, scene, reader, laser = null, now = Date.now, halos = true } = options
+  const laserColor = options.laserColor ?? DEFAULT_LASER_COLOR
   const ttlMs = options.ttlMs ?? PRESENCE_STALE_MS
   const mapper = createPresenceOverlayMapper()
   let painted: PresenceOverlay | null = null
@@ -336,6 +358,14 @@ export function attachPresenceOverlay(options: AttachPresenceOverlayOptions): ()
     }, next - at + 1)
   }
 
+  const localLaser = (at: number): PresenceLocalLaser | null => {
+    if (laser === null) return null
+    const frame = laser.read(at)
+    return frame === null
+      ? null
+      : { points: frame.points, color: laserColor, alpha: frame.alpha }
+  }
+
   const render = (): void => {
     const at = now()
     const participants = reader.readParticipants()
@@ -346,6 +376,7 @@ export function attachPresenceOverlay(options: AttachPresenceOverlayOptions): ()
       now: at,
       ttlMs,
       halos,
+      laser: localLaser(at),
     })
     sweep(participants, at)
     if (painted !== null && samePresenceOverlay(painted, next)) return
@@ -354,6 +385,7 @@ export function attachPresenceOverlay(options: AttachPresenceOverlayOptions): ()
   }
 
   const cleanups = [reader.subscribe(render), scene.subscribe(render)]
+  if (laser !== null) cleanups.push(laser.subscribe(render))
   render()
 
   return () => {
@@ -367,6 +399,7 @@ export interface UsePresenceSyncOptions {
   controller: EditorController | null
   store: SceneStore
   sync: PageSync | null
+  laser?: PresenceLaserSource | null
   readOnly?: boolean
   previewing?: boolean
   enabled?: boolean
@@ -377,6 +410,7 @@ export function usePresenceSync(options: UsePresenceSyncOptions): UsePresenceRes
     controller,
     store,
     sync,
+    laser = null,
     readOnly = false,
     previewing = false,
     enabled = true,
@@ -386,9 +420,11 @@ export function usePresenceSync(options: UsePresenceSyncOptions): UsePresenceRes
   const presence = usePresence({ awareness, enabled, readOnly: muted })
   const {
     active,
+    identity,
     readParticipants,
     setCursor,
     setDrag,
+    setLaser,
     setSelection,
     setTool,
     setViewport,
@@ -396,8 +432,8 @@ export function usePresenceSync(options: UsePresenceSyncOptions): UsePresenceRes
   } = presence
 
   const publisher = useMemo<PresencePublisher>(
-    () => ({ setCursor, setSelection, setTool, setViewport, setDrag }),
-    [setCursor, setSelection, setTool, setViewport, setDrag],
+    () => ({ setCursor, setSelection, setTool, setViewport, setDrag, setLaser }),
+    [setCursor, setSelection, setTool, setViewport, setDrag, setLaser],
   )
   const reader = useMemo<PresenceReader>(
     () => ({ readParticipants, subscribe }),
@@ -410,19 +446,23 @@ export function usePresenceSync(options: UsePresenceSyncOptions): UsePresenceRes
       canvas: controller,
       scene: store,
       publisher,
+      laser,
       readOnly: muted,
     })
-  }, [active, controller, muted, publisher, store])
+  }, [active, controller, laser, muted, publisher, store])
 
   useEffect(() => {
-    if (!controller || !active) return
+    if (!controller) return
+    if (!active && laser === null) return
     return attachPresenceOverlay({
       canvas: controller,
       scene: store,
       reader,
+      laser,
+      laserColor: identity.color,
       halos: !previewing,
     })
-  }, [active, controller, previewing, reader, store])
+  }, [active, controller, identity.color, laser, previewing, reader, store])
 
   return presence
 }

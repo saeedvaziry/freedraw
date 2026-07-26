@@ -6,7 +6,8 @@ import type { ArrowElement, Element, ElementId, Point, SceneSnapshot, ShapeEleme
 import type { SceneStore } from '../store/scene-store.js'
 import { createBinding } from './binding.js'
 
-type Store = Pick<SceneStore, 'transact' | 'stopCapturing' | 'setUiState' | 'getLastUsedStyle' | 'getSnapshot'>
+type Store = Pick<SceneStore, 'transact' | 'stopCapturing' | 'setUiState' | 'getLastUsedStyle' | 'getSnapshot'> &
+  Partial<Pick<SceneStore, 'scopedSnapshot'>>
 
 export function obstacleBounds(snapshot: SceneSnapshot, exclude: ElementId): Rect[] {
   const bounds: Rect[] = []
@@ -69,6 +70,22 @@ export function inferSpawnDirection(source: Element, target: Element): SpawnDire
 export interface SpawnPlan {
   target: ShapeElement
   arrow: ArrowElement
+}
+
+export function spawnSearchRegion(bounds: Rect, direction: SpawnDirection): Rect {
+  const vector = vectors[direction]
+  const alongX = vector.x * (bounds.width + SPAWN_GAP)
+  const alongY = vector.y * (bounds.height + SPAWN_GAP)
+  const perpStep = vector.x !== 0 ? bounds.height + SPAWN_GAP : bounds.width + SPAWN_GAP
+  const reach = Math.ceil(MAX_SPAWN_STEPS / 2) * perpStep
+  const spreadX = vector.x !== 0 ? 0 : reach
+  const spreadY = vector.x !== 0 ? reach : 0
+  return {
+    x: bounds.x + alongX - spreadX,
+    y: bounds.y + alongY - spreadY,
+    width: bounds.width + spreadX * 2,
+    height: bounds.height + spreadY * 2,
+  }
 }
 
 function isFree(rect: Rect, obstacles: Rect[]): boolean {
@@ -139,7 +156,9 @@ export function spawnConnectedShape(
   direction: SpawnDirection,
   typeOverride?: ShapeType,
 ): string {
-  const obstacles = obstacleBounds(store.getSnapshot(), source.id)
+  const region = spawnSearchRegion(elementBounds(source), direction)
+  const scene = store.scopedSnapshot?.(region) ?? store.getSnapshot()
+  const obstacles = obstacleBounds(scene, source.id)
   const { target, arrow } = planConnectedShape(source, direction, store.getLastUsedStyle(), typeOverride, obstacles)
   store.transact((api) => {
     api.addElement(target)

@@ -6,7 +6,7 @@ import { createShape, SceneStore, seedAppState } from '@freedraw/engine'
 import type { SceneStore as Store } from '@freedraw/engine'
 import type { BoardExport } from '@/hooks/board/use-export.js'
 import { BoardProvider, type BoardContextValue } from '../board-context.js'
-import { SlidesPanelHost } from './slides-panel-host.js'
+import { SlidesPanelHost } from '../slides-panel-host.js'
 
 const boardExport = {
   exportImage: vi.fn(),

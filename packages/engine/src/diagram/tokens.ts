@@ -1,5 +1,7 @@
-import type { ShapeType } from '../model/types.js'
+import type { ArrowElement, ShapeType } from '../model/types.js'
 import type { Direction, EdgeStyle } from './ast.js'
+
+const THICK_STROKE_WIDTH = 4
 
 export interface ShapeToken {
   open: string
@@ -64,6 +66,17 @@ export function canonicalEdgeToken(style: EdgeStyle): EdgeToken {
         edgeMatches(token, style),
     ) ?? EDGE_TOKENS[3]!
   )
+}
+
+export function arrowEdgeStyle(arrow: ArrowElement): EdgeStyle {
+  return {
+    type: arrow.type,
+    startArrowhead: arrow.startArrowhead,
+    endArrowhead: arrow.endArrowhead,
+    strokeStyle:
+      arrow.style.strokeStyle === 'dotted' || arrow.style.strokeStyle === 'dashed' ? 'dotted' : 'solid',
+    thick: arrow.style.strokeWidth >= THICK_STROKE_WIDTH,
+  }
 }
 
 function edgeMatches(token: EdgeToken, style: EdgeStyle): boolean {

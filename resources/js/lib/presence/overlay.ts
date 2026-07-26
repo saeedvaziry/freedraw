@@ -2,12 +2,14 @@ import type {
     PresenceCursor,
     PresenceGhost,
     PresenceHalo,
+    PresenceLaser,
     PresenceOverlay,
 } from '@freedraw/engine';
 import type {
     PresenceDragGhost,
     PresenceFrame,
     PresenceParticipant,
+    PresencePoint,
 } from './awareness';
 import { isPresenceStale } from './awareness';
 
@@ -21,6 +23,12 @@ export type PresenceGhostResolver = (
     dy: number,
 ) => PresenceFrame[] | null;
 
+export interface PresenceLocalLaser {
+    points: readonly PresencePoint[];
+    color: string;
+    alpha?: number;
+}
+
 export interface PresenceOverlayBuildOptions {
     resolveFrame: PresenceFrameResolver;
     resolveGhost?: PresenceGhostResolver;
@@ -28,6 +36,7 @@ export interface PresenceOverlayBuildOptions {
     now?: number;
     ttlMs?: number;
     halos?: boolean;
+    laser?: PresenceLocalLaser | null;
 }
 
 export interface PresenceOverlayMapper {
@@ -54,17 +63,23 @@ interface GhostCacheEntry {
     ghost: PresenceGhost | null;
 }
 
+export const LOCAL_LASER_ID = 'local';
+
+const NO_LASERS: PresenceLaser[] = [];
+
 export const EMPTY_PRESENCE_OVERLAY: PresenceOverlay = {
     cursors: [],
     halos: [],
     ghosts: [],
+    lasers: [],
 };
 
 export function isEmptyPresenceOverlay(overlay: PresenceOverlay): boolean {
     return (
         overlay.cursors.length === 0 &&
         overlay.halos.length === 0 &&
-        overlay.ghosts.length === 0
+        overlay.ghosts.length === 0 &&
+        (overlay.lasers?.length ?? 0) === 0
     );
 }
 
@@ -107,6 +122,23 @@ function sameHalo(a: PresenceHalo, b: PresenceHalo): boolean {
     );
 }
 
+function sameLaser(a: PresenceLaser, b: PresenceLaser): boolean {
+    if (a === b) {
+        return true;
+    }
+
+    return (
+        a.id === b.id &&
+        a.color === b.color &&
+        (a.alpha ?? 1) === (b.alpha ?? 1) &&
+        a.points.length === b.points.length &&
+        a.points.every(
+            (point, index) =>
+                point.x === b.points[index].x && point.y === b.points[index].y,
+        )
+    );
+}
+
 function sameGhost(a: PresenceGhost, b: PresenceGhost): boolean {
     if (a === b) {
         return true;
@@ -140,12 +172,20 @@ export function samePresenceOverlay(
         return false;
     }
 
+    const lasers = a.lasers ?? [];
+    const others = b.lasers ?? [];
+
+    if (lasers.length !== others.length) {
+        return false;
+    }
+
     return (
         a.cursors.every((cursor, index) =>
             sameCursor(cursor, b.cursors[index]),
         ) &&
         a.halos.every((halo, index) => sameHalo(halo, b.halos[index])) &&
-        a.ghosts.every((ghost, index) => sameGhost(ghost, b.ghosts[index]))
+        a.ghosts.every((ghost, index) => sameGhost(ghost, b.ghosts[index])) &&
+        lasers.every((laser, index) => sameLaser(laser, others[index]))
     );
 }
 
@@ -271,10 +311,28 @@ export function createPresenceOverlayMapper(): PresenceOverlayMapper {
                 ghostCache.clear();
             }
 
+            const local = options.laser ?? null;
             let cursors: PresenceCursor[] | null = null;
             let halos: PresenceHalo[] | null = null;
             let ghosts: PresenceGhost[] | null = null;
+            let lasers: PresenceLaser[] | null = null;
             let remote = 0;
+
+            if (local !== null && local.points.length > 0) {
+                lasers = [
+                    {
+                        id: LOCAL_LASER_ID,
+                        points: local.points.map((point) => ({
+                            x: point.x,
+                            y: point.y,
+                        })),
+                        color: local.color,
+                        ...(local.alpha === undefined
+                            ? {}
+                            : { alpha: local.alpha }),
+                    },
+                ];
+            }
 
             for (const participant of participants) {
                 if (participant.isLocal) {
@@ -285,6 +343,23 @@ export function createPresenceOverlayMapper(): PresenceOverlayMapper {
 
                 if (isPresenceStale(participant, at, options.ttlMs)) {
                     continue;
+                }
+
+                const trail = participant.laser;
+
+                if (trail !== null && trail.points.length > 0) {
+                    lasers ??= [];
+                    lasers.push({
+                        id: String(participant.clientId),
+                        points: trail.points.map((point) => ({
+                            x: point.x,
+                            y: point.y,
+                        })),
+                        color: participant.user.color,
+                        ...(trail.alpha === undefined
+                            ? {}
+                            : { alpha: trail.alpha }),
+                    });
                 }
 
                 const point = participant.cursor;
@@ -343,7 +418,12 @@ export function createPresenceOverlayMapper(): PresenceOverlayMapper {
                 prune(participants);
             }
 
-            if (cursors === null && halos === null && ghosts === null) {
+            if (
+                cursors === null &&
+                halos === null &&
+                ghosts === null &&
+                lasers === null
+            ) {
                 return EMPTY_PRESENCE_OVERLAY;
             }
 
@@ -351,6 +431,7 @@ export function createPresenceOverlayMapper(): PresenceOverlayMapper {
                 cursors: cursors ?? EMPTY_PRESENCE_OVERLAY.cursors,
                 halos: halos ?? EMPTY_PRESENCE_OVERLAY.halos,
                 ghosts: ghosts ?? EMPTY_PRESENCE_OVERLAY.ghosts,
+                lasers: lasers ?? NO_LASERS,
             };
         },
     };

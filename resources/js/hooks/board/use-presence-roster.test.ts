@@ -29,6 +29,7 @@ function participant(
     tool: null,
     viewport: null,
     drag: null,
+    laser: null,
     updatedAt: 1,
     ...overrides,
   }

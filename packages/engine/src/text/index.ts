@@ -6,8 +6,11 @@ export {
   canvasMeasureContext,
   approximateMeasureContext,
   offscreenMeasureContext,
+  isBoldWeight,
+  NORMAL_FONT_WEIGHT,
+  BOLD_THRESHOLD,
 } from './measure.js'
-export type { MeasureContext } from './measure.js'
+export type { MeasureContext, FontEmphasis } from './measure.js'
 export { LayoutCache, layoutKey } from './cache.js'
 export {
   measureTextBox,

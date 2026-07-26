@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react'
-import { History, LibraryBig, Wrench } from 'lucide-react'
+import { History, LibraryBig, SquareStack, Wrench } from 'lucide-react'
 import { ExportMenu, ToolButton } from '@/components/board/ui-kit'
 import { useBoardContext } from './board-context.js'
 import { ActionsMenu } from './actions-menu.js'
@@ -9,10 +9,12 @@ import { ToolbarHost } from './toolbar-host.js'
 interface BottomBarProps {
   diagramOpen: boolean
   libraryOpen: boolean
+  slidesOpen: boolean
   versionsOpen: boolean
   versionsAvailable: boolean
   onToggleDiagram(): void
   onToggleLibrary(): void
+  onToggleSlides(): void
   onToggleVersions(): void
 }
 
@@ -25,10 +27,12 @@ interface BottomBarProps {
 export function BottomBar({
   diagramOpen,
   libraryOpen,
+  slidesOpen,
   versionsOpen,
   versionsAvailable,
   onToggleDiagram,
   onToggleLibrary,
+  onToggleSlides,
   onToggleVersions,
 }: BottomBarProps) {
   const { store, controller, boardExport, theme, readOnly } = useBoardContext()
@@ -47,6 +51,11 @@ export function BottomBar({
           {!readOnly ? (
             <ToolButton label="Library" active={libraryOpen} onClick={onToggleLibrary}>
               <LibraryBig />
+            </ToolButton>
+          ) : null}
+          {!readOnly ? (
+            <ToolButton label="Slides" active={slidesOpen} onClick={onToggleSlides}>
+              <SquareStack />
             </ToolButton>
           ) : null}
           {versionsAvailable ? (

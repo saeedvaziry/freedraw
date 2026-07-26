@@ -5,6 +5,18 @@ import {
   resolveActionScope,
   type BoardActionContext,
 } from '@/components/board/board-actions.js'
+import {
+  announceCanvas,
+  nudgeAnnouncement,
+  nudgeVector,
+  revealElement,
+  translateElements,
+  traverseKeyDirection,
+  traverseSelection,
+  useCanvasA11y,
+  type NudgeVector,
+  type TraverseDirection,
+} from '@/hooks/board/use-canvas-a11y.js'
 
 interface ToolHotkey {
   tool: ToolId
@@ -36,6 +48,8 @@ export function useBoardActions(ctx: BoardActionContext): void {
   const ctxRef = useRef(ctx)
   ctxRef.current = ctx
 
+  useCanvasA11y(ctx.store)
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (resolveActionScope(event.target) !== 'canvas') return
@@ -53,6 +67,19 @@ export function useBoardActions(ctx: BoardActionContext): void {
       }
 
       if (event.metaKey || event.ctrlKey || event.altKey) return
+
+      const traverse = traverseKeyDirection(event.key)
+      if (traverse) {
+        if (runTraverse(context, traverse)) event.preventDefault()
+        return
+      }
+
+      const nudge = nudgeVector(event.key, event.shiftKey)
+      if (nudge) {
+        if (runNudge(context, nudge)) event.preventDefault()
+        return
+      }
+
       if (context.readOnly) return
 
       const { store, controller } = context
@@ -77,6 +104,29 @@ export function useBoardActions(ctx: BoardActionContext): void {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
+}
+
+function runTraverse(context: BoardActionContext, direction: TraverseDirection): boolean {
+  const { store, controller } = context
+  if (controller?.activeEdit) return false
+  const id = traverseSelection(store, direction)
+  if (!id) {
+    announceCanvas('The board has no elements')
+    return true
+  }
+  revealElement(controller, store.getSnapshot(), id)
+  return true
+}
+
+function runNudge(context: BoardActionContext, vector: NudgeVector): boolean {
+  const { store, controller, readOnly } = context
+  if (readOnly) return false
+  if (controller?.activeEdit) return false
+  if (store.getUiState().selectedIds.size === 0) return false
+  const moved = translateElements(store, store.getUiState().selectedIds, vector.dx, vector.dy)
+  if (moved.length === 0) return false
+  announceCanvas(nudgeAnnouncement(store.getSnapshot(), moved, vector))
+  return true
 }
 
 function isPrintableKey(key: string): boolean {

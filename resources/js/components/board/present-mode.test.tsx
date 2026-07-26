@@ -3,8 +3,10 @@ import { createElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EditorController, SceneStore } from '@freedraw/engine'
 import type { BoardExport } from '@/hooks/board/use-export.js'
+import type { LaserPointer } from '@/hooks/board/use-laser.js'
 import type { PresentMode } from '@/hooks/board/use-present-mode.js'
 import { BoardProvider, type BoardContextValue } from './board-context.js'
+import type { LaserToggleState } from './laser-toggle.js'
 import { PresentOverlay } from './present-mode.js'
 
 function createController() {
@@ -58,11 +60,19 @@ function boardValue(controller: FakeController): BoardContextValue {
   }
 }
 
-function renderOverlay(present: PresentMode = presentMode(), controller = createController()) {
+function laserState(overrides: Partial<LaserToggleState> = {}): LaserToggleState {
+  return { active: false, available: true, toggle: vi.fn(), ...overrides }
+}
+
+function renderOverlay(
+  present: PresentMode = presentMode(),
+  controller = createController(),
+  laser?: LaserToggleState,
+) {
   const view = render(
     createElement(BoardProvider, {
       value: boardValue(controller),
-      children: createElement(PresentOverlay, { present }),
+      children: createElement(PresentOverlay, { present, laser }),
     }),
   )
   return { ...view, controller }
@@ -275,5 +285,87 @@ describe('PresentOverlay navigation', () => {
     expect(present.next).toHaveBeenCalledTimes(1)
     expect(present.previous).toHaveBeenCalledTimes(1)
     expect(present.exit).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('PresentOverlay laser', () => {
+  it('stays out of the control cluster when no laser is wired in', () => {
+    renderOverlay()
+
+    expect(screen.queryByLabelText(/laser pointer$/)).toBeNull()
+  })
+
+  it('hides the laser control from a viewer that cannot use it', () => {
+    renderOverlay(presentMode(), createController(), laserState({ available: false }))
+
+    expect(screen.queryByLabelText(/laser pointer$/)).toBeNull()
+  })
+
+  it('toggles the laser from the control cluster', () => {
+    const laser = laserState()
+    renderOverlay(presentMode(), createController(), laser)
+
+    fireEvent.click(screen.getByLabelText('Turn on laser pointer'))
+
+    expect(laser.toggle).toHaveBeenCalledTimes(1)
+  })
+
+  it('reads as pressed while the laser is live', () => {
+    renderOverlay(presentMode(), createController(), laserState({ active: true }))
+
+    const button = screen.getByLabelText('Turn off laser pointer')
+
+    expect(button.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('offers the laser on a deck with no slides at all', () => {
+    renderOverlay(presentMode({ count: 0, slideRect: null }), createController(), laserState())
+
+    expect(screen.getByLabelText('Turn on laser pointer')).not.toBeNull()
+  })
+
+  it('toggles the laser on the L key', () => {
+    const laser = laserState()
+    renderOverlay(presentMode(), createController(), laser)
+
+    fireEvent.keyDown(window, { key: 'l' })
+    fireEvent.keyDown(window, { key: 'L' })
+
+    expect(laser.toggle).toHaveBeenCalledTimes(2)
+  })
+
+  it('leaves shortcuts with a modifier to the rest of the app', () => {
+    const laser = laserState()
+    renderOverlay(presentMode(), createController(), laser)
+
+    fireEvent.keyDown(window, { key: 'l', metaKey: true })
+    fireEvent.keyDown(window, { key: 'l', ctrlKey: true })
+    fireEvent.keyDown(window, { key: 'k' })
+
+    expect(laser.toggle).not.toHaveBeenCalled()
+  })
+
+  it('drops the shortcut once the laser is out of reach', () => {
+    const laser = laserState({ available: false })
+    renderOverlay(presentMode(), createController(), laser)
+
+    fireEvent.keyDown(window, { key: 'l' })
+
+    expect(laser.toggle).not.toHaveBeenCalled()
+  })
+
+  it('accepts a full laser pointer as its control state', () => {
+    const pointer: LaserPointer = {
+      active: true,
+      available: true,
+      toggle: vi.fn(),
+      activate: vi.fn(),
+      deactivate: vi.fn(),
+      source: null,
+      store: {} as LaserPointer['store'],
+    }
+    renderOverlay(presentMode(), createController(), pointer)
+
+    expect(screen.getByLabelText('Turn off laser pointer')).not.toBeNull()
   })
 })

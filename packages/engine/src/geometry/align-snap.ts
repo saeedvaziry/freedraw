@@ -98,14 +98,46 @@ export interface AlignCandidateSource {
   all(): Rect[]
   rowBand(rect: Rect): Rect[]
   columnBand(rect: Rect): Rect[]
+  xRange(min: number, max: number): Rect[]
+  yRange(min: number, max: number): Rect[]
+}
+
+export interface AlignCandidateProvider {
+  all(): Rect[]
+  nearColumns(min: number, max: number): Rect[]
+  nearRows(min: number, max: number): Rect[]
+}
+
+function spansX(rect: Rect, min: number, max: number): boolean {
+  return rect.x + rect.width >= min && rect.x <= max
+}
+
+function spansY(rect: Rect, min: number, max: number): boolean {
+  return rect.y + rect.height >= min && rect.y <= max
+}
+
+export function candidateSourceFrom(provider: AlignCandidateProvider): AlignCandidateSource {
+  return {
+    all: () => provider.all(),
+    rowBand: (rect) =>
+      provider.nearRows(rect.y, rect.y + rect.height).filter((o) => overlapsOnY(o, rect)),
+    columnBand: (rect) =>
+      provider.nearColumns(rect.x, rect.x + rect.width).filter((o) => overlapsOnX(o, rect)),
+    xRange: (min, max) => provider.nearColumns(min, max),
+    yRange: (min, max) => provider.nearRows(min, max),
+  }
+}
+
+export function rectListProvider(rects: () => Rect[]): AlignCandidateProvider {
+  return {
+    all: rects,
+    nearColumns: (min, max) => rects().filter((o) => spansX(o, min, max)),
+    nearRows: (min, max) => rects().filter((o) => spansY(o, min, max)),
+  }
 }
 
 export function arrayCandidateSource(others: Rect[]): AlignCandidateSource {
-  return {
-    all: () => others,
-    rowBand: (rect) => others.filter((o) => overlapsOnY(o, rect)),
-    columnBand: (rect) => others.filter((o) => overlapsOnX(o, rect)),
-  }
+  return candidateSourceFrom(rectListProvider(() => others))
 }
 
 export function localAlignRects(candidates: AlignCandidate[], space: AlignSpace): Rect[] {
@@ -116,7 +148,7 @@ function plainRect(rect: Rect): Rect {
   return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
 }
 
-function localAlignRect(candidate: AlignCandidate, space: AlignSpace): Rect {
+export function localAlignRect(candidate: AlignCandidate, space: AlignSpace): Rect {
   if (!sameOrientation(candidate.rotation, space.rotation)) return localCornerBounds(candidate, space)
   if (!space.rotation) return plainRect(candidate)
   const center = toLocal({ x: candidate.x + candidate.width / 2, y: candidate.y + candidate.height / 2 }, space)
@@ -175,9 +207,9 @@ function toWorld(point: Point, space: AlignSpace): Point {
 function findEqualSpacingSnapX(moving: Rect, source: AlignCandidateSource, threshold: number): EqualSpacingSnap | null {
   let best: EqualSpacingSnap | null = null
   const movingCenterY = moving.y + moving.height / 2
-  const others = source.all()
   const anchors = source.rowBand(moving)
   if (anchors.length === 0) return null
+  const others = source.all()
   for (let i = 0; i < others.length; i += 1) {
     const leftRef = others[i]!
     for (let j = 0; j < others.length; j += 1) {
@@ -212,9 +244,9 @@ function findEqualSpacingSnapX(moving: Rect, source: AlignCandidateSource, thres
 function findEqualSpacingSnapY(moving: Rect, source: AlignCandidateSource, threshold: number): EqualSpacingSnap | null {
   let best: EqualSpacingSnap | null = null
   const movingCenterX = moving.x + moving.width / 2
-  const others = source.all()
   const anchors = source.columnBand(moving)
   if (anchors.length === 0) return null
+  const others = source.all()
   for (let i = 0; i < others.length; i += 1) {
     const topRef = others[i]!
     for (let j = 0; j < others.length; j += 1) {
@@ -246,7 +278,12 @@ function findEqualSpacingSnapY(moving: Rect, source: AlignCandidateSource, thres
   return best
 }
 
-function nearestGapIndicators(moving: Rect, others: Rect[], snappedOnX: boolean, snappedOnY: boolean): DistanceIndicator[] {
+function nearestGapIndicators(
+  moving: Rect,
+  source: AlignCandidateSource,
+  snappedOnX: boolean,
+  snappedOnY: boolean,
+): DistanceIndicator[] {
   const indicators: DistanceIndicator[] = []
   const movingLeft = moving.x
   const movingRight = moving.x + moving.width
@@ -256,8 +293,9 @@ function nearestGapIndicators(moving: Rect, others: Rect[], snappedOnX: boolean,
   const movingCenterY = moving.y + moving.height / 2
 
   if (snappedOnY) {
-    const left = others.filter((s) => s.x + s.width <= movingLeft && s.y + s.height > movingTop && s.y < movingBottom)
-    const right = others.filter((s) => s.x >= movingRight && s.y + s.height > movingTop && s.y < movingBottom)
+    const row = source.rowBand(moving)
+    const left = row.filter((s) => s.x + s.width <= movingLeft && s.y + s.height > movingTop && s.y < movingBottom)
+    const right = row.filter((s) => s.x >= movingRight && s.y + s.height > movingTop && s.y < movingBottom)
     if (left.length > 0) {
       const nearest = left.reduce((best, s) => (s.x + s.width > best.x + best.width ? s : best))
       if (movingLeft - (nearest.x + nearest.width) > 0) {
@@ -273,8 +311,9 @@ function nearestGapIndicators(moving: Rect, others: Rect[], snappedOnX: boolean,
   }
 
   if (snappedOnX) {
-    const above = others.filter((s) => s.y + s.height <= movingTop && s.x + s.width > movingLeft && s.x < movingRight)
-    const below = others.filter((s) => s.y >= movingBottom && s.x + s.width > movingLeft && s.x < movingRight)
+    const column = source.columnBand(moving)
+    const above = column.filter((s) => s.y + s.height <= movingTop && s.x + s.width > movingLeft && s.x < movingRight)
+    const below = column.filter((s) => s.y >= movingBottom && s.x + s.width > movingLeft && s.x < movingRight)
     if (above.length > 0) {
       const nearest = above.reduce((best, s) => (s.y + s.height > best.y + best.height ? s : best))
       if (movingTop - (nearest.y + nearest.height) > 0) {
@@ -333,18 +372,24 @@ export function snapMove(
   threshold: number,
   source: AlignCandidateSource = arrayCandidateSource(others),
 ): MoveSnapResult {
+  return snapMoveFrom(moving, source, threshold)
+}
+
+export function snapMoveFrom(moving: Rect, source: AlignCandidateSource, threshold: number): MoveSnapResult {
   const movingEdges = edgesOf(moving)
   const axisX = newAxis(threshold)
   const axisY = newAxis(threshold)
-  const candidates = source.all()
 
-  for (const other of candidates) {
+  for (const other of source.xRange(moving.x - threshold, moving.x + moving.width + threshold)) {
     const otherEdges = edgesOf(other)
     for (const myEdge of [movingEdges.left, movingEdges.centerX, movingEdges.right]) {
       for (const otherEdge of [otherEdges.left, otherEdges.centerX, otherEdges.right]) {
         matchEdge(axisX, myEdge, otherEdge, moving.x, threshold, otherEdges)
       }
     }
+  }
+  for (const other of source.yRange(moving.y - threshold, moving.y + moving.height + threshold)) {
+    const otherEdges = edgesOf(other)
     for (const myEdge of [movingEdges.top, movingEdges.centerY, movingEdges.bottom]) {
       for (const otherEdge of [otherEdges.top, otherEdges.centerY, otherEdges.bottom]) {
         matchEdge(axisY, myEdge, otherEdge, moving.y, threshold, otherEdges)
@@ -387,7 +432,7 @@ export function snapMove(
   }
 
   const snappedRect: Rect = { ...moving, x: snappedX, y: snappedY }
-  const distances = nearestGapIndicators(snappedRect, candidates, axisX.best < threshold, axisY.best < threshold)
+  const distances = nearestGapIndicators(snappedRect, source, axisX.best < threshold, axisY.best < threshold)
   if (equalSpacingX) distances.push(equalSpacingX.indicator)
   if (equalSpacingY) distances.push(equalSpacingY.indicator)
 
@@ -401,6 +446,20 @@ export function snapResizeBounds(
   threshold: number,
   source: AlignCandidateSource = arrayCandidateSource(others),
 ): ResizeSnapResult {
+  return snapResizeBoundsFrom(bounds, edges, source, threshold)
+}
+
+function edgeWindow(values: number[], threshold: number): { min: number; max: number } | null {
+  if (values.length === 0) return null
+  return { min: Math.min(...values) - threshold, max: Math.max(...values) + threshold }
+}
+
+export function snapResizeBoundsFrom(
+  bounds: Rect,
+  edges: ResizeEdges,
+  source: AlignCandidateSource,
+  threshold: number,
+): ResizeSnapResult {
   let { x, y, width, height } = bounds
   const left = x
   const right = x + width
@@ -412,15 +471,25 @@ export function snapResizeBounds(
   const topAxis = newAxis(threshold)
   const bottomAxis = newAxis(threshold)
 
-  for (const other of source.all()) {
-    const otherEdges = edgesOf(other)
-    for (const otherEdge of [otherEdges.left, otherEdges.centerX, otherEdges.right]) {
-      if (edges.left) matchEdge(leftAxis, left, otherEdge, left, threshold, otherEdges)
-      if (edges.right) matchEdge(rightAxis, right, otherEdge, right, threshold, otherEdges)
+  const xWindow = edgeWindow([...(edges.left ? [left] : []), ...(edges.right ? [right] : [])], threshold)
+  const yWindow = edgeWindow([...(edges.top ? [top] : []), ...(edges.bottom ? [bottom] : [])], threshold)
+
+  if (xWindow) {
+    for (const other of source.xRange(xWindow.min, xWindow.max)) {
+      const otherEdges = edgesOf(other)
+      for (const otherEdge of [otherEdges.left, otherEdges.centerX, otherEdges.right]) {
+        if (edges.left) matchEdge(leftAxis, left, otherEdge, left, threshold, otherEdges)
+        if (edges.right) matchEdge(rightAxis, right, otherEdge, right, threshold, otherEdges)
+      }
     }
-    for (const otherEdge of [otherEdges.top, otherEdges.centerY, otherEdges.bottom]) {
-      if (edges.top) matchEdge(topAxis, top, otherEdge, top, threshold, otherEdges)
-      if (edges.bottom) matchEdge(bottomAxis, bottom, otherEdge, bottom, threshold, otherEdges)
+  }
+  if (yWindow) {
+    for (const other of source.yRange(yWindow.min, yWindow.max)) {
+      const otherEdges = edgesOf(other)
+      for (const otherEdge of [otherEdges.top, otherEdges.centerY, otherEdges.bottom]) {
+        if (edges.top) matchEdge(topAxis, top, otherEdge, top, threshold, otherEdges)
+        if (edges.bottom) matchEdge(bottomAxis, bottom, otherEdge, bottom, threshold, otherEdges)
+      }
     }
   }
 

@@ -1,6 +1,7 @@
 import { Camera } from '../geometry/camera.js'
 import { expand, intersects, type Rect } from '../geometry/rect.js'
 import type { SelectionFrame } from '../geometry/handles.js'
+import type { SceneScope } from '../geometry/spatial-index.js'
 import type { SnapGuide } from '../geometry/snap.js'
 import {
   defaultGridConfig,
@@ -165,6 +166,7 @@ export class Renderer {
     camera: Camera,
     editingId: string | null = null,
     hiddenIds: ReadonlySet<string> | null = null,
+    scope: SceneScope | null = null,
   ): void {
     const { dpr, cssWidth, cssHeight } = this
     const ctx = this.sceneCtx
@@ -179,7 +181,7 @@ export class Renderer {
 
     const viewport = camera.viewportWorldRect(cssWidth, cssHeight)
     this.paintGrid(viewport, camera.zoom)
-    this.paintElements(snapshot, viewport, editingId, hiddenIds)
+    this.paintElements(scope ? scope(viewport) : snapshot, viewport, editingId, hiddenIds)
   }
 
   renderOverlay(camera: Camera, overlay: OverlayState = {}): void {

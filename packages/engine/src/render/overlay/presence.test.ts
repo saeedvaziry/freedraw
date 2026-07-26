@@ -6,8 +6,14 @@ import {
   paintPresence,
   PRESENCE_GHOST_ALPHA,
   PRESENCE_GHOST_FILL_ALPHA,
+  PRESENCE_LASER_CORE_ALPHA,
+  PRESENCE_LASER_CORE_WIDTH,
+  PRESENCE_LASER_GLOW_ALPHA,
+  PRESENCE_LASER_GLOW_WIDTH,
+  PRESENCE_LASER_TAIL_SCALE,
   PRESENCE_PREVIEW_ALPHA,
   PRESENCE_PREVIEW_DASH,
+  type PresenceLaser,
   type PresenceOverlay,
 } from './presence.js'
 
@@ -17,6 +23,7 @@ interface RecordedOp {
   strokeStyle: string
   globalAlpha: number
   lineDash: number[]
+  lineWidth: number
 }
 
 function recorder(): { ctx: CanvasRenderingContext2D; ops: RecordedOp[] } {
@@ -30,6 +37,7 @@ function recorder(): { ctx: CanvasRenderingContext2D; ops: RecordedOp[] } {
       strokeStyle: state.strokeStyle,
       globalAlpha: state.globalAlpha,
       lineDash: [...lineDash],
+      lineWidth: ctx.lineWidth,
     })
   }
   const noop = (): void => {}
@@ -53,6 +61,8 @@ function recorder(): { ctx: CanvasRenderingContext2D; ops: RecordedOp[] } {
       state.globalAlpha = value
     },
     lineWidth: 1,
+    lineCap: 'butt',
+    lineJoin: 'miter',
     font: '',
     textAlign: 'left',
     textBaseline: 'alphabetic',
@@ -65,6 +75,7 @@ function recorder(): { ctx: CanvasRenderingContext2D; ops: RecordedOp[] } {
     beginPath: noop,
     moveTo: noop,
     lineTo: noop,
+    arc: noop,
     arcTo: noop,
     closePath: noop,
     measureText: () => ({ width: 40 }),
@@ -104,7 +115,11 @@ function overlayWithGhost(frames: SelectionFrame[]): PresenceOverlay {
 describe('paintPresence', () => {
   it('outlines the cursor with the supplied presence color', () => {
     const { ctx, ops } = recorder()
-    const colors: PresenceColors = { cursorOutline: '#00ff00', cursorLabelText: '#ff00ff' }
+    const colors: PresenceColors = {
+      cursorOutline: '#00ff00',
+      cursorLabelText: '#ff00ff',
+      laserCore: '#eeeeee',
+    }
     paintPresence(ctx, overlayWithCursor(), camera, colors)
     const stroke = ops.find((entry) => entry.op === 'stroke')
     expect(stroke?.strokeStyle).toBe('#00ff00')
@@ -112,7 +127,11 @@ describe('paintPresence', () => {
 
   it('draws the label text with the supplied presence label color', () => {
     const { ctx, ops } = recorder()
-    const colors: PresenceColors = { cursorOutline: '#00ff00', cursorLabelText: '#ff00ff' }
+    const colors: PresenceColors = {
+      cursorOutline: '#00ff00',
+      cursorLabelText: '#ff00ff',
+      laserCore: '#eeeeee',
+    }
     paintPresence(ctx, overlayWithCursor(), camera, colors)
     const text = ops.find((entry) => entry.op === 'fillText')
     expect(text?.fillStyle).toBe('#ff00ff')
@@ -241,5 +260,122 @@ describe('paintPresence', () => {
     )
     expect(points[0]?.x).toBeCloseTo(10)
     expect(points[0]?.y).toBeCloseTo(10)
+  })
+})
+
+function laser(overrides: Partial<PresenceLaser> = {}): PresenceLaser {
+  return {
+    id: 'u1',
+    points: [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 20, y: 0 },
+    ],
+    color: '#ff2255',
+    ...overrides,
+  }
+}
+
+function overlayWithLaser(overrides: Partial<PresenceLaser> = {}): PresenceOverlay {
+  return { cursors: [], halos: [], ghosts: [], lasers: [laser(overrides)] }
+}
+
+describe('paintPresence lasers', () => {
+  it('strokes a glow pass and a core pass per trail segment', () => {
+    const { ctx, ops } = recorder()
+    paintPresence(ctx, overlayWithLaser(), camera, PRESENCE_COLORS)
+    const strokes = ops.filter((entry) => entry.op === 'stroke')
+    expect(strokes).toHaveLength(4)
+    expect(strokes.every((entry) => entry.strokeStyle === '#ff2255')).toBe(true)
+  })
+
+  it('tapers width and opacity from the head back to the tail', () => {
+    const { ctx, ops } = recorder()
+    paintPresence(ctx, overlayWithLaser(), camera, PRESENCE_COLORS)
+    const strokes = ops.filter((entry) => entry.op === 'stroke')
+    const taper = PRESENCE_LASER_TAIL_SCALE + (1 - PRESENCE_LASER_TAIL_SCALE) * 0.5
+    expect(strokes[0]?.globalAlpha).toBeCloseTo(PRESENCE_LASER_GLOW_ALPHA * taper)
+    expect(strokes[0]?.lineWidth).toBeCloseTo(PRESENCE_LASER_GLOW_WIDTH * taper)
+    expect(strokes[1]?.globalAlpha).toBeCloseTo(PRESENCE_LASER_GLOW_ALPHA)
+    expect(strokes[1]?.lineWidth).toBeCloseTo(PRESENCE_LASER_GLOW_WIDTH)
+  })
+
+  it('keeps the core pass tighter and brighter than the glow', () => {
+    const { ctx, ops } = recorder()
+    paintPresence(ctx, overlayWithLaser(), camera, PRESENCE_COLORS)
+    const core = ops.filter((entry) => entry.op === 'stroke')[3]
+    expect(core?.globalAlpha).toBeCloseTo(PRESENCE_LASER_CORE_ALPHA)
+    expect(core?.lineWidth).toBeCloseTo(PRESENCE_LASER_CORE_WIDTH)
+  })
+
+  it('scales the whole trail by the fade alpha', () => {
+    const { ctx, ops } = recorder()
+    paintPresence(ctx, overlayWithLaser({ alpha: 0.5 }), camera, PRESENCE_COLORS)
+    const head = ops.filter((entry) => entry.op === 'stroke')[1]
+    expect(head?.globalAlpha).toBeCloseTo(PRESENCE_LASER_GLOW_ALPHA * 0.5)
+  })
+
+  it('paints nothing for a trail that has faded out', () => {
+    const { ctx, ops } = recorder()
+    paintPresence(ctx, overlayWithLaser({ alpha: 0 }), camera, PRESENCE_COLORS)
+    expect(ops).toEqual([])
+  })
+
+  it('paints nothing for an empty trail', () => {
+    const { ctx, ops } = recorder()
+    paintPresence(ctx, overlayWithLaser({ points: [] }), camera, PRESENCE_COLORS)
+    expect(ops).toEqual([])
+  })
+
+  it('paints a resting pointer as a head dot with no segments', () => {
+    const { ctx, ops } = recorder()
+    paintPresence(ctx, overlayWithLaser({ points: [{ x: 4, y: 4 }] }), camera, PRESENCE_COLORS)
+    expect(ops.map((entry) => entry.op)).toEqual(['fill', 'fill'])
+  })
+
+  it('caps the head with the peer color and the shared laser core', () => {
+    const { ctx, ops } = recorder()
+    const colors: PresenceColors = {
+      cursorOutline: '#00ff00',
+      cursorLabelText: '#ff00ff',
+      laserCore: '#eeeeee',
+    }
+    paintPresence(ctx, overlayWithLaser(), camera, colors)
+    const fills = ops.filter((entry) => entry.op === 'fill')
+    expect(fills.map((entry) => entry.fillStyle)).toEqual(['#ff2255', '#eeeeee'])
+  })
+
+  it('centers the head dot on the newest point in screen space', () => {
+    const centers: Array<{ x: number; y: number }> = []
+    const { ctx } = recorder()
+    const spy = { ...ctx, arc: (x: number, y: number) => centers.push({ x, y }) }
+    paintPresence(
+      spy as unknown as CanvasRenderingContext2D,
+      overlayWithLaser(),
+      new Camera({ x: 0, y: 0, zoom: 2 }),
+    )
+    expect(centers[0]).toEqual({ x: 40, y: 0 })
+  })
+
+  it('paints trails above halos and below the cursor of the same peer', () => {
+    const { ctx, ops } = recorder()
+    paintPresence(
+      ctx,
+      {
+        cursors: [{ id: 'u1', point: { x: 0, y: 0 }, color: '#123456' }],
+        halos: [{ id: 'u1', frame: frameAt(40), color: '#abcdef' }],
+        ghosts: [],
+        lasers: [laser({ points: [{ x: 0, y: 0 }] })],
+      },
+      camera,
+      PRESENCE_COLORS,
+    )
+    expect(ops.map((entry) => entry.op)).toEqual(['stroke', 'fill', 'fill', 'fill', 'stroke'])
+  })
+
+  it('leaves overlays that carry no laser field untouched', () => {
+    const { ctx, ops } = recorder()
+    paintPresence(ctx, { cursors: [], halos: [], ghosts: [] }, camera, PRESENCE_COLORS)
+    expect(ops).toEqual([])
   })
 })

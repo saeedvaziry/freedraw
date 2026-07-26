@@ -8,8 +8,8 @@ import type { DrawTarget } from '../draw-target.js'
 import { elementColors } from '../draw-cache.js'
 import { invertColor } from '../invert.js'
 
-function measureContextFor(ctx: DrawTarget, fontSize: number, fontFamily: string): MeasureContext {
-  ctx.font = fontString(fontSize, fontFamily)
+function measureContextFor(ctx: DrawTarget, style: Style): MeasureContext {
+  ctx.font = fontString(style.fontSize, style.fontFamily, style)
   return { measureWidth: (text) => ctx.measureText(text).width }
 }
 
@@ -40,10 +40,17 @@ function measure(
   width: number,
   style: Style,
 ): TextLayout {
-  const measureCtx = measureContextFor(ctx, style.fontSize, style.fontFamily)
+  const measureCtx = measureContextFor(ctx, style)
   return layoutCache.get(
     id,
-    { text, width, fontSize: style.fontSize, fontFamily: style.fontFamily },
+    {
+      text,
+      width,
+      fontSize: style.fontSize,
+      fontFamily: style.fontFamily,
+      fontWeight: style.fontWeight,
+      fontStyle: style.fontStyle,
+    },
     measureCtx,
   )
 }
@@ -162,7 +169,7 @@ function paintLayout(
   ctx.save()
   ctx.globalAlpha = style.opacity
   ctx.fillStyle = color
-  ctx.font = fontString(style.fontSize, style.fontFamily)
+  ctx.font = fontString(style.fontSize, style.fontFamily, style)
   ctx.textBaseline = 'middle'
   ctx.textAlign = canvasAlign(box.align)
   const anchorX = alignX(box, canvasAlign(box.align))

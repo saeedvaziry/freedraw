@@ -3,6 +3,7 @@ import { ColorPicker } from './color-picker.js'
 import { SegmentedControl, SliderControl } from './controls.js'
 import { DashedLineIcon, DottedLineIcon } from './icons.js'
 import {
+  type PanelPalette,
   type PanelStyle,
   type PanelStylePatch,
   type StrokeStyle,
@@ -25,6 +26,7 @@ export interface StrokeControlsProps {
   style: PanelStyle
   showFill: boolean
   showRoundness: boolean
+  palette?: PanelPalette
   onChange(patch: PanelStylePatch): void
   onInteractStart(): void
   onInteractEnd(): void
@@ -34,6 +36,7 @@ export function StrokeControls({
   style,
   showFill,
   showRoundness,
+  palette,
   onChange,
   onInteractStart,
   onInteractEnd,
@@ -44,6 +47,7 @@ export function StrokeControls({
         label="Stroke"
         value={resolveString(style.stroke, '#1e1e1e')}
         mixed={isMixed(style.stroke)}
+        palette={palette}
         onChange={(stroke) => onChange({ stroke })}
       />
       {showFill && (
@@ -52,6 +56,7 @@ export function StrokeControls({
           value={resolveString(style.fill, 'transparent')}
           mixed={isMixed(style.fill)}
           allowTransparent
+          palette={palette}
           onChange={(fill) => onChange({ fill })}
         />
       )}

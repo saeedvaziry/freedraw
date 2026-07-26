@@ -10,6 +10,7 @@ import {
   type PresenceAwareness,
   type PresenceDrag,
   type PresenceIdentity,
+  type PresenceLaserTrail,
   type PresenceParticipant,
   type PresencePoint,
   type PresenceRosterEntry,
@@ -25,6 +26,7 @@ export interface UsePresenceOptions {
   readOnly?: boolean
   cursorIntervalMs?: number
   viewportIntervalMs?: number
+  laserIntervalMs?: number
 }
 
 export interface UsePresenceResult {
@@ -38,6 +40,7 @@ export interface UsePresenceResult {
   setTool: (tool: ToolId | null) => void
   setViewport: (viewport: PresenceViewport | null) => void
   setDrag: (drag: PresenceDrag | null) => void
+  setLaser: (laser: PresenceLaserTrail | null) => void
   flush: () => void
   clear: () => void
 }
@@ -49,6 +52,7 @@ export function usePresence(options: UsePresenceOptions): UsePresenceResult {
     readOnly = false,
     cursorIntervalMs,
     viewportIntervalMs,
+    laserIntervalMs,
   } = options
   const authUser = usePage().props.auth?.user ?? null
   const source = options.user !== undefined ? options.user : authUser
@@ -74,6 +78,7 @@ export function usePresence(options: UsePresenceOptions): UsePresenceResult {
     const writer = createPresenceWriter(target, identity, {
       cursorIntervalMs,
       viewportIntervalMs,
+      laserIntervalMs,
       readOnly: readOnlyRef.current,
     })
     writerRef.current = writer
@@ -82,7 +87,7 @@ export function usePresence(options: UsePresenceOptions): UsePresenceResult {
       writer.destroy()
       if (writerRef.current === writer) writerRef.current = null
     }
-  }, [target, identity, cursorIntervalMs, viewportIntervalMs])
+  }, [target, identity, cursorIntervalMs, viewportIntervalMs, laserIntervalMs])
 
   useEffect(() => {
     readOnlyRef.current = readOnly
@@ -113,6 +118,9 @@ export function usePresence(options: UsePresenceOptions): UsePresenceResult {
   const setDrag = useCallback((drag: PresenceDrag | null) => {
     writerRef.current?.setDrag(drag)
   }, [])
+  const setLaser = useCallback((laser: PresenceLaserTrail | null) => {
+    writerRef.current?.setLaser(laser)
+  }, [])
   const flush = useCallback(() => {
     writerRef.current?.flush()
   }, [])
@@ -131,6 +139,7 @@ export function usePresence(options: UsePresenceOptions): UsePresenceResult {
     setTool,
     setViewport,
     setDrag,
+    setLaser,
     flush,
     clear,
   }

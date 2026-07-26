@@ -1,6 +1,6 @@
 import { useSlides } from '@/hooks/board/use-slides.js'
-import { useBoardContext } from '../board-context.js'
-import { SlidesPanel } from './slides-panel.js'
+import { useBoardContext } from './board-context.js'
+import { SlidesPanel } from './slides/slides-panel.js'
 
 interface SlidesPanelHostProps {
   className?: string

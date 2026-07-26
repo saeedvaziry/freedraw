@@ -6,6 +6,7 @@ import { migrateDoc } from '../model/migrations.js'
 import { applyScene, type SerializedScene } from '../model/serialize.js'
 import { rotatedBounds } from '../geometry/rotate.js'
 import type { Rect } from '../geometry/rect.js'
+import { SceneIndex } from '../geometry/spatial-index.js'
 import {
   alignDeltas,
   distributeDeltas,
@@ -249,6 +250,19 @@ function sameBindingTargets(a: ArrowElement, b: ArrowElement): boolean {
   return a.start?.elementId === b.start?.elementId && a.end?.elementId === b.end?.elementId
 }
 
+function sameIndexBox(before: Element | undefined, after: Element): boolean {
+  if (!before) return false
+  return (
+    before.x === after.x &&
+    before.y === after.y &&
+    before.width === after.width &&
+    before.height === after.height &&
+    before.rotation === after.rotation &&
+    before.style.strokeWidth === after.style.strokeWidth &&
+    before.label?.text === after.label?.text
+  )
+}
+
 function translatedPatch(element: Element, dx: number, dy: number): Partial<Element> {
   if (isArrowElement(element) || element.type === 'freedraw') {
     const points = element.points.map((point) => ({ x: point.x + dx, y: point.y + dy }))
@@ -285,6 +299,8 @@ export class SceneStore {
   private readonly arrowsByShape = new Map<ElementId, Set<ElementId>>()
   private readonly arrowBindings = new Map<ElementId, ElementId[]>()
   private readonly danglingArrows = new Set<ElementId>()
+  private readonly spatial = new SceneIndex()
+  private readonly arrowIds = new Set<ElementId>()
   private readonly routeCache = new RouteCache()
   private selectionStyle: SelectionStyle | null = null
   private transientIds: ReadonlySet<ElementId> | null = null
@@ -305,6 +321,7 @@ export class SceneStore {
 
     this.snapshot = this.buildSnapshot()
     this.rebuildBindingIndex()
+    this.rebuildSpatialIndex()
 
     this.undoManager = new Y.UndoManager([this.yElements, this.yOrder, this.yAppState], {
       trackedOrigins: new Set([TRANSACTION_ORIGIN]),
@@ -320,6 +337,14 @@ export class SceneStore {
 
   getSnapshot(): SceneSnapshot {
     return this.snapshot
+  }
+
+  get sceneIndex(): SceneIndex {
+    return this.spatial
+  }
+
+  scopedSnapshot(rect: Rect): SceneSnapshot {
+    return this.spatial.scope(this.snapshot, rect)
   }
 
   subscribe(cb: Subscriber): () => void {
@@ -967,6 +992,7 @@ export class SceneStore {
     this.routeCache.invalidateForChanges(previous, next, changedIds)
     this.snapshot = this.routeCache.overlay(next)
     this.updateBindingIndex(changedIds)
+    this.syncSpatialIndex(previous, changedIds, removedIds)
     if (removedIds.size > 0) this.pruneDanglingIds(this.transientIds)
     this.invalidate()
   }
@@ -1001,7 +1027,47 @@ export class SceneStore {
 
   private readonly onOrderChanged = (): void => {
     this.snapshot = { ...this.snapshot, order: this.yOrder.toArray() }
+    this.spatial.setOrder(this.snapshot.order)
     this.invalidate()
+  }
+
+  private rebuildSpatialIndex(): void {
+    this.arrowIds.clear()
+    for (const id of this.snapshot.order) {
+      const element = this.snapshot.elements[id]
+      if (element && isArrowElement(element)) this.arrowIds.add(id)
+    }
+    this.spatial.rebuild(this.snapshot)
+  }
+
+  private syncSpatialIndex(
+    previous: SceneSnapshot,
+    changedIds: Set<ElementId>,
+    removedIds: Set<ElementId>,
+  ): void {
+    for (const id of removedIds) {
+      this.spatial.remove(id)
+      this.arrowIds.delete(id)
+    }
+    for (const id of changedIds) {
+      if (removedIds.has(id)) continue
+      const element = this.snapshot.elements[id]
+      if (!element) {
+        this.spatial.remove(id)
+        this.arrowIds.delete(id)
+        continue
+      }
+      if (isArrowElement(element)) this.arrowIds.add(id)
+      else this.arrowIds.delete(id)
+      this.spatial.upsert(element)
+    }
+    for (const id of this.arrowIds) {
+      if (changedIds.has(id)) continue
+      const element = this.snapshot.elements[id]
+      if (!element) continue
+      if (sameIndexBox(previous.elements[id], element)) continue
+      this.spatial.upsert(element)
+    }
   }
 
   private readonly onAppStateChanged = (): void => {

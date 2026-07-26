@@ -69,7 +69,15 @@ describe('overlayColorsFrom', () => {
 
 describe('presenceColors', () => {
   it('exposes a high-contrast outline and label color for remote cursors', () => {
-    expect(presenceColors()).toEqual({ cursorOutline: '#ffffff', cursorLabelText: '#ffffff' })
+    expect(presenceColors()).toEqual({
+      cursorOutline: '#ffffff',
+      cursorLabelText: '#ffffff',
+      laserCore: '#ffffff',
+    })
+  })
+
+  it('exposes a high-contrast core for laser pointer trails', () => {
+    expect(presenceColors().laserCore).toBe('#ffffff')
   })
 
   it('stays fixed regardless of the resolved canvas colors', () => {
@@ -84,6 +92,7 @@ describe('presenceColors', () => {
   it('is not part of the themeable canvas color set', () => {
     expect(Object.keys(DEFAULT_CANVAS_COLORS)).not.toContain('cursorOutline')
     expect(Object.keys(DEFAULT_CANVAS_COLORS)).not.toContain('cursorLabelText')
+    expect(Object.keys(DEFAULT_CANVAS_COLORS)).not.toContain('laserCore')
   })
 
   it('hands out a copy so callers cannot mutate the shared group', () => {

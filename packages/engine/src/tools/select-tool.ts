@@ -8,24 +8,24 @@ import {
   type ResizeHandleId,
 } from '../geometry/handles.js'
 import { elementBounds, elementCenter, expandGroupSelection, hitTest, marqueeHits } from '../geometry/hit-test.js'
-import type { Rect } from '../geometry/rect.js'
+import { pointRect, type Rect } from '../geometry/rect.js'
 import { snapPointToGrid } from '../geometry/grid.js'
 import { snapEndpoint, SNAP_DISTANCE } from '../geometry/snap.js'
 import {
   alignGuides,
-  localAlignRects,
-  snapMove,
-  snapResizeBounds,
+  snapMoveFrom,
+  snapResizeBoundsFrom,
   ALIGN_SNAP_DISTANCE,
-  type AlignCandidate,
+  type AlignCandidateSource,
   type ResizeEdges,
 } from '../geometry/align-snap.js'
+import { sceneAlignSource } from '../geometry/spatial-index.js'
 import { rotateVector } from '../geometry/rotate.js'
 import { resizeElements, resizedBounds, rotationFor } from '../geometry/transform.js'
 import { selectionFrameFor } from '../geometry/selection-frame.js'
 import { labelRect } from '../geometry/shape-outline.js'
 import { moveRouteSegment, routeSegmentAxis, simplifyRoute, snapRouteSegmentTarget } from '../geometry/arrow-geometry.js'
-import { planConnectedShape, type SpawnDirection } from '../connectors/spawn.js'
+import { obstacleBounds, planConnectedShape, spawnSearchRegion, type SpawnDirection } from '../connectors/spawn.js'
 import { createArrow } from '../model/factory.js'
 import { isArrowElement } from '../model/guards.js'
 import { labelEditRequest } from '../text/label-edit.js'
@@ -61,11 +61,25 @@ function portDirection(shape: Element, port: Point): SpawnDirection | null {
   return PORT_DIRECTIONS[bestIndex] ?? null
 }
 
+type SelectionFrameOf = ReturnType<typeof selectionFrameFor>
+
 type Mode =
   | { kind: 'idle' }
-  | { kind: 'move'; start: Point; elements: Element[]; others: AlignCandidate[] }
+  | {
+      kind: 'move'
+      start: Point
+      elements: Element[]
+      frame: SelectionFrameOf
+      align: AlignCandidateSource | null
+    }
   | { kind: 'marquee'; origin: Point; additive: boolean; base: Set<ElementId> }
-  | { kind: 'resize'; handle: ResizeHandleId; elements: Element[]; frame: ReturnType<typeof selectionFrameFor>; others: AlignCandidate[] }
+  | {
+      kind: 'resize'
+      handle: ResizeHandleId
+      elements: Element[]
+      frame: SelectionFrameOf
+      align: AlignCandidateSource | null
+    }
   | { kind: 'rotate'; elements: Element[]; center: Point; startAngle: number }
   | {
       kind: 'portPending'
@@ -117,7 +131,7 @@ export class SelectTool implements Tool {
       if (handle === 'rotate') return ROTATE_CURSOR
       if (handle) return resizeCursor(handle, frame.rotation)
     }
-    const hit = hitTest(info.world, store.getSnapshot(), { includeLocked: info.altKey })
+    const hit = hitAt(store, info.world, { includeLocked: info.altKey })
     if (!hit) return DEFAULT_CURSOR
     if (hit.locked) return UNLOCK_CURSOR
     return selected.has(hit.id) ? MOVE_CURSOR : DEFAULT_CURSOR
@@ -161,7 +175,7 @@ export class SelectTool implements Tool {
           frame,
           shapeSelectionElements,
           info.world,
-          otherBounds(store.getSnapshot(), selected),
+          alignSourceFor(store, selected, frame),
           ctx,
         )
       }
@@ -170,7 +184,7 @@ export class SelectTool implements Tool {
     const portDrag = this.tryPortDrag(info, ctx)
     if (portDrag) return portDrag
 
-    const hit = hitTest(info.world, store.getSnapshot(), { includeLocked: info.altKey })
+    const hit = hitAt(store, info.world, { includeLocked: info.altKey })
     if (!hit) {
       this.mode = {
         kind: 'marquee',
@@ -191,11 +205,14 @@ export class SelectTool implements Tool {
     const nextSelection = this.resolveSelection(selected, targets, info.shiftKey)
     store.setUiState({ selectedIds: nextSelection })
     if (nextSelection.has(hit.id)) {
+      const moving = selectedElements(store, nextSelection).filter((element) => !element.locked)
+      const movingFrame = selectionFrameFor(moving)
       this.mode = {
         kind: 'move',
         start: snapPointToGrid(info.world),
-        elements: selectedElements(store, nextSelection).filter((element) => !element.locked),
-        others: otherBounds(store.getSnapshot(), nextSelection),
+        elements: moving,
+        frame: movingFrame,
+        align: alignSourceFor(store, nextSelection, movingFrame),
       }
     }
     return { overlay: true }
@@ -277,7 +294,7 @@ export class SelectTool implements Tool {
     mode: { sourceId: ElementId },
     ctx: ToolContext,
   ): boolean {
-    const hit = hitTest(info.world, ctx.store.getSnapshot())
+    const hit = hitAt(ctx.store, info.world)
     return hit?.id === mode.sourceId
   }
 
@@ -290,7 +307,7 @@ export class SelectTool implements Tool {
   }
 
   onDoubleClick(info: PointerInfo, ctx: ToolContext): ToolResult | void {
-    const hit = hitTest(info.world, ctx.store.getSnapshot())
+    const hit = hitAt(ctx.store, info.world)
     if (!hit) return
     ctx.store.setUiState({ selectedIds: new Set([hit.id]) })
     if (isArrowElement(hit)) {
@@ -308,7 +325,7 @@ export class SelectTool implements Tool {
   onContextMenu(info: PointerInfo, ctx: ToolContext): ToolResult | void {
     this.spawnPreviewActive = false
     ctx.setSpawnPreview(null)
-    const hit = hitTest(info.world, ctx.store.getSnapshot(), { includeLocked: info.altKey })
+    const hit = hitAt(ctx.store, info.world, { includeLocked: info.altKey })
     const selected = ctx.store.getUiState().selectedIds
     if (!hit) {
       if (selected.size > 0) ctx.store.setUiState({ selectedIds: new Set() })
@@ -393,10 +410,10 @@ export class SelectTool implements Tool {
 
   private beginHandle(
     handle: HandleId,
-    frame: NonNullable<ReturnType<typeof selectionFrameFor>>,
+    frame: NonNullable<SelectionFrameOf>,
     elements: Element[],
     pointer: Point,
-    others: AlignCandidate[],
+    align: AlignCandidateSource | null,
     ctx: ToolContext,
   ): ToolResult {
     ctx.setTransforming?.(true)
@@ -405,7 +422,7 @@ export class SelectTool implements Tool {
       this.mode = { kind: 'rotate', elements, center: frame.center, startAngle }
       return { overlay: true }
     }
-    this.mode = { kind: 'resize', handle, elements, frame, others }
+    this.mode = { kind: 'resize', handle, elements, frame, align }
     return { overlay: true }
   }
 
@@ -519,6 +536,7 @@ export class SelectTool implements Tool {
       threshold: SNAP_DISTANCE / ctx.camera.zoom,
       origin: mode.start,
       ignoreId: mode.arrow.id,
+      scope: (rect) => ctx.store.scopedSnapshot(rect),
     })
     const target = snap.target?.id === mode.sourceId ? null : snap.target
     ctx.setGuides(snap.guides)
@@ -546,6 +564,7 @@ export class SelectTool implements Tool {
       threshold: SNAP_DISTANCE / ctx.camera.zoom,
       origin: fixedEnd,
       ignoreId: arrow.id,
+      scope: (rect) => ctx.store.scopedSnapshot(rect),
     })
     ctx.setGuides(snap.guides)
     ctx.setPortTarget(snap.target?.id ?? null)
@@ -619,10 +638,9 @@ export class SelectTool implements Tool {
   }
 
   private trackHover(info: PointerInfo, ctx: ToolContext): ToolResult {
-    const snapshot = ctx.store.getSnapshot()
     const portHit = this.portShapeAt(info, ctx)
     const spawned = this.trackSpawnPreview(info, ctx, portHit)
-    const hit = hitTest(info.world, snapshot, { includeLocked: info.altKey })
+    const hit = hitAt(ctx.store, info.world, { includeLocked: info.altKey })
     const portHover = portHit ?? (hit ? null : this.portHoverShapeAt(info, ctx))
     const nextId = portHover?.shape.id ?? hit?.id ?? null
     if (nextId === ctx.store.getHoveredId()) return spawned ? { overlay: true } : {}
@@ -642,7 +660,8 @@ export class SelectTool implements Tool {
       if (had) ctx.setSpawnPreview(null)
       return had
     }
-    const obstacles = otherBounds(ctx.store.getSnapshot(), new Set([hit.shape.id]))
+    const region = spawnSearchRegion(elementBounds(hit.shape), direction)
+    const obstacles = obstacleBounds(ctx.store.scopedSnapshot(region), hit.shape.id)
     const { target, arrow } = planConnectedShape(hit.shape, direction, ctx.store.getLastUsedStyle(), undefined, obstacles)
     const preview = previewArrow(arrow, ctx.store.getSnapshot(), { [hit.shape.id]: hit.shape, [target.id]: target })
     ctx.setSpawnPreview({
@@ -659,7 +678,7 @@ export class SelectTool implements Tool {
     const gridDx = next.x - this.mode.start.x
     const gridDy = next.y - this.mode.start.y
     const elements = this.mode.elements
-    const { dx, dy } = this.applyAlignMove(ctx, elements, gridDx, gridDy, this.mode.others)
+    const { dx, dy } = this.applyAlignMove(ctx, this.mode.frame, this.mode.align, gridDx, gridDy)
     const movingShapeIds = new Set(elements.filter((element) => !isArrowElement(element)).map((element) => element.id))
     const transformed = new Map<ElementId, Element>()
     for (const element of elements) {
@@ -672,24 +691,19 @@ export class SelectTool implements Tool {
 
   private applyAlignMove(
     ctx: ToolContext,
-    elements: Element[],
+    frame: SelectionFrameOf,
+    align: AlignCandidateSource | null,
     gridDx: number,
     gridDy: number,
-    others: AlignCandidate[],
   ): { dx: number; dy: number } {
     const fallback = { dx: gridDx, dy: gridDy }
-    if (others.length === 0) {
-      ctx.setGuides([])
-      return fallback
-    }
-    const frame = selectionFrameFor(elements)
-    if (!frame) {
+    if (!frame || !align) {
       ctx.setGuides([])
       return fallback
     }
     const local = rotateVector({ x: gridDx, y: gridDy }, -frame.rotation)
     const moved: Rect = { ...frame.bounds, x: frame.bounds.x + local.x, y: frame.bounds.y + local.y }
-    const snap = snapMove(moved, localAlignRects(others, frame), ALIGN_SNAP_DISTANCE / ctx.camera.zoom)
+    const snap = snapMoveFrom(moved, align, ALIGN_SNAP_DISTANCE / ctx.camera.zoom)
     ctx.setGuides(alignGuides(snap.lines, snap.distances, frame))
     const offset = rotateVector({ x: snap.dx, y: snap.dy }, frame.rotation)
     return { dx: gridDx + offset.x, dy: gridDy + offset.y }
@@ -701,7 +715,7 @@ export class SelectTool implements Tool {
     ctx.setMarquee(rect)
     if (rect.width < MARQUEE_THRESHOLD && rect.height < MARQUEE_THRESHOLD) return { overlay: true }
     const snapshot = ctx.store.getSnapshot()
-    const hits = marqueeHits(rect, snapshot)
+    const hits = marqueeHits(rect, ctx.store.scopedSnapshot(rect))
     const selected = new Set(this.mode.additive ? this.mode.base : [])
     for (const id of expandGroupSelection(hits.map((element) => element.id), snapshot)) selected.add(id)
     ctx.store.setUiState({ selectedIds: selected })
@@ -711,7 +725,7 @@ export class SelectTool implements Tool {
   private dragResize(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (this.mode.kind !== 'resize' || !this.mode.frame) return {}
     const grid = resizedBounds(this.mode.frame, this.mode.handle, snapPointToGrid(info.world))
-    const next = this.alignResizeBounds(ctx, grid, this.mode.handle, this.mode.frame, this.mode.others)
+    const next = this.alignResizeBounds(ctx, grid, this.mode.handle, this.mode.frame, this.mode.align)
     const patches = resizeElements(this.mode.elements, this.mode.frame, next)
     ctx.setTransient?.(buildTransientElements(ctx.store, patchedMap(this.mode.elements, patches)))
     this.pending = { kind: 'patches', patches }
@@ -722,15 +736,14 @@ export class SelectTool implements Tool {
     ctx: ToolContext,
     grid: Rect,
     handle: ResizeHandleId,
-    frame: NonNullable<ReturnType<typeof selectionFrameFor>>,
-    others: AlignCandidate[],
+    frame: NonNullable<SelectionFrameOf>,
+    align: AlignCandidateSource | null,
   ): Rect {
-    if (others.length === 0) {
+    if (!align) {
       ctx.setGuides([])
       return grid
     }
-    const candidates = localAlignRects(others, frame)
-    const snap = snapResizeBounds(grid, resizeEdgesFor(handle), candidates, ALIGN_SNAP_DISTANCE / ctx.camera.zoom)
+    const snap = snapResizeBoundsFrom(grid, resizeEdgesFor(handle), align, ALIGN_SNAP_DISTANCE / ctx.camera.zoom)
     ctx.setGuides(alignGuides(snap.lines, [], frame))
     return snap.bounds
   }
@@ -804,15 +817,22 @@ function endpointOnMovedSegment(endpoint: Point, segmentPoint: Point, axis: 'hor
   return { x: segmentPoint.x, y: endpoint.y }
 }
 
-function otherBounds(snapshot: SceneSnapshot, exclude: Set<ElementId>): AlignCandidate[] {
-  const bounds: AlignCandidate[] = []
-  for (const id of snapshot.order) {
-    if (exclude.has(id)) continue
-    const element = snapshot.elements[id]
-    if (!element || isArrowElement(element)) continue
-    bounds.push({ ...elementBounds(element), rotation: element.rotation })
-  }
-  return bounds
+function hitAt(store: SceneStore, point: Point, options: { includeLocked?: boolean } = {}): Element | null {
+  return hitTest(point, store.scopedSnapshot(pointRect(point)), options)
+}
+
+function alignSourceFor(
+  store: SceneStore,
+  exclude: Set<ElementId>,
+  frame: SelectionFrameOf,
+): AlignCandidateSource | null {
+  if (!frame) return null
+  return sceneAlignSource({
+    index: store.sceneIndex,
+    snapshot: store.getSnapshot(),
+    exclude,
+    space: frame,
+  })
 }
 
 function resizeEdgesFor(handle: ResizeHandleId): ResizeEdges {

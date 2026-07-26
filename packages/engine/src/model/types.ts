@@ -2,6 +2,8 @@ export type ElementId = string
 
 export type StrokeStyle = 'solid' | 'dashed' | 'dotted'
 
+export type FontStyle = 'normal' | 'italic'
+
 export interface Point {
   x: number
   y: number
@@ -17,6 +19,8 @@ export interface Style {
   sloppiness: number
   fontSize: number
   fontFamily: string
+  fontWeight: number
+  fontStyle: FontStyle
   textColor: string
   textAlign: 'left' | 'center' | 'right'
 }

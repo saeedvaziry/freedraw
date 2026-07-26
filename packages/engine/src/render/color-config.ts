@@ -18,11 +18,13 @@ export interface OverlayColors {
 export interface PresenceColors {
   cursorOutline: string
   cursorLabelText: string
+  laserCore: string
 }
 
 export const PRESENCE_COLORS: PresenceColors = {
   cursorOutline: '#ffffff',
   cursorLabelText: '#ffffff',
+  laserCore: '#ffffff',
 }
 
 export const DEFAULT_CANVAS_COLORS: CanvasColors = {

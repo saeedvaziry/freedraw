@@ -11,9 +11,13 @@ import {
   createPresenceWriter,
   readPresenceParticipants,
   resolvePresenceIdentity,
+  LOCAL_LASER_ID,
+  type LaserTrailFrame,
   type PresenceAwareness,
   type PresenceDrag,
   type PresenceFrame,
+  type PresenceLaserSource,
+  type PresenceLaserTrail,
   type PresenceParticipant,
 } from '@/lib/presence'
 import type { PageSync } from '@/lib/persistence'
@@ -164,6 +168,7 @@ function createPublisher(): PresencePublisher & {
   tools: Array<ToolId | null>
   viewports: number[]
   drags: Array<PresenceDrag | null>
+  lasers: Array<PresenceLaserTrail | null>
 } {
   return {
     cursors: [],
@@ -171,6 +176,7 @@ function createPublisher(): PresencePublisher & {
     tools: [],
     viewports: [],
     drags: [],
+    lasers: [],
     setCursor(point) {
       this.cursors.push(point === null ? null : { x: point.x, y: point.y })
     },
@@ -185,6 +191,9 @@ function createPublisher(): PresencePublisher & {
     },
     setDrag(drag) {
       this.drags.push(drag)
+    },
+    setLaser(laser) {
+      this.lasers.push(laser)
     },
   }
 }
@@ -227,6 +236,7 @@ function participant(
     tool: null,
     viewport: null,
     drag: null,
+    laser: null,
     updatedAt: NOW,
     ...overrides,
   }
@@ -1192,5 +1202,218 @@ describe('attachPresenceOverlay', () => {
     expect(canvas.overlays).toEqual([{ cursors: 1, halos: 0 }, null])
     expect(reader.subscribers).toBe(0)
     expect(scene.sceneSubscribers).toBe(0)
+  })
+})
+
+interface FakeLaser extends PresenceLaserSource {
+  subscribers: number
+  reads: number
+  set(frame: LaserTrailFrame | null): void
+}
+
+function createLaser(initial: LaserTrailFrame | null = null): FakeLaser {
+  const listeners = new Set<() => void>()
+  let frame = initial
+  let reads = 0
+
+  return {
+    get subscribers() {
+      return listeners.size
+    },
+    get reads() {
+      return reads
+    },
+    read() {
+      reads += 1
+      return frame
+    },
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    set(next) {
+      frame = next
+      listeners.forEach((listener) => listener())
+    },
+  }
+}
+
+describe('attachPresencePublisher lasers', () => {
+  it('publishes the live trail as it grows and ends', () => {
+    const canvas = createCanvas()
+    const publisher = createPublisher()
+    const laser = createLaser()
+
+    attachPresencePublisher({ canvas, scene: createScene(), publisher, laser })
+    laser.set({ points: [{ x: 1, y: 1 }], alpha: 1 })
+    laser.set({
+      points: [
+        { x: 1, y: 1 },
+        { x: 4, y: 4 },
+      ],
+      alpha: 0.5,
+    })
+    laser.set(null)
+
+    expect(publisher.lasers).toEqual([
+      null,
+      { points: [{ x: 1, y: 1 }], alpha: 1 },
+      {
+        points: [
+          { x: 1, y: 1 },
+          { x: 4, y: 4 },
+        ],
+        alpha: 0.5,
+      },
+      null,
+    ])
+  })
+
+  it('publishes a trail that was already alive when it attached', () => {
+    const canvas = createCanvas()
+    const publisher = createPublisher()
+    const laser = createLaser({ points: [{ x: 2, y: 2 }], alpha: 0.9 })
+
+    attachPresencePublisher({ canvas, scene: createScene(), publisher, laser })
+
+    expect(publisher.lasers).toEqual([{ points: [{ x: 2, y: 2 }], alpha: 0.9 }])
+  })
+
+  it('never subscribes to the laser for a read-only viewer', () => {
+    const canvas = createCanvas()
+    const publisher = createPublisher()
+    const laser = createLaser({ points: [{ x: 2, y: 2 }], alpha: 1 })
+
+    attachPresencePublisher({
+      canvas,
+      scene: createScene(),
+      publisher,
+      laser,
+      readOnly: true,
+    })
+    laser.set({ points: [{ x: 3, y: 3 }], alpha: 1 })
+
+    expect(laser.subscribers).toBe(0)
+    expect(publisher.lasers).toEqual([null])
+  })
+
+  it('drops the trail and the subscription on detach', () => {
+    const canvas = createCanvas()
+    const publisher = createPublisher()
+    const laser = createLaser()
+
+    const detach = attachPresencePublisher({
+      canvas,
+      scene: createScene(),
+      publisher,
+      laser,
+    })
+    laser.set({ points: [{ x: 1, y: 1 }], alpha: 1 })
+    detach()
+
+    expect(publisher.lasers.at(-1)).toBeNull()
+    expect(laser.subscribers).toBe(0)
+  })
+})
+
+describe('attachPresenceOverlay lasers', () => {
+  it('paints the local trail without a single peer around', () => {
+    const canvas = createCanvas()
+    const laser = createLaser({ points: [{ x: 1, y: 1 }], alpha: 0.5 })
+
+    attachPresenceOverlay({
+      canvas,
+      scene: createScene(),
+      reader: createReader(),
+      laser,
+      laserColor: '#ff0000',
+      now: () => NOW,
+    })
+
+    expect(canvas.painted.at(-1)?.lasers).toEqual([
+      {
+        id: LOCAL_LASER_ID,
+        points: [{ x: 1, y: 1 }],
+        color: '#ff0000',
+        alpha: 0.5,
+      },
+    ])
+  })
+
+  it('repaints as the trail fades and clears once it is spent', () => {
+    const canvas = createCanvas()
+    const laser = createLaser()
+
+    attachPresenceOverlay({
+      canvas,
+      scene: createScene(),
+      reader: createReader(),
+      laser,
+      laserColor: '#ff0000',
+      now: () => NOW,
+    })
+    laser.set({ points: [{ x: 1, y: 1 }], alpha: 1 })
+    laser.set({ points: [{ x: 1, y: 1 }], alpha: 0.4 })
+    laser.set(null)
+
+    expect(canvas.painted.map((overlay) => overlay?.lasers?.[0]?.alpha ?? null)).toEqual([
+      null,
+      1,
+      0.4,
+      null,
+    ])
+  })
+
+  it('paints the local trail alongside remote cursors', () => {
+    const canvas = createCanvas()
+    const reader = createReader([participant(2, { cursor: { x: 9, y: 9 } })])
+    const laser = createLaser({ points: [{ x: 1, y: 1 }], alpha: 1 })
+
+    attachPresenceOverlay({
+      canvas,
+      scene: createScene(),
+      reader,
+      laser,
+      laserColor: '#ff0000',
+      now: () => NOW,
+    })
+
+    const overlay = canvas.painted.at(-1)
+
+    expect(overlay?.cursors).toHaveLength(1)
+    expect(overlay?.lasers).toHaveLength(1)
+  })
+
+  it('paints a remote trail in that peer color', () => {
+    const canvas = createCanvas()
+    const peer = participant(2, { laser: { points: [{ x: 5, y: 5 }] } })
+
+    attachPresenceOverlay({
+      canvas,
+      scene: createScene(),
+      reader: createReader([peer]),
+      now: () => NOW,
+    })
+
+    expect(canvas.painted.at(-1)?.lasers).toEqual([
+      { id: '2', points: [{ x: 5, y: 5 }], color: peer.user.color },
+    ])
+  })
+
+  it('drops the laser subscription on detach', () => {
+    const canvas = createCanvas()
+    const laser = createLaser({ points: [{ x: 1, y: 1 }], alpha: 1 })
+
+    const detach = attachPresenceOverlay({
+      canvas,
+      scene: createScene(),
+      reader: createReader(),
+      laser,
+      now: () => NOW,
+    })
+    detach()
+
+    expect(laser.subscribers).toBe(0)
+    expect(canvas.painted.at(-1)).toBeNull()
   })
 })

@@ -7,6 +7,8 @@ export function layoutKey(input: TextLayoutInput): string {
     Math.round(input.width),
     input.fontSize,
     input.fontFamily,
+    input.fontWeight ?? '',
+    input.fontStyle ?? '',
     input.lineHeight ?? '',
   ].join('|')
 }

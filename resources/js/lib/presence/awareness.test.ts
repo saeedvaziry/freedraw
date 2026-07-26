@@ -14,6 +14,7 @@ import {
     isPresenceStale,
     isSameRoster,
     normalizePresenceDragGhost,
+    normalizePresenceLaser,
     normalizePresenceState,
     readPresenceParticipants,
     readPresenceRoster,
@@ -813,5 +814,255 @@ describe('isPresenceStale', () => {
         expect(isPresenceStale(state as PresenceState, 20_000, 10_000)).toBe(
             true,
         );
+    });
+});
+
+describe('PresenceWriter laser', () => {
+    it('publishes the first trail point immediately', () => {
+        vi.useFakeTimers();
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'), {
+            laserIntervalMs: 40,
+        });
+        awareness.publishes = 0;
+
+        writer.setLaser({ points: [{ x: 1, y: 2 }] });
+
+        expect(awareness.publishes).toBe(1);
+        expect(readLocal(awareness)?.laser?.points).toEqual([{ x: 1, y: 2 }]);
+    });
+
+    it('throttles trail growth to the laser interval', () => {
+        vi.useFakeTimers();
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'), {
+            laserIntervalMs: 40,
+        });
+        writer.setLaser({ points: [{ x: 0, y: 0 }] });
+        awareness.publishes = 0;
+
+        writer.setLaser({
+            points: [
+                { x: 0, y: 0 },
+                { x: 5, y: 0 },
+            ],
+        });
+        vi.advanceTimersByTime(39);
+
+        expect(awareness.publishes).toBe(0);
+
+        vi.advanceTimersByTime(1);
+
+        expect(awareness.publishes).toBe(1);
+        expect(readLocal(awareness)?.laser?.points).toHaveLength(2);
+    });
+
+    it('publishes the end of a trail immediately', () => {
+        vi.useFakeTimers();
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'), {
+            laserIntervalMs: 40,
+        });
+        writer.setLaser({ points: [{ x: 0, y: 0 }] });
+        awareness.publishes = 0;
+
+        writer.setLaser(null);
+
+        expect(awareness.publishes).toBe(1);
+        expect(readLocal(awareness)?.laser).toBeNull();
+    });
+
+    it('skips redundant trail writes', () => {
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'));
+        writer.setLaser({ points: [{ x: 1, y: 1 }], alpha: 1 });
+        awareness.publishes = 0;
+
+        writer.setLaser({ points: [{ x: 1, y: 1 }] });
+        writer.setLaser(null);
+        writer.setLaser(null);
+
+        expect(awareness.publishes).toBe(1);
+    });
+
+    it('publishes the fade of a resting trail through the throttle', () => {
+        vi.useFakeTimers();
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'), {
+            laserIntervalMs: 40,
+        });
+        writer.setLaser({ points: [{ x: 1, y: 1 }] });
+        awareness.publishes = 0;
+
+        writer.setLaser({ points: [{ x: 1, y: 1 }], alpha: 0.5 });
+        vi.advanceTimersByTime(40);
+
+        expect(awareness.publishes).toBe(1);
+        expect(readLocal(awareness)?.laser?.alpha).toBe(0.5);
+    });
+
+    it('never shares the point array it was handed', () => {
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'));
+        const points = [{ x: 1, y: 1 }];
+
+        writer.setLaser({ points });
+        points.push({ x: 2, y: 2 });
+
+        expect(readLocal(awareness)?.laser?.points).toEqual([{ x: 1, y: 1 }]);
+    });
+
+    it('keeps only the newest points within the awareness budget', () => {
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'));
+
+        writer.setLaser({
+            points: Array.from({ length: 80 }, (_, index) => ({
+                x: index,
+                y: 0,
+            })),
+        });
+
+        const trail = readLocal(awareness)?.laser;
+
+        expect(trail?.points).toHaveLength(32);
+        expect(trail?.points[0]).toEqual({ x: 48, y: 0 });
+    });
+
+    it('treats a spent trail as no trail at all', () => {
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'));
+        awareness.publishes = 0;
+
+        writer.setLaser({ points: [{ x: 1, y: 1 }], alpha: 0 });
+        writer.setLaser({ points: [] });
+
+        expect(awareness.publishes).toBe(0);
+        expect(readLocal(awareness)?.laser).toBeNull();
+    });
+
+    it('never publishes a laser trail for a read-only viewer', () => {
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'), {
+            readOnly: true,
+        });
+        awareness.publishes = 0;
+
+        writer.setLaser({ points: [{ x: 1, y: 1 }] });
+
+        expect(awareness.publishes).toBe(0);
+        expect(writer.getState().laser).toBeNull();
+    });
+
+    it('drops a live trail when the viewer is locked', () => {
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'));
+        writer.setLaser({ points: [{ x: 1, y: 1 }] });
+        awareness.publishes = 0;
+
+        writer.setReadOnly(true);
+
+        expect(awareness.publishes).toBe(1);
+        expect(readLocal(awareness)?.laser).toBeNull();
+    });
+
+    it('round-trips a trail through a real y-protocols awareness', () => {
+        const doc = new Y.Doc();
+        const awareness = new Awareness(doc);
+        const writer = createPresenceWriter(awareness, identityFor(3, 'Lin'));
+
+        writer.setLaser({
+            points: [
+                { x: 1, y: 2 },
+                { x: 3, y: 4 },
+            ],
+            alpha: 0.25,
+        });
+
+        expect(readPresenceParticipants(awareness)[0].laser).toEqual({
+            points: [
+                { x: 1, y: 2 },
+                { x: 3, y: 4 },
+            ],
+            alpha: 0.25,
+        });
+
+        writer.destroy();
+        awareness.destroy();
+        doc.destroy();
+    });
+});
+
+describe('normalizePresenceLaser', () => {
+    it('rejects anything that is not a point list', () => {
+        expect(normalizePresenceLaser(null)).toBeNull();
+        expect(normalizePresenceLaser('nope')).toBeNull();
+        expect(normalizePresenceLaser({})).toBeNull();
+        expect(normalizePresenceLaser({ points: 'nope' })).toBeNull();
+        expect(normalizePresenceLaser({ points: [] })).toBeNull();
+    });
+
+    it('drops points that are not finite', () => {
+        const trail = normalizePresenceLaser({
+            points: [
+                { x: 1, y: 1 },
+                { x: Number.NaN, y: 2 },
+                'nope',
+                { x: 3, y: 3 },
+            ],
+        });
+
+        expect(trail?.points).toEqual([
+            { x: 1, y: 1 },
+            { x: 3, y: 3 },
+        ]);
+    });
+
+    it('caps the point list at the awareness budget', () => {
+        const trail = normalizePresenceLaser({
+            points: Array.from({ length: 200 }, (_, index) => ({
+                x: index,
+                y: 0,
+            })),
+        });
+
+        expect(trail?.points).toHaveLength(32);
+    });
+
+    it('leaves a trail without a fade at full strength', () => {
+        expect(normalizePresenceLaser({ points: [{ x: 1, y: 1 }] })).toEqual({
+            points: [{ x: 1, y: 1 }],
+        });
+        expect(
+            normalizePresenceLaser({
+                points: [{ x: 1, y: 1 }],
+                alpha: 'nope',
+            })?.alpha,
+        ).toBeUndefined();
+    });
+
+    it('clamps a fade above one and discards a spent trail', () => {
+        expect(
+            normalizePresenceLaser({ points: [{ x: 1, y: 1 }], alpha: 4 })
+                ?.alpha,
+        ).toBe(1);
+        expect(
+            normalizePresenceLaser({ points: [{ x: 1, y: 1 }], alpha: 0 }),
+        ).toBeNull();
+        expect(
+            normalizePresenceLaser({ points: [{ x: 1, y: 1 }], alpha: -1 }),
+        ).toBeNull();
+    });
+
+    it('reads the trail off a full presence state', () => {
+        const state = normalizePresenceState({
+            user: { id: 'user:1' },
+            laser: { points: [{ x: 2, y: 2 }], alpha: 0.5 },
+        });
+
+        expect(state?.laser).toEqual({ points: [{ x: 2, y: 2 }], alpha: 0.5 });
+        expect(
+            normalizePresenceState({ user: { id: 'user:1' } })?.laser,
+        ).toBeNull();
     });
 });

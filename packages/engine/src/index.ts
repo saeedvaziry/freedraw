@@ -289,3 +289,31 @@ export type {
   SceneSnapshot,
   Point,
 } from './model/types.js'
+
+export { FONT_WEIGHT_NORMAL, FONT_WEIGHT_BOLD } from './model/schema.js'
+export type { FontStyle } from './model/types.js'
+
+export {
+  SceneIndex,
+  SpatialIndex,
+  elementIndexBounds,
+  sceneAlignSource,
+  SPATIAL_CELL_SIZE,
+  SPATIAL_MARGIN,
+} from './geometry/spatial-index.js'
+export type { SceneScope, SceneAlignSourceInput } from './geometry/spatial-index.js'
+export { isBoldWeight, NORMAL_FONT_WEIGHT, BOLD_THRESHOLD } from './text/index.js'
+export type { FontEmphasis } from './text/index.js'
+export { sceneToAst, inferDiagramDirection } from './diagram/scene-graph.js'
+export type { SceneGraph, SceneGraphOptions } from './diagram/scene-graph.js'
+export { canTidy, planTidy, tidyDiagram } from './diagram/tidy.js'
+export type { TidyMove, TidyOptions, TidyPlan } from './diagram/tidy.js'
+export type { PresenceLaser } from './render/overlay/presence.js'
+export {
+  PRESENCE_LASER_CORE_ALPHA,
+  PRESENCE_LASER_CORE_WIDTH,
+  PRESENCE_LASER_GLOW_ALPHA,
+  PRESENCE_LASER_GLOW_WIDTH,
+  PRESENCE_LASER_HEAD_RADIUS,
+  PRESENCE_LASER_TAIL_SCALE,
+} from './render/overlay/presence.js'

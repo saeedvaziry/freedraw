@@ -6,8 +6,16 @@ import {
   type ElementId,
   type SpawnDirection,
 } from '@freedraw/engine'
+import { FlowHud } from './flow-hud.js'
 
 const ARROW_LABEL_BACKGROUND = '#fafafa'
+
+const DEFAULT_SPAWN_DIRECTION: SpawnDirection = 'right'
+
+const HUD_GAP = 10
+const HUD_MARGIN = 12
+const HUD_HALF_WIDTH = 170
+const HUD_HEIGHT = 26
 
 const FLOW_DIRECTIONS: Record<string, SpawnDirection> = {
   ArrowUp: 'up',
@@ -34,6 +42,7 @@ const LINE_RATIO = 1.25
 
 export function TextEditorOverlay({ controller }: TextEditorOverlayProps) {
   const [edit, setEdit] = useState<ActiveEdit | null>(null)
+  const [spawnDirection, setSpawnDirection] = useState<SpawnDirection>(DEFAULT_SPAWN_DIRECTION)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const committedRef = useRef(false)
   const readyRef = useRef(false)
@@ -67,6 +76,14 @@ export function TextEditorOverlay({ controller }: TextEditorOverlayProps) {
     focusAndArm()
     return () => cancelAnimationFrame(frame)
   }, [editKey])
+
+  useLayoutEffect(() => {
+    if (!edit) return
+    const flow = controller.flowContext
+    setSpawnDirection(
+      flow?.editingId === edit.request.elementId ? flow.direction : DEFAULT_SPAWN_DIRECTION,
+    )
+  }, [controller, editKey])
 
   if (!edit) return null
 
@@ -112,15 +129,15 @@ export function TextEditorOverlay({ controller }: TextEditorOverlayProps) {
     const flowDirection = event.altKey ? FLOW_DIRECTIONS[event.key] : undefined
     if (flowDirection) {
       event.preventDefault()
+      setSpawnDirection(flowDirection)
       controller.setFlowDirection(flowDirection)
       return
     }
     if (event.key === 'Tab' && !event.metaKey && !event.ctrlKey) {
       event.preventDefault()
       const sourceId = edit.request.elementId
-      const direction = controller.flowContext?.direction ?? 'right'
       commit()
-      controller.spawnChildAndEdit(sourceId, direction)
+      controller.spawnChildAndEdit(sourceId, spawnDirection)
       return
     }
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -135,26 +152,60 @@ export function TextEditorOverlay({ controller }: TextEditorOverlayProps) {
     }
   }
 
+  const hudAnchor = flowHudAnchor(controller, edit.request)
+
   return (
-    <textarea
-      ref={textareaRef}
-      className="pointer-events-auto absolute resize-none overflow-hidden border-none bg-transparent p-0 leading-none outline-none"
-      style={editorStyle(controller, edit.request, edit.value)}
-      value={edit.value}
-      onChange={(event) => {
-        const value = event.target.value
-        if (edit.request.target === 'text') {
-          controller.resizeTextWhileEditing(edit.request.elementId, value)
-        } else if (edit.request.target === 'label') {
-          controller.resizeShapeForLabel(edit.request.elementId, value)
-        }
-        setEdit({ request: controller.activeEdit ?? edit.request, value })
-      }}
-      onBlur={onBlur}
-      onKeyDown={onKeyDown}
-      spellCheck={false}
-    />
+    <>
+      <textarea
+        ref={textareaRef}
+        className="pointer-events-auto absolute resize-none overflow-hidden border-none bg-transparent p-0 leading-none outline-none"
+        style={editorStyle(controller, edit.request, edit.value)}
+        value={edit.value}
+        onChange={(event) => {
+          const value = event.target.value
+          if (edit.request.target === 'text') {
+            controller.resizeTextWhileEditing(edit.request.elementId, value)
+          } else if (edit.request.target === 'label') {
+            controller.resizeShapeForLabel(edit.request.elementId, value)
+          }
+          setEdit({ request: controller.activeEdit ?? edit.request, value })
+        }}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
+        spellCheck={false}
+      />
+      {hudAnchor ? (
+        <FlowHud direction={spawnDirection} x={hudAnchor.x} y={hudAnchor.y} />
+      ) : null}
+    </>
   )
+}
+
+function flowHudAnchor(
+  controller: EditorController,
+  request: EditRequest,
+): { x: number; y: number } | null {
+  if (controller.isReadOnly) return null
+  if (request.target !== 'label' || request.labelKind === 'arrow') return null
+  const { world } = request
+  if (world.width === 0) return null
+
+  const viewport = controller.viewportSize
+  const below = controller.worldToScreen({
+    x: world.x + world.width / 2,
+    y: world.y + world.height,
+  })
+  const above = controller.worldToScreen({ x: world.x + world.width / 2, y: world.y })
+
+  const minX = Math.min(HUD_HALF_WIDTH + HUD_MARGIN, viewport.width / 2)
+  const maxX = Math.max(viewport.width - HUD_HALF_WIDTH - HUD_MARGIN, viewport.width / 2)
+  const overflowsBottom = below.y + HUD_GAP + HUD_HEIGHT > viewport.height - HUD_MARGIN
+  const y = overflowsBottom ? above.y - HUD_GAP - HUD_HEIGHT : below.y + HUD_GAP
+
+  return {
+    x: Math.min(Math.max(below.x, minX), maxX),
+    y: Math.max(y, HUD_MARGIN),
+  }
 }
 
 function editorStyle(

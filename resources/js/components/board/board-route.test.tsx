@@ -164,6 +164,12 @@ beforeEach(() => {
 })
 
 describe('BoardRoute presence chrome', () => {
+  it('mounts the local laser control into the board chrome', async () => {
+    await renderRoute()
+
+    expect(screen.getByLabelText('Turn on laser pointer')).not.toBeNull()
+  })
+
   it('renders no presence stack while the local peer is alone on the board', async () => {
     rosterMock.peers = [peer(1, { isLocal: true })]
 

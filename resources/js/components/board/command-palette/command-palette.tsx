@@ -14,6 +14,7 @@ import {
   type BoardActionContext,
   type BoardActionGroup,
 } from '@/components/board/board-actions.js'
+import { TIDY_ACTION } from '@/components/board/diagram-panel/tidy-action.js'
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,8 @@ import { cn } from '@/components/board/ui-kit'
 import { fuzzyMatch } from './fuzzy-match.js'
 
 const EXCLUDED_IDS = new Set(['command.open'])
+
+const PALETTE_ACTIONS: BoardAction[] = [...BOARD_ACTIONS, TIDY_ACTION]
 
 const GROUP_ORDER: BoardActionGroup[] = [
   'history',
@@ -162,7 +165,7 @@ export function CommandPalette({ open, onOpenChange, context }: CommandPalettePr
   const listRef = useRef<HTMLDivElement>(null)
 
   const enabledActions = useMemo(
-    () => BOARD_ACTIONS.filter((action) => !EXCLUDED_IDS.has(action.id) && action.when(context)),
+    () => PALETTE_ACTIONS.filter((action) => !EXCLUDED_IDS.has(action.id) && action.when(context)),
     [context, revision],
   )
 

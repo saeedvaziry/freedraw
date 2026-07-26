@@ -21,6 +21,7 @@ export interface LayoutOptions {
   siblingGap?: number
   uniform?: boolean
   minNodeSize?: { width?: number; height?: number }
+  sizes?: ReadonlyMap<string, { width: number; height: number }>
 }
 
 interface BoxSize {
@@ -49,7 +50,7 @@ export function layoutDiagram(
   const layers = assignLayers(order, forward)
   const components = componentBands(order, ast)
 
-  const sizes = nodeSizes(ast.nodes, style, options.minNodeSize, config.uniform)
+  const sizes = nodeSizes(ast.nodes, style, options, config.uniform)
   const vertical = isVertical(ast.direction)
   const mainSign = ast.direction === 'RL' || ast.direction === 'BT' ? -1 : 1
 
@@ -211,11 +212,14 @@ function bandOrder(order: string[], components: Map<string, number>): { band: nu
 function nodeSizes(
   nodes: AstNode[],
   style: Style,
-  floor: LayoutOptions['minNodeSize'],
+  options: LayoutOptions,
   uniform: boolean,
 ): Map<string, BoxSize> {
   const sizes = new Map<string, BoxSize>()
-  for (const node of nodes) sizes.set(node.id, nodeBox(node, style, floor))
+  for (const node of nodes) {
+    const override = options.sizes?.get(node.id)
+    sizes.set(node.id, override ? { ...override } : nodeBox(node, style, options.minNodeSize))
+  }
   if (!uniform) return sizes
 
   let width = 0
