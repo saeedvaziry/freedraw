@@ -5,7 +5,16 @@ import { elementBounds, elementCenter, expandGroupSelection, hitTest, marqueeHit
 import type { Rect } from '../geometry/rect.js'
 import { snapPointToGrid } from '../geometry/grid.js'
 import { snapEndpoint, SNAP_DISTANCE } from '../geometry/snap.js'
-import { alignGuides, snapMove, snapResizeBounds, ALIGN_SNAP_DISTANCE, type ResizeEdges } from '../geometry/align-snap.js'
+import {
+  alignGuides,
+  localAlignRects,
+  snapMove,
+  snapResizeBounds,
+  ALIGN_SNAP_DISTANCE,
+  type AlignCandidate,
+  type ResizeEdges,
+} from '../geometry/align-snap.js'
+import { rotateVector } from '../geometry/rotate.js'
 import { resizeElements, resizedBounds, rotationFor } from '../geometry/transform.js'
 import { selectionFrameFor } from '../geometry/selection-frame.js'
 import { labelRect } from '../geometry/shape-outline.js'
@@ -45,9 +54,9 @@ function portDirection(shape: Element, port: Point): SpawnDirection | null {
 
 type Mode =
   | { kind: 'idle' }
-  | { kind: 'move'; start: Point; elements: Element[]; others: Rect[] }
+  | { kind: 'move'; start: Point; elements: Element[]; others: AlignCandidate[] }
   | { kind: 'marquee'; origin: Point; additive: boolean; base: Set<ElementId> }
-  | { kind: 'resize'; handle: ResizeHandleId; elements: Element[]; frame: ReturnType<typeof selectionFrameFor>; others: Rect[] }
+  | { kind: 'resize'; handle: ResizeHandleId; elements: Element[]; frame: ReturnType<typeof selectionFrameFor>; others: AlignCandidate[] }
   | { kind: 'rotate'; elements: Element[]; center: Point; startAngle: number }
   | {
       kind: 'portPending'
@@ -348,7 +357,7 @@ export class SelectTool implements Tool {
     frame: NonNullable<ReturnType<typeof selectionFrameFor>>,
     elements: Element[],
     pointer: Point,
-    others: Rect[],
+    others: AlignCandidate[],
     ctx: ToolContext,
   ): ToolResult {
     ctx.setTransforming?.(true)
@@ -627,7 +636,7 @@ export class SelectTool implements Tool {
     elements: Element[],
     gridDx: number,
     gridDy: number,
-    others: Rect[],
+    others: AlignCandidate[],
   ): { dx: number; dy: number } {
     const fallback = { dx: gridDx, dy: gridDy }
     if (others.length === 0) {
@@ -635,14 +644,16 @@ export class SelectTool implements Tool {
       return fallback
     }
     const frame = selectionFrameFor(elements)
-    if (!frame || frame.rotation) {
+    if (!frame) {
       ctx.setGuides([])
       return fallback
     }
-    const moved: Rect = { ...frame.bounds, x: frame.bounds.x + gridDx, y: frame.bounds.y + gridDy }
-    const snap = snapMove(moved, others, ALIGN_SNAP_DISTANCE / ctx.camera.zoom)
-    ctx.setGuides(alignGuides(snap.lines, snap.distances))
-    return { dx: gridDx + snap.dx, dy: gridDy + snap.dy }
+    const local = rotateVector({ x: gridDx, y: gridDy }, -frame.rotation)
+    const moved: Rect = { ...frame.bounds, x: frame.bounds.x + local.x, y: frame.bounds.y + local.y }
+    const snap = snapMove(moved, localAlignRects(others, frame), ALIGN_SNAP_DISTANCE / ctx.camera.zoom)
+    ctx.setGuides(alignGuides(snap.lines, snap.distances, frame))
+    const offset = rotateVector({ x: snap.dx, y: snap.dy }, frame.rotation)
+    return { dx: gridDx + offset.x, dy: gridDy + offset.y }
   }
 
   private dragMarquee(info: PointerInfo, ctx: ToolContext): ToolResult {
@@ -661,7 +672,7 @@ export class SelectTool implements Tool {
   private dragResize(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (this.mode.kind !== 'resize' || !this.mode.frame) return {}
     const grid = resizedBounds(this.mode.frame, this.mode.handle, snapPointToGrid(info.world))
-    const next = this.alignResizeBounds(ctx, grid, this.mode.handle, this.mode.frame.rotation, this.mode.others)
+    const next = this.alignResizeBounds(ctx, grid, this.mode.handle, this.mode.frame, this.mode.others)
     const patches = resizeElements(this.mode.elements, this.mode.frame, next)
     ctx.setTransient?.(buildTransientElements(ctx.store, patchedMap(this.mode.elements, patches)))
     this.pending = { kind: 'patches', patches }
@@ -672,15 +683,16 @@ export class SelectTool implements Tool {
     ctx: ToolContext,
     grid: Rect,
     handle: ResizeHandleId,
-    rotation: number,
-    others: Rect[],
+    frame: NonNullable<ReturnType<typeof selectionFrameFor>>,
+    others: AlignCandidate[],
   ): Rect {
-    if (rotation || others.length === 0) {
+    if (others.length === 0) {
       ctx.setGuides([])
       return grid
     }
-    const snap = snapResizeBounds(grid, resizeEdgesFor(handle), others, ALIGN_SNAP_DISTANCE / ctx.camera.zoom)
-    ctx.setGuides(alignGuides(snap.lines))
+    const candidates = localAlignRects(others, frame)
+    const snap = snapResizeBounds(grid, resizeEdgesFor(handle), candidates, ALIGN_SNAP_DISTANCE / ctx.camera.zoom)
+    ctx.setGuides(alignGuides(snap.lines, [], frame))
     return snap.bounds
   }
 
@@ -753,13 +765,13 @@ function endpointOnMovedSegment(endpoint: Point, segmentPoint: Point, axis: 'hor
   return { x: segmentPoint.x, y: endpoint.y }
 }
 
-function otherBounds(snapshot: SceneSnapshot, exclude: Set<ElementId>): Rect[] {
-  const bounds: Rect[] = []
+function otherBounds(snapshot: SceneSnapshot, exclude: Set<ElementId>): AlignCandidate[] {
+  const bounds: AlignCandidate[] = []
   for (const id of snapshot.order) {
     if (exclude.has(id)) continue
     const element = snapshot.elements[id]
     if (!element || isArrowElement(element)) continue
-    bounds.push(elementBounds(element))
+    bounds.push({ ...elementBounds(element), rotation: element.rotation })
   }
   return bounds
 }

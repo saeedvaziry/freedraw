@@ -3,9 +3,12 @@ import { createBinding } from '../connectors/binding.js'
 import { arrowRoute } from '../connectors/resolve.js'
 import { spawnConnectedShape, type SpawnDirection } from '../connectors/spawn.js'
 import { Camera } from '../geometry/camera.js'
+import { snapPointToGrid } from '../geometry/grid.js'
 import type { SelectionFrame } from '../geometry/handles.js'
-import { rotatePoint } from '../geometry/rotate.js'
+import type { Rect } from '../geometry/rect.js'
+import { rotatePoint, rotateVector } from '../geometry/rotate.js'
 import { selectionFrameFor } from '../geometry/selection-frame.js'
+import type { SnapGuide } from '../geometry/snap.js'
 import { createArrow, createShape } from '../model/factory.js'
 import type { ArrowElement, Element, ElementId, Point, ShapeType } from '../model/types.js'
 import { SceneStore } from '../store/scene-store.js'
@@ -142,6 +145,52 @@ function selectedShapes(store: SceneStore): Element[] {
     .filter(Boolean) as Element[]
 }
 
+function addFrameLocalShape(store: SceneStore, id: ElementId, local: Rect, frame: SelectionFrame): void {
+  const center = rotatePoint(
+    { x: local.x + local.width / 2, y: local.y + local.height / 2 },
+    frame.center,
+    frame.rotation,
+  )
+  store.transact((api) =>
+    api.addElement(
+      createShape({
+        id,
+        x: center.x - local.width / 2,
+        y: center.y - local.height / 2,
+        width: local.width,
+        height: local.height,
+        rotation: frame.rotation,
+      }),
+    ),
+  )
+}
+
+function frameLocalRect(element: Element, frame: SelectionFrame): Rect {
+  const center = rotatePoint(
+    { x: element.x + element.width / 2, y: element.y + element.height / 2 },
+    frame.center,
+    -frame.rotation,
+  )
+  return {
+    x: center.x - element.width / 2,
+    y: center.y - element.height / 2,
+    width: element.width,
+    height: element.height,
+  }
+}
+
+function captureGuides(ctx: ToolContext): SnapGuide[][] {
+  const captured: SnapGuide[][] = []
+  ctx.setGuides = (guides) => {
+    captured.push(guides)
+  }
+  return captured
+}
+
+function alignGuideOf(guides: SnapGuide[]): Extract<SnapGuide, { kind: 'align' }> | undefined {
+  return guides.find((guide): guide is Extract<SnapGuide, { kind: 'align' }> => guide.kind === 'align')
+}
+
 describe('SelectTool multi-select resize on a tilted frame', () => {
   it('stretches the group along the frame axis and pins the opposite edge', () => {
     const rotation = 0.6
@@ -190,6 +239,87 @@ describe('SelectTool multi-select resize on a tilted frame', () => {
       )
       expect(local.y).toBeCloseTo(resized.bounds.y + resized.bounds.height / 2, 6)
     }
+  })
+})
+
+describe('SelectTool align snap on a tilted frame', () => {
+  it('snaps a dragged group flush to a same-tilt neighbour and draws the constraint it applied', () => {
+    const rotation = 0.6
+    const { store, ctx } = tiltedPairStore(rotation)
+    const tool = new SelectTool()
+    const frame = selectionFrameFor(selectedShapes(store))!
+    const down = rotatePoint({ x: 50, y: 50 }, frame.center, rotation)
+    const up = { x: down.x + 20, y: down.y + 30 }
+    const start = snapPointToGrid(down)
+    const end = snapPointToGrid(up)
+    const drag = rotateVector({ x: end.x - start.x, y: end.y - start.y }, -rotation)
+    addFrameLocalShape(store, 'c', { x: drag.x + 2, y: 300, width: 100, height: 100 }, frame)
+    const guides = captureGuides(ctx)
+
+    tool.onPointerDown(pointerAt(down), ctx)
+    tool.onPointerMove(pointerAt(up), ctx)
+    const applied = guides[guides.length - 1] ?? []
+    tool.onPointerUp(pointerAt(up), ctx)
+
+    const neighbour = frameLocalRect(store.getSnapshot().elements['c']!, frame)
+    const moved = frameLocalRect(store.getSnapshot().elements['a']!, frame)
+    expect(moved.x).toBeCloseTo(neighbour.x, 6)
+    expect(moved.y).toBeCloseTo(drag.y, 6)
+
+    const guide = alignGuideOf(applied)
+    expect(guide).toBeDefined()
+    expect(guide!.from.x).not.toBeCloseTo(guide!.to.x, 6)
+    for (const point of [guide!.from, guide!.to]) {
+      expect(rotatePoint(point, frame.center, -rotation).x).toBeCloseTo(neighbour.x, 6)
+    }
+  })
+
+  it('snaps a tilted resize flush to a same-tilt neighbour', () => {
+    const rotation = 0.6
+    const { store, ctx } = tiltedPairStore(rotation)
+    const tool = new SelectTool()
+    const frame = selectionFrameFor(selectedShapes(store))!
+    const handle = rotatePoint({ x: 300, y: 50 }, frame.center, rotation)
+    const target = rotatePoint({ x: 420, y: 50 }, frame.center, rotation)
+    const localTarget = rotatePoint(snapPointToGrid(target), frame.center, -rotation)
+    addFrameLocalShape(store, 'c', { x: localTarget.x + 2, y: 0, width: 100, height: 100 }, frame)
+    const guides = captureGuides(ctx)
+
+    tool.onPointerDown(pointerAt(handle), ctx)
+    tool.onPointerMove(pointerAt(target), ctx)
+    const applied = guides[guides.length - 1] ?? []
+    tool.onPointerUp(pointerAt(target), ctx)
+
+    const neighbour = frameLocalRect(store.getSnapshot().elements['c']!, frame)
+    const resized = frameLocalRect(store.getSnapshot().elements['b']!, frame)
+    expect(resized.x + resized.width).toBeCloseTo(neighbour.x, 6)
+
+    const guide = alignGuideOf(applied)
+    expect(guide).toBeDefined()
+    for (const point of [guide!.from, guide!.to]) {
+      expect(rotatePoint(point, frame.center, -rotation).x).toBeCloseTo(neighbour.x, 6)
+    }
+  })
+
+  it('keeps an unrotated group snapping on the world axes', () => {
+    const { store, ctx } = setup()
+    const tool = new SelectTool()
+    store.transact((api) => api.addElement(createShape({ id: 'shape-2', x: 3, y: 300, width: 120, height: 80 })))
+    const guides = captureGuides(ctx)
+
+    tool.onPointerDown(pointerAt({ x: 60, y: 40 }), ctx)
+    tool.onPointerMove(pointerAt({ x: 65, y: 60 }), ctx)
+    const applied = guides[guides.length - 1] ?? []
+    tool.onPointerUp(pointerAt({ x: 65, y: 60 }), ctx)
+
+    const moved = store.getSnapshot().elements['shape-1']!
+    expect(moved.x).toBe(3)
+    expect(moved.y).toBe(20)
+
+    const guide = alignGuideOf(applied)
+    expect(guide).toBeDefined()
+    expect(guide!.from.x).toBe(3)
+    expect(guide!.to.x).toBe(3)
   })
 })
 

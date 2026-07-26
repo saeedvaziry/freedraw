@@ -1,8 +1,34 @@
 import { describe, expect, it } from 'vitest'
-import { arrayCandidateSource, snapMove, snapResizeBounds } from './align-snap.js'
+import {
+  alignGuides,
+  arrayCandidateSource,
+  localAlignRects,
+  snapMove,
+  snapResizeBounds,
+  type AlignCandidate,
+  type AlignSpace,
+} from './align-snap.js'
 import type { Rect } from './rect.js'
+import { rotatePoint } from './rotate.js'
 
 const r = (x: number, y: number, width = 20, height = 20): Rect => ({ x, y, width, height })
+
+const spaceAt = (rotation: number): AlignSpace => ({ center: { x: 0, y: 0 }, rotation })
+
+function candidateFromLocal(local: Rect, space: AlignSpace): AlignCandidate {
+  const center = rotatePoint(
+    { x: local.x + local.width / 2, y: local.y + local.height / 2 },
+    space.center,
+    space.rotation,
+  )
+  return {
+    x: center.x - local.width / 2,
+    y: center.y - local.height / 2,
+    width: local.width,
+    height: local.height,
+    rotation: space.rotation,
+  }
+}
 
 describe('snapMove edge alignment', () => {
   it('does not snap when nothing is near', () => {
@@ -81,6 +107,86 @@ describe('snapMove distance indicators', () => {
     const res = snapMove(r(2, 0), others, 5)
     expect(res.dx).toBe(-2)
     expect(res.distances.length).toBeGreaterThan(0)
+  })
+})
+
+describe('localAlignRects', () => {
+  it('leaves candidates untouched in an unrotated space', () => {
+    const candidates: AlignCandidate[] = [
+      { ...r(0, 0), rotation: 0 },
+      { ...r(50, 10), rotation: 1.2 },
+    ]
+
+    expect(localAlignRects(candidates, spaceAt(0))).toEqual([r(0, 0), r(50, 10)])
+  })
+
+  it('maps a candidate that shares the space rotation onto a tight local rect', () => {
+    const space = spaceAt(Math.PI / 4)
+    const local = localAlignRects([candidateFromLocal(r(40, 60), space)], space)[0]!
+
+    expect(local.x).toBeCloseTo(40, 6)
+    expect(local.y).toBeCloseTo(60, 6)
+    expect(local.width).toBeCloseTo(20, 6)
+    expect(local.height).toBeCloseTo(20, 6)
+  })
+
+  it('bounds a candidate whose rotation differs from the space', () => {
+    const space = spaceAt(Math.PI / 4)
+    const local = localAlignRects([{ ...r(100, 0), rotation: 0 }], space)[0]!
+
+    expect(local.width).toBeCloseTo(20 * Math.SQRT2, 6)
+    expect(local.height).toBeCloseTo(20 * Math.SQRT2, 6)
+  })
+})
+
+describe('snapMove in a rotated space', () => {
+  it('snaps flush to a neighbour that shares the rotation and draws the constraint it applied', () => {
+    const space = spaceAt(0.7)
+    const moving = r(3, 0)
+    const candidates = localAlignRects([candidateFromLocal(r(0, 40), space)], space)
+
+    const res = snapMove(moving, candidates, 5)
+    expect(res.dx).toBeCloseTo(-3, 6)
+    expect(moving.x + res.dx).toBeCloseTo(candidates[0]!.x, 6)
+
+    const guide = alignGuides(res.lines, res.distances, space).find(
+      (candidate): candidate is Extract<typeof candidate, { kind: 'align' }> => candidate.kind === 'align',
+    )
+    expect(guide).toBeDefined()
+    for (const point of [guide!.from, guide!.to]) {
+      expect(rotatePoint(point, space.center, -space.rotation).x).toBeCloseTo(0, 6)
+    }
+  })
+
+  it('snaps to the local bound of a neighbour whose rotation differs and keeps the guide on that bound', () => {
+    const space = spaceAt(Math.PI / 4)
+    const candidate: AlignCandidate = { ...r(100, 100), rotation: 0 }
+    const local = localAlignRects([candidate], space)[0]!
+    const moving = { ...r(0, 0), x: local.x + 1, y: local.y + 200 }
+
+    const res = snapMove(moving, [local], 5)
+    expect(moving.x + res.dx).toBeCloseTo(local.x, 6)
+
+    const corners = [
+      { x: candidate.x, y: candidate.y },
+      { x: candidate.x + candidate.width, y: candidate.y },
+      { x: candidate.x + candidate.width, y: candidate.y + candidate.height },
+      { x: candidate.x, y: candidate.y + candidate.height },
+    ].map((corner) => rotatePoint(corner, space.center, -space.rotation))
+    expect(Math.min(...corners.map((corner) => corner.x))).toBeCloseTo(local.x, 6)
+
+    const guide = alignGuides(res.lines, res.distances, space).find(
+      (candidateGuide): candidateGuide is Extract<typeof candidateGuide, { kind: 'align' }> =>
+        candidateGuide.kind === 'align',
+    )
+    expect(guide).toBeDefined()
+    expect(rotatePoint(guide!.from, space.center, -space.rotation).x).toBeCloseTo(local.x, 6)
+  })
+
+  it('keeps guides in world space when the space is unrotated', () => {
+    const res = snapMove(r(3, 300), [r(0, 0)], 5)
+
+    expect(alignGuides(res.lines, res.distances, spaceAt(0))).toEqual(alignGuides(res.lines, res.distances))
   })
 })
 

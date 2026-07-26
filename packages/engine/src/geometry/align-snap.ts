@@ -1,8 +1,23 @@
 import type { Point } from '../model/types.js'
 import type { Rect } from './rect.js'
+import { rotatePoint } from './rotate.js'
 import type { SnapGuide } from './snap.js'
 
 export const ALIGN_SNAP_DISTANCE = 4
+
+const ORIENTATION_EPSILON = 1e-9
+const FULL_TURN = Math.PI * 2
+
+export interface AlignSpace {
+  center: Point
+  rotation: number
+}
+
+export interface AlignCandidate extends Rect {
+  rotation: number
+}
+
+const WORLD_SPACE: AlignSpace = { center: { x: 0, y: 0 }, rotation: 0 }
 
 interface Edges {
   left: number
@@ -91,6 +106,63 @@ export function arrayCandidateSource(others: Rect[]): AlignCandidateSource {
     rowBand: (rect) => others.filter((o) => overlapsOnY(o, rect)),
     columnBand: (rect) => others.filter((o) => overlapsOnX(o, rect)),
   }
+}
+
+export function localAlignRects(candidates: AlignCandidate[], space: AlignSpace): Rect[] {
+  if (!space.rotation) return candidates.map(plainRect)
+  return candidates.map((candidate) => localAlignRect(candidate, space))
+}
+
+function plainRect(rect: Rect): Rect {
+  return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+}
+
+function localAlignRect(candidate: AlignCandidate, space: AlignSpace): Rect {
+  if (!sameOrientation(candidate.rotation, space.rotation)) return localCornerBounds(candidate, space)
+  const center = toLocal({ x: candidate.x + candidate.width / 2, y: candidate.y + candidate.height / 2 }, space)
+  return {
+    x: center.x - candidate.width / 2,
+    y: center.y - candidate.height / 2,
+    width: candidate.width,
+    height: candidate.height,
+  }
+}
+
+function localCornerBounds(candidate: Rect, space: AlignSpace): Rect {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const corner of rectCorners(candidate)) {
+    const local = toLocal(corner, space)
+    minX = Math.min(minX, local.x)
+    minY = Math.min(minY, local.y)
+    maxX = Math.max(maxX, local.x)
+    maxY = Math.max(maxY, local.y)
+  }
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+}
+
+function rectCorners(rect: Rect): Point[] {
+  return [
+    { x: rect.x, y: rect.y },
+    { x: rect.x + rect.width, y: rect.y },
+    { x: rect.x + rect.width, y: rect.y + rect.height },
+    { x: rect.x, y: rect.y + rect.height },
+  ]
+}
+
+function sameOrientation(a: number, b: number): boolean {
+  const diff = Math.abs(a - b) % FULL_TURN
+  return Math.min(diff, FULL_TURN - diff) < ORIENTATION_EPSILON
+}
+
+function toLocal(point: Point, space: AlignSpace): Point {
+  return rotatePoint(point, space.center, -space.rotation)
+}
+
+function toWorld(point: Point, space: AlignSpace): Point {
+  return rotatePoint(point, space.center, space.rotation)
 }
 
 function findEqualSpacingSnapX(moving: Rect, source: AlignCandidateSource, threshold: number): EqualSpacingSnap | null {
@@ -371,20 +443,32 @@ export function snapResizeBounds(
   return { bounds: { x, y, width, height }, lines }
 }
 
-function lineGuide(line: AlignLine): SnapGuide {
+function lineGuide(line: AlignLine, space: AlignSpace): SnapGuide {
   const from: Point = line.axis === 'x' ? { x: line.position, y: line.start } : { x: line.start, y: line.position }
   const to: Point = line.axis === 'x' ? { x: line.position, y: line.end } : { x: line.end, y: line.position }
-  return { kind: 'align', from, to }
+  return { kind: 'align', from: toWorld(from, space), to: toWorld(to, space) }
 }
 
-function distanceGuide(indicator: DistanceIndicator): SnapGuide {
+function distanceGuide(indicator: DistanceIndicator, space: AlignSpace): SnapGuide {
   const from: Point =
     indicator.axis === 'x' ? { x: indicator.from, y: indicator.position } : { x: indicator.position, y: indicator.from }
   const to: Point =
     indicator.axis === 'x' ? { x: indicator.to, y: indicator.position } : { x: indicator.position, y: indicator.to }
-  return { kind: 'distance', from, to, label: Math.abs(indicator.to - indicator.from) }
+  return {
+    kind: 'distance',
+    from: toWorld(from, space),
+    to: toWorld(to, space),
+    label: Math.abs(indicator.to - indicator.from),
+  }
 }
 
-export function alignGuides(lines: AlignLine[], distances: DistanceIndicator[] = []): SnapGuide[] {
-  return [...lines.map(lineGuide), ...distances.map(distanceGuide)]
+export function alignGuides(
+  lines: AlignLine[],
+  distances: DistanceIndicator[] = [],
+  space: AlignSpace = WORLD_SPACE,
+): SnapGuide[] {
+  return [
+    ...lines.map((line) => lineGuide(line, space)),
+    ...distances.map((indicator) => distanceGuide(indicator, space)),
+  ]
 }
