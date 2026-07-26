@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { createArrow, createShape } from '../model/factory.js'
 import { isArrowElement } from '../model/guards.js'
 import { selectionBounds } from '../geometry/hit-test.js'
-import type { Binding, ElementId } from '../model/types.js'
+import type { ArrowElement, Binding, ElementId } from '../model/types.js'
 import { SceneStore, shallowEqual } from './scene-store.js'
 import { buildStencil } from './stencil.js'
 
@@ -933,5 +933,148 @@ describe('remote deletion selection pruning', () => {
 
     expect([...store.getUiState().selectedIds]).toEqual([])
     expect(selectionEvents).toBe(1)
+  })
+})
+
+describe('remote binding reconciliation', () => {
+  const sync = (from: SceneStore, to: SceneStore): void => {
+    Y.applyUpdate(to.doc, Y.encodeStateAsUpdate(from.doc), 'remote-peer')
+  }
+
+  const addBoundScene = (store: SceneStore): void => {
+    store.transact((api) => {
+      api.addElement(shapeAt('a', 0))
+      api.addElement(shapeAt('b', 200))
+      api.addElement(
+        createArrow({
+          id: 'arrow',
+          points: [
+            { x: 0, y: 0 },
+            { x: 200, y: 0 },
+          ],
+          start: bindingTo('a'),
+          end: bindingTo('b'),
+        }),
+      )
+    })
+  }
+
+  const pair = (): { store: SceneStore; remote: SceneStore } => {
+    const store = new SceneStore()
+    const remote = new SceneStore(new Y.Doc())
+    addBoundScene(remote)
+    sync(remote, store)
+    return { store, remote }
+  }
+
+  const arrowOf = (store: SceneStore): ArrowElement => {
+    const element = store.getSnapshot().elements.arrow
+    if (!element || !isArrowElement(element)) throw new Error('arrow is missing')
+    return element
+  }
+
+  const docBinding = (store: SceneStore, end: 'start' | 'end'): unknown =>
+    (store.doc.getMap('elements').get('arrow') as { get(key: string): unknown }).get(end)
+
+  const deadTargets = (store: SceneStore): ElementId[] => {
+    const snapshot = store.getSnapshot()
+    const dead: ElementId[] = []
+    for (const id of snapshot.order) {
+      const element = snapshot.elements[id]
+      if (!element || !isArrowElement(element)) continue
+      for (const binding of [element.start, element.end]) {
+        if (binding && !snapshot.elements[binding.elementId]) dead.push(binding.elementId)
+      }
+    }
+    return dead
+  }
+
+  it('detaches a binding whose shape a remote peer deleted without cascading', () => {
+    const { store, remote } = pair()
+
+    remote.transact((api) => api.removeElement('a'))
+    sync(remote, store)
+
+    expect(store.getSnapshot().elements.a).toBeUndefined()
+    expect(arrowOf(store).start).toBeUndefined()
+    expect(arrowOf(store).end?.elementId).toBe('b')
+    expect(deadTargets(store)).toEqual([])
+  })
+
+  it('drops the binding index entry for a remotely deleted shape', () => {
+    const { store, remote } = pair()
+
+    remote.transact((api) => api.removeElement('a'))
+    sync(remote, store)
+
+    expect([...store.arrowsForShape('a')]).toEqual([])
+    expect([...store.arrowsForShape('b')]).toEqual(['arrow'])
+    expect([...remote.arrowsForShape('a')]).toEqual([])
+  })
+
+  it('detaches both ends when the peer deletes every bound shape', () => {
+    const { store, remote } = pair()
+
+    remote.transact((api) => api.removeElements(['a', 'b']))
+    sync(remote, store)
+
+    expect(arrowOf(store).start).toBeUndefined()
+    expect(arrowOf(store).end).toBeUndefined()
+    expect([...store.arrowsForShape('a')]).toEqual([])
+    expect([...store.arrowsForShape('b')]).toEqual([])
+    expect(deadTargets(store)).toEqual([])
+  })
+
+  it('reconciles without writing back to the document', () => {
+    const { store, remote } = pair()
+
+    remote.transact((api) => api.removeElement('a'))
+    sync(remote, store)
+    sync(store, remote)
+
+    expect(docBinding(store, 'start')).toMatchObject({ elementId: 'a' })
+    expect(docBinding(remote, 'start')).toMatchObject({ elementId: 'a' })
+    expect(remote.getSnapshot().elements.arrow).toBeDefined()
+    expect(store.canUndo).toBe(false)
+  })
+
+  it('stays detached across later remote updates', () => {
+    const { store, remote } = pair()
+    remote.transact((api) => api.removeElement('a'))
+    sync(remote, store)
+
+    remote.transact((api) => api.updateElement('b', { x: 260 }))
+    sync(remote, store)
+
+    expect(arrowOf(store).start).toBeUndefined()
+    expect([...store.arrowsForShape('a')]).toEqual([])
+    expect(deadTargets(store)).toEqual([])
+    expect(store.canUndo).toBe(false)
+  })
+
+  it('restores the binding when the peer brings the shape back', () => {
+    const { store, remote } = pair()
+    remote.transact((api) => api.removeElement('a'))
+    sync(remote, store)
+    expect(arrowOf(store).start).toBeUndefined()
+
+    remote.transact((api) => api.addElement(shapeAt('a', 0)))
+    sync(remote, store)
+
+    expect(arrowOf(store).start?.elementId).toBe('a')
+    expect([...store.arrowsForShape('a')]).toEqual(['arrow'])
+  })
+
+  it('drops dangling bindings when reopening a document that already lost the shape', () => {
+    const source = new SceneStore(new Y.Doc())
+    addBoundScene(source)
+    source.transact((api) => api.removeElement('a'))
+
+    const reopened = new SceneStore(source.doc)
+
+    expect(arrowOf(reopened).start).toBeUndefined()
+    expect(arrowOf(reopened).end?.elementId).toBe('b')
+    expect([...reopened.arrowsForShape('a')]).toEqual([])
+    expect([...reopened.arrowsForShape('b')]).toEqual(['arrow'])
   })
 })

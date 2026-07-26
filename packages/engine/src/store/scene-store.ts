@@ -235,6 +235,20 @@ function sameOrder(a: ElementId[], b: ElementId[]): boolean {
   return a.length === b.length && a.every((id, index) => id === b[index])
 }
 
+function withoutDanglingBindings(
+  arrow: ArrowElement,
+  elements: Record<ElementId, Element>,
+): ArrowElement | null {
+  const start = arrow.start && !elements[arrow.start.elementId] ? undefined : arrow.start
+  const end = arrow.end && !elements[arrow.end.elementId] ? undefined : arrow.end
+  if (start === arrow.start && end === arrow.end) return null
+  return { ...arrow, start, end }
+}
+
+function sameBindingTargets(a: ArrowElement, b: ArrowElement): boolean {
+  return a.start?.elementId === b.start?.elementId && a.end?.elementId === b.end?.elementId
+}
+
 function translatedPatch(element: Element, dx: number, dy: number): Partial<Element> {
   if (isArrowElement(element) || element.type === 'freedraw') {
     const points = element.points.map((point) => ({ x: point.x + dx, y: point.y + dy }))
@@ -270,6 +284,7 @@ export class SceneStore {
 
   private readonly arrowsByShape = new Map<ElementId, Set<ElementId>>()
   private readonly arrowBindings = new Map<ElementId, ElementId[]>()
+  private readonly danglingArrows = new Set<ElementId>()
   private readonly routeCache = new RouteCache()
   private selectionStyle: SelectionStyle | null = null
   private transientIds: ReadonlySet<ElementId> | null = null
@@ -886,6 +901,14 @@ export class SceneStore {
     this.yElements.forEach((map, id) => {
       elements[id] = fromYElement(map)
     })
+    this.danglingArrows.clear()
+    for (const element of Object.values(elements)) {
+      if (!isArrowElement(element)) continue
+      const detached = withoutDanglingBindings(element, elements)
+      if (!detached) continue
+      elements[element.id] = detached
+      this.danglingArrows.add(element.id)
+    }
     return this.routeCache.overlay({
       elements,
       order: this.yOrder.toArray(),
@@ -917,13 +940,13 @@ export class SceneStore {
     const previous = this.snapshot
     const elements = { ...this.snapshot.elements }
     const changedIds = new Set<ElementId>()
-    let removed = false
+    const removedIds = new Set<ElementId>()
     for (const event of events) {
       if (event.target === this.yElements) {
         event.changes.keys.forEach((change, id) => {
           changedIds.add(id)
           if (change.action === 'delete') {
-            removed = true
+            removedIds.add(id)
             delete elements[id]
             return
           }
@@ -939,12 +962,41 @@ export class SceneStore {
         elements[id] = fromYElement(map)
       }
     }
+    this.reconcileBindings(elements, changedIds, removedIds)
     const next = { ...this.snapshot, elements }
     this.routeCache.invalidateForChanges(previous, next, changedIds)
     this.snapshot = this.routeCache.overlay(next)
     this.updateBindingIndex(changedIds)
-    if (removed) this.pruneDanglingIds(this.transientIds)
+    if (removedIds.size > 0) this.pruneDanglingIds(this.transientIds)
     this.invalidate()
+  }
+
+  private reconcileBindings(
+    elements: Record<ElementId, Element>,
+    changedIds: Set<ElementId>,
+    removedIds: Set<ElementId>,
+  ): void {
+    if (removedIds.size === 0 && this.danglingArrows.size === 0) return
+    const candidates = new Set(this.danglingArrows)
+    for (const id of removedIds) {
+      for (const arrowId of this.arrowsForShape(id)) candidates.add(arrowId)
+    }
+    for (const arrowId of candidates) {
+      const map = this.yElements.get(arrowId)
+      const bound = map ? fromYElement(map) : null
+      if (!bound || !isArrowElement(bound)) {
+        this.danglingArrows.delete(arrowId)
+        continue
+      }
+      const detached = withoutDanglingBindings(bound, elements)
+      if (detached) this.danglingArrows.add(arrowId)
+      else this.danglingArrows.delete(arrowId)
+      const reconciled = detached ?? bound
+      const current = elements[arrowId]
+      if (current && isArrowElement(current) && sameBindingTargets(current, reconciled)) continue
+      elements[arrowId] = reconciled
+      changedIds.add(arrowId)
+    }
   }
 
   private readonly onOrderChanged = (): void => {
