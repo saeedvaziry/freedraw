@@ -5,6 +5,10 @@ export class HandTool implements Tool {
   private panning = false
   private last = { x: 0, y: 0 }
 
+  cursorFor(): string {
+    return this.panning ? 'grabbing' : 'grab'
+  }
+
   onPointerDown(info: PointerInfo): ToolResult {
     this.panning = true
     this.last = { x: info.screen.x, y: info.screen.y }

@@ -5,6 +5,10 @@ import type { PointerInfo, Tool, ToolContext, ToolResult } from './tool.js'
 export class TextTool implements Tool {
   readonly id = 'text'
 
+  cursorFor(): string {
+    return 'crosshair'
+  }
+
   onPointerDown(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (info.button !== 0) return {}
     const center = snapPointToGrid(info.world)

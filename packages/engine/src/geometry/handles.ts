@@ -22,6 +22,30 @@ export const HANDLE_HIT_RADIUS = 8
 export const ROTATE_HANDLE_RADIUS = 6
 export const ROTATE_HANDLE_OFFSET = 48
 
+export type ResizeCursor = 'ew-resize' | 'nwse-resize' | 'ns-resize' | 'nesw-resize'
+
+export const ROTATE_CURSOR = 'grab'
+
+const RESIZE_CURSORS: ResizeCursor[] = ['ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize']
+
+const HANDLE_OCTANTS: Record<ResizeHandleId, number> = {
+  e: 0,
+  se: 1,
+  s: 2,
+  sw: 3,
+  w: 4,
+  nw: 5,
+  n: 6,
+  ne: 7,
+}
+
+const OCTANT = Math.PI / 4
+
+export function resizeCursor(handle: ResizeHandleId, rotation = 0): ResizeCursor {
+  const octant = HANDLE_OCTANTS[handle] + Math.round(rotation / OCTANT)
+  return RESIZE_CURSORS[((octant % 4) + 4) % 4]!
+}
+
 export interface SelectionFrame {
   bounds: Rect
   rotation: number

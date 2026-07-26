@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } fr
 import * as Y from 'yjs'
 import { arrowRoute } from '../connectors/resolve.js'
 import { fitCamera } from '../geometry/fit.js'
+import { resizeHandlesScreen } from '../geometry/handles.js'
+import { selectionFrameFor } from '../geometry/selection-frame.js'
 import { createArrow, createImage, createShape } from '../model/factory.js'
 import type { ArrowElement, CameraState, Element, Point } from '../model/types.js'
 import type { EditRequest } from '../text/edit.js'
@@ -63,7 +65,12 @@ function fakeCanvas(): HTMLCanvasElement {
   return canvas as unknown as HTMLCanvasElement
 }
 
-function dispatchPointer(canvas: HTMLCanvasElement, type: string, point: Point): void {
+function dispatchPointer(
+  canvas: HTMLCanvasElement,
+  type: string,
+  point: Point,
+  overrides: Record<string, unknown> = {},
+): void {
   const { listeners } = canvas as unknown as { listeners: Map<string, FakeListener[]> }
   const event = {
     pointerId: 1,
@@ -76,8 +83,16 @@ function dispatchPointer(canvas: HTMLCanvasElement, type: string, point: Point):
     metaKey: false,
     preventDefault: () => undefined,
     stopImmediatePropagation: () => undefined,
+    ...overrides,
   }
   for (const handler of [...(listeners.get(type) ?? [])]) handler(event)
+}
+
+const windowListeners = new Map<string, FakeListener[]>()
+
+function dispatchWindow(type: string, event: Record<string, unknown>): void {
+  const payload = { preventDefault: () => undefined, ...event }
+  for (const handler of [...(windowListeners.get(type) ?? [])]) handler(payload)
 }
 
 let frameCallback: FrameRequestCallback | null = null
@@ -107,12 +122,21 @@ function stubEnvironment(): void {
       disconnect(): void {}
     },
   )
+  windowListeners.clear()
   vi.stubGlobal('window', {
     devicePixelRatio: 1,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
+    addEventListener: (type: string, handler: FakeListener) => {
+      windowListeners.set(type, [...(windowListeners.get(type) ?? []), handler])
+    },
+    removeEventListener: (type: string, handler: FakeListener) => {
+      windowListeners.set(
+        type,
+        (windowListeners.get(type) ?? []).filter((entry) => entry !== handler),
+      )
+    },
     matchMedia: () => mediaQuery,
   })
+  vi.stubGlobal('HTMLElement', class {})
   vi.stubGlobal('document', {
     fonts: { load: () => Promise.resolve([]) },
   })
@@ -624,6 +648,151 @@ describe('EditorController camera input signal', () => {
 
     expect(emitted).toHaveLength(0)
     expect(controller.getViewport()).toEqual({ x: 12, y: 34, zoom: 2 })
+  })
+})
+
+describe('EditorController cursor channel', () => {
+  let store: SceneStore
+  let controller: EditorController
+  let overlayCanvas: HTMLCanvasElement
+  let emitted: string[]
+  let cleanup: (() => void) | null = null
+
+  function mountWith(seeded: SceneStore): void {
+    store = seeded
+    overlayCanvas = fakeCanvas()
+    controller = new EditorController(seeded, fakeCanvas(), overlayCanvas)
+    cleanup = controller.mount()
+    emitted = []
+    controller.subscribeCursorStyle((cursor) => emitted.push(cursor))
+  }
+
+  function shapeScene(rotation = 0): SceneStore {
+    const seeded = new SceneStore()
+    seeded.transact((api) =>
+      api.addElement(
+        createShape({ id: 'a', type: 'rect', x: 0, y: 0, width: 120, height: 80, rotation }),
+      ),
+    )
+    return seeded
+  }
+
+  function handleScreen(id: string): Point {
+    const selected = [...store.getUiState().selectedIds]
+      .map((elementId) => store.getSnapshot().elements[elementId])
+      .filter(Boolean) as Element[]
+    const frame = selectionFrameFor(selected)!
+    return resizeHandlesScreen(frame, controller.camera).find((handle) => handle.id === id)!.position
+  }
+
+  beforeEach(() => {
+    stubEnvironment()
+  })
+
+  afterEach(() => {
+    cleanup?.()
+    cleanup = null
+    vi.unstubAllGlobals()
+  })
+
+  it('starts on the default cursor and never re-emits an unchanged one', () => {
+    mountWith(shapeScene())
+
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 400, y: 400 })
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 420, y: 420 })
+
+    expect(controller.activeCursorStyle).toBe('default')
+    expect(emitted).toEqual([])
+  })
+
+  it('emits the draw cursor once when a creation tool becomes active', () => {
+    mountWith(shapeScene())
+
+    store.setUiState({ activeTool: 'shape' })
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 400, y: 400 })
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 420, y: 420 })
+
+    expect(controller.activeCursorStyle).toBe('crosshair')
+    expect(emitted).toEqual(['crosshair'])
+  })
+
+  it('grabs and grabbing while the hand tool pans', () => {
+    mountWith(shapeScene())
+
+    store.setUiState({ activeTool: 'hand' })
+    dispatchPointer(overlayCanvas, 'pointerdown', { x: 100, y: 100 })
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 160, y: 140 })
+    dispatchPointer(overlayCanvas, 'pointerup', { x: 160, y: 140 })
+
+    expect(emitted).toEqual(['grab', 'grabbing', 'grab'])
+  })
+
+  it('holds the pan cursor while space is down', () => {
+    mountWith(shapeScene())
+
+    dispatchWindow('keydown', { code: 'Space', target: null })
+    expect(controller.activeCursorStyle).toBe('grab')
+
+    dispatchWindow('keyup', { code: 'Space' })
+    expect(controller.activeCursorStyle).toBe('default')
+  })
+
+  it('reports move over a selected element and default over the empty canvas', () => {
+    mountWith(shapeScene())
+    store.setUiState({ selectedIds: new Set(['a']) })
+
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 60, y: 40 })
+    expect(controller.activeCursorStyle).toBe('move')
+
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 400, y: 400 })
+    expect(controller.activeCursorStyle).toBe('default')
+  })
+
+  it('reads a resize handle of a quarter-turned frame as the rotated direction', () => {
+    mountWith(shapeScene(Math.PI / 2))
+    store.setUiState({ selectedIds: new Set(['a']) })
+
+    dispatchPointer(overlayCanvas, 'pointermove', handleScreen('n'))
+
+    expect(controller.activeCursorStyle).toBe('ew-resize')
+  })
+
+  it('hints the unlock affordance when Alt goes down over a locked element', () => {
+    mountWith(shapeScene())
+    store.lockElements(['a'])
+
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 60, y: 40 })
+    expect(controller.activeCursorStyle).toBe('default')
+
+    dispatchWindow('keydown', { code: 'AltLeft', altKey: true })
+    expect(controller.activeCursorStyle).toBe('pointer')
+
+    dispatchWindow('keyup', { code: 'AltLeft', altKey: false })
+    expect(controller.activeCursorStyle).toBe('default')
+  })
+
+  it('drops back to the tool cursor when the pointer leaves the canvas', () => {
+    mountWith(shapeScene())
+    store.setUiState({ selectedIds: new Set(['a']) })
+
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 60, y: 40 })
+    expect(controller.activeCursorStyle).toBe('move')
+
+    dispatchPointer(overlayCanvas, 'pointerleave', { x: 60, y: 40 })
+    expect(controller.activeCursorStyle).toBe('default')
+  })
+
+  it('stops emitting once a listener unsubscribes', () => {
+    mountWith(shapeScene())
+    const seen: string[] = []
+    const stop = controller.subscribeCursorStyle((cursor) => seen.push(cursor))
+
+    store.setUiState({ activeTool: 'shape' })
+    stop()
+    store.setUiState({ activeTool: 'select' })
+
+    expect(seen).toEqual(['crosshair'])
+    expect(emitted).toEqual(['crosshair', 'default'])
   })
 })
 

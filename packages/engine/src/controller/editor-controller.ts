@@ -53,6 +53,7 @@ import type { SceneStore } from '../store/scene-store.js'
 import { ToolManager } from '../tools/tool-manager.js'
 import type {
   ContextMenuRequest,
+  PointerInfo,
   SelectionInteraction,
   ToolContext,
   ToolResult,
@@ -80,10 +81,14 @@ function canGrowForLabel(element: Element): boolean {
 
 const ZOOM_SENSITIVITY = 0.0015
 const WHEEL_COMMIT_DELAY = 150
+const DEFAULT_CURSOR = 'default'
+const PAN_CURSOR = 'grab'
+const PANNING_CURSOR = 'grabbing'
 
 type Cleanup = () => void
 type ContextMenuListener = (request: ContextMenuRequest | null) => void
 export type CursorListener = (point: Point | null) => void
+export type CursorStyleListener = (cursor: string) => void
 export type CameraListener = (camera: CameraState) => void
 export type InteractionListener = (interaction: SelectionInteraction | null) => void
 export type TransientListener = (elements: readonly Element[] | null) => void
@@ -117,6 +122,8 @@ export class EditorController {
   private readonly editListeners = new Set<EditListener>()
   private readonly contextMenuListeners = new Set<ContextMenuListener>()
   private readonly cursorListeners = new Set<CursorListener>()
+  private readonly cursorStyleListeners = new Set<CursorStyleListener>()
+  private cursorStyle = DEFAULT_CURSOR
   private readonly cameraInputListeners = new Set<CameraListener>()
   private readonly cameraFrameListeners = new Set<CameraListener>()
   private interaction: SelectionInteraction | null = null
@@ -130,6 +137,7 @@ export class EditorController {
   private readonly imageCache: ImageCache
   private blobLoader: BlobLoader = () => Promise.resolve(undefined)
   private lastPointerScreen: Point | null = null
+  private lastPointerInfo: PointerInfo | null = null
   private darkMode = false
   private readOnly = false
   private elementCount = 0
@@ -180,15 +188,23 @@ export class EditorController {
     this.input = new InputManager(overlay, this.camera, {
       getActiveTool: () => this.tools.activeTool,
       context: this.toolContext,
-      onResult: (result) => this.applyResult(result),
+      onResult: (result) => {
+        this.applyResult(result)
+        this.refreshCursorStyle()
+      },
       onWheel: (event) => this.onWheel(event),
       onGesture: (delta) => this.onGesture(delta),
       onGestureEnd: () => this.commitCamera(),
       onPointerInfo: (info) => {
         this.lastPointerScreen = info.screen
+        this.lastPointerInfo = info
         this.emitCursor(info.world)
       },
-      onPointerLeave: () => this.emitCursor(null),
+      onPointerLeave: () => {
+        this.lastPointerInfo = null
+        this.refreshCursorStyle()
+        this.emitCursor(null)
+      },
       isReadOnly: () => this.readOnly,
     })
   }
@@ -206,6 +222,7 @@ export class EditorController {
       this.closeContextMenu()
       this.store.setUiState({ selectedIds: new Set() })
     }
+    this.refreshCursorStyle()
     this.loop.markDirty()
   }
 
@@ -442,6 +459,15 @@ export class EditorController {
     return () => this.cursorListeners.delete(listener)
   }
 
+  subscribeCursorStyle(listener: CursorStyleListener): () => void {
+    this.cursorStyleListeners.add(listener)
+    return () => this.cursorStyleListeners.delete(listener)
+  }
+
+  get activeCursorStyle(): string {
+    return this.cursorStyle
+  }
+
   subscribeCameraInput(listener: CameraListener): () => void {
     this.cameraInputListeners.add(listener)
     return () => this.cameraInputListeners.delete(listener)
@@ -489,6 +515,28 @@ export class EditorController {
   private emitCursor(point: Point | null): void {
     if (this.cursorListeners.size === 0) return
     this.cursorListeners.forEach((listener) => listener(point))
+  }
+
+  private refreshCursorStyle(): void {
+    const next = this.computeCursorStyle()
+    if (next === this.cursorStyle) return
+    this.cursorStyle = next
+    this.cursorStyleListeners.forEach((listener) => listener(next))
+  }
+
+  private computeCursorStyle(): string {
+    if (this.isSpacePanning) return PANNING_CURSOR
+    if (this.isSpaceDown) return PAN_CURSOR
+    if (this.readOnly) return DEFAULT_CURSOR
+    const cursor = this.tools.activeTool.cursorFor?.(this.lastPointerInfo, this.toolContext)
+    return cursor ?? DEFAULT_CURSOR
+  }
+
+  private setAltDown(down: boolean): void {
+    const info = this.lastPointerInfo
+    if (!info || info.altKey === down) return
+    this.lastPointerInfo = { ...info, altKey: down }
+    this.refreshCursorStyle()
   }
 
   private emitCameraInput(): void {
@@ -739,7 +787,7 @@ export class EditorController {
       shapeType: ui.activeShapeType,
       stickyColor: ui.activeStickyColor,
     })
-    this.overlay.style.cursor = cursorFor(ui.activeTool)
+    this.refreshCursorStyle()
   }
 
   private applyResult(result: ToolResult | void): void {
@@ -914,15 +962,17 @@ export class EditorController {
 
   private attachSpacePan(): void {
     const onKeyDown = (event: KeyboardEvent): void => {
+      this.setAltDown(event.altKey)
       if (event.code !== 'Space' || isEditableTarget(event.target)) return
       event.preventDefault()
       this.isSpaceDown = true
-      this.overlay.style.cursor = 'grab'
+      this.refreshCursorStyle()
     }
     const onKeyUp = (event: KeyboardEvent): void => {
+      this.setAltDown(event.altKey)
       if (event.code !== 'Space') return
       this.isSpaceDown = false
-      this.syncTool()
+      this.refreshCursorStyle()
     }
     const onDown = (event: PointerEvent): void => {
       if (!(event.button === 1 || (event.button === 0 && this.isSpaceDown))) return
@@ -935,6 +985,7 @@ export class EditorController {
       this.isSpacePanning = true
       this.spacePanLast = { x: event.clientX, y: event.clientY }
       this.lastPointerScreen = this.localPoint(event.clientX, event.clientY)
+      this.refreshCursorStyle()
     }
     const onMove = (event: PointerEvent): void => {
       if (!this.isSpacePanning) return
@@ -949,6 +1000,7 @@ export class EditorController {
       if (!this.isSpacePanning) return
       event.stopImmediatePropagation()
       this.isSpacePanning = false
+      this.refreshCursorStyle()
       if (this.overlay.hasPointerCapture(event.pointerId)) {
         this.overlay.releasePointerCapture(event.pointerId)
       }
@@ -1033,13 +1085,6 @@ function elementsFor(
     if (element) result.push(element)
   }
   return result
-}
-
-function cursorFor(toolId: string): string {
-  if (toolId === 'hand') return 'grab'
-  if (toolId === 'shape' || toolId === 'arrow' || toolId === 'line' || toolId === 'freedraw')
-    return 'crosshair'
-  return 'default'
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {

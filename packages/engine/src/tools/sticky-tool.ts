@@ -23,6 +23,10 @@ export class StickyTool implements Tool {
     this.color = color
   }
 
+  cursorFor(): string {
+    return 'crosshair'
+  }
+
   onPointerMove(info: PointerInfo, ctx: ToolContext): ToolResult {
     const bounds = this.start ? this.dragBounds(this.start, info.world) : this.defaultBounds(info.world)
     const ghost = this.buildElement(bounds, ctx)

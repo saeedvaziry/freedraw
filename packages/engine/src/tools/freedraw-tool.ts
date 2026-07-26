@@ -10,6 +10,10 @@ export class FreedrawTool implements Tool {
   private points: Point[] = []
   private drawing = false
 
+  cursorFor(): string {
+    return 'crosshair'
+  }
+
   onPointerDown(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (info.button !== 0) return {}
     ctx.store.stopCapturing()

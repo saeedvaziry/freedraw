@@ -4,7 +4,12 @@ import { arrowRoute } from '../connectors/resolve.js'
 import { spawnConnectedShape, type SpawnDirection } from '../connectors/spawn.js'
 import { Camera } from '../geometry/camera.js'
 import { snapPointToGrid } from '../geometry/grid.js'
-import type { SelectionFrame } from '../geometry/handles.js'
+import {
+  resizeHandlesScreen,
+  rotateHandleScreen,
+  type ResizeHandleId,
+  type SelectionFrame,
+} from '../geometry/handles.js'
 import type { Rect } from '../geometry/rect.js'
 import { rotatePoint, rotateVector } from '../geometry/rotate.js'
 import { selectionFrameFor } from '../geometry/selection-frame.js'
@@ -612,6 +617,123 @@ describe('SelectTool locked bypass', () => {
     const shape = store.getSnapshot().elements['shape-1']
     expect(shape?.x).toBe(0)
     expect(shape?.y).toBe(0)
+  })
+})
+
+describe('SelectTool cursor', () => {
+  function handlePoint(store: SceneStore, id: ResizeHandleId): Point {
+    const frame = selectionFrameFor(selectedShapes(store))!
+    return resizeHandlesScreen(frame, camera).find((handle) => handle.id === id)!.position
+  }
+
+  function rotateHandlePoint(store: SceneStore): Point {
+    return rotateHandleScreen(selectionFrameFor(selectedShapes(store))!, camera).position
+  }
+
+  it('falls back to the default cursor while the pointer is off the canvas', () => {
+    const { ctx } = setup()
+
+    expect(new SelectTool().cursorFor(null, ctx)).toBe('default')
+  })
+
+  it('reads the rotate handle as a rotate affordance', () => {
+    const { store, ctx } = setup()
+    store.setUiState({ selectedIds: new Set(['shape-1']) })
+
+    expect(new SelectTool().cursorFor(pointerAt(rotateHandlePoint(store)), ctx)).toBe('grab')
+  })
+
+  it('reads the resize handles of an upright frame by direction', () => {
+    const { store, ctx } = setup()
+    const tool = new SelectTool()
+    store.setUiState({ selectedIds: new Set(['shape-1']) })
+
+    expect(tool.cursorFor(pointerAt(handlePoint(store, 'n')), ctx)).toBe('ns-resize')
+    expect(tool.cursorFor(pointerAt(handlePoint(store, 'e')), ctx)).toBe('ew-resize')
+    expect(tool.cursorFor(pointerAt(handlePoint(store, 'se')), ctx)).toBe('nwse-resize')
+    expect(tool.cursorFor(pointerAt(handlePoint(store, 'ne')), ctx)).toBe('nesw-resize')
+  })
+
+  it('rotates the handle cursor with a quarter-turned frame', () => {
+    const { store, ctx } = setup()
+    const tool = new SelectTool()
+    store.transact((api) => api.updateElement('shape-1', { rotation: Math.PI / 2 }))
+    store.setUiState({ selectedIds: new Set(['shape-1']) })
+
+    expect(tool.cursorFor(pointerAt(handlePoint(store, 'n')), ctx)).toBe('ew-resize')
+    expect(tool.cursorFor(pointerAt(handlePoint(store, 'e')), ctx)).toBe('ns-resize')
+    expect(tool.cursorFor(pointerAt(handlePoint(store, 'ne')), ctx)).toBe('nwse-resize')
+  })
+
+  it('moves over a selected element and stays default over an unselected one', () => {
+    const { store, ctx } = setup()
+    const tool = new SelectTool()
+
+    expect(tool.cursorFor(pointerAt({ x: 60, y: 40 }), ctx)).toBe('default')
+
+    store.setUiState({ selectedIds: new Set(['shape-1']) })
+
+    expect(tool.cursorFor(pointerAt({ x: 60, y: 40 }), ctx)).toBe('move')
+  })
+
+  it('stays default over empty canvas', () => {
+    const { store, ctx } = setup()
+    store.setUiState({ selectedIds: new Set(['shape-1']) })
+
+    expect(new SelectTool().cursorFor(pointerAt({ x: 400, y: 400 }), ctx)).toBe('default')
+  })
+
+  it('hints the unlock affordance only while Alt is held over a locked element', () => {
+    const { store, ctx } = setup()
+    const tool = new SelectTool()
+    store.lockElements(['shape-1'])
+
+    expect(tool.cursorFor(pointerAt({ x: 60, y: 40 }), ctx)).toBe('default')
+    expect(tool.cursorFor(altPointerAt({ x: 60, y: 40 }), ctx)).toBe('pointer')
+  })
+
+  it('keeps the handle cursor while a resize drag runs past the handle', () => {
+    const { store, ctx } = setup()
+    const tool = new SelectTool()
+    store.setUiState({ selectedIds: new Set(['shape-1']) })
+
+    tool.onPointerDown(pointerAt(handlePoint(store, 'e')), ctx)
+    tool.onPointerMove(pointerAt({ x: 400, y: 400 }), ctx)
+
+    expect(tool.cursorFor(pointerAt({ x: 400, y: 400 }), ctx)).toBe('ew-resize')
+  })
+
+  it('keeps the rotate cursor for the whole rotate drag', () => {
+    const { store, ctx } = setup()
+    const tool = new SelectTool()
+    store.setUiState({ selectedIds: new Set(['shape-1']) })
+
+    tool.onPointerDown(pointerAt(rotateHandlePoint(store)), ctx)
+    tool.onPointerMove(pointerAt({ x: 400, y: 400 }), ctx)
+
+    expect(tool.cursorFor(pointerAt({ x: 400, y: 400 }), ctx)).toBe('grab')
+  })
+
+  it('keeps the move cursor while dragging a selection past its own bounds', () => {
+    const { store, ctx } = setup()
+    const tool = new SelectTool()
+    store.setUiState({ selectedIds: new Set(['shape-1']) })
+
+    tool.onPointerDown(pointerAt({ x: 60, y: 40 }), ctx)
+    tool.onPointerMove(pointerAt({ x: 400, y: 400 }), ctx)
+
+    expect(tool.cursorFor(pointerAt({ x: 400, y: 400 }), ctx)).toBe('move')
+  })
+
+  it('stays default while a marquee is running over a selected element', () => {
+    const { store, ctx } = setup()
+    const tool = new SelectTool()
+    store.setUiState({ selectedIds: new Set(['shape-1']) })
+
+    tool.onPointerDown(pointerAt({ x: 400, y: 400 }), ctx)
+    tool.onPointerMove(pointerAt({ x: 60, y: 40 }), ctx)
+
+    expect(tool.cursorFor(pointerAt({ x: 60, y: 40 }), ctx)).toBe('default')
   })
 })
 

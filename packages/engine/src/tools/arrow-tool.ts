@@ -17,6 +17,10 @@ export class ArrowTool implements Tool {
     this.id = kind
   }
 
+  cursorFor(): string {
+    return 'crosshair'
+  }
+
   onPointerDown(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (info.button !== 0) return {}
     const snap = snapEndpoint(info.world, ctx.store.getSnapshot(), { threshold: worldThreshold(ctx) })

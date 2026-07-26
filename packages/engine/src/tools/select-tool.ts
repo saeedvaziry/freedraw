@@ -1,6 +1,12 @@
 import { createEndpointBinding, rebindEnd, routingForBindings } from '../connectors/lifecycle.js'
 import { previewArrow } from '../connectors/preview.js'
-import { handleAtScreen, type HandleId, type ResizeHandleId } from '../geometry/handles.js'
+import {
+  handleAtScreen,
+  resizeCursor,
+  ROTATE_CURSOR,
+  type HandleId,
+  type ResizeHandleId,
+} from '../geometry/handles.js'
 import { elementBounds, elementCenter, expandGroupSelection, hitTest, marqueeHits } from '../geometry/hit-test.js'
 import type { Rect } from '../geometry/rect.js'
 import { snapPointToGrid } from '../geometry/grid.js'
@@ -37,6 +43,9 @@ const PORT_CLICK_RADIUS = 16
 const ZERO_RECT: Rect = { x: 0, y: 0, width: 0, height: 0 }
 const SPAWN_GHOST_OPACITY = 0.4
 const PORT_DIRECTIONS: SpawnDirection[] = ['up', 'right', 'down', 'left']
+const DEFAULT_CURSOR = 'default'
+const MOVE_CURSOR = 'move'
+const UNLOCK_CURSOR = 'pointer'
 
 function portDirection(shape: Element, port: Point): SpawnDirection | null {
   const ports = shapePortsWorld(shape)
@@ -92,6 +101,36 @@ export class SelectTool implements Tool {
   private dragStartScreen: Point | null = null
   private spawnPreviewActive = false
   private pending: PendingCommit | null = null
+
+  cursorFor(info: PointerInfo | null, ctx: ToolContext): string {
+    if (this.mode.kind !== 'idle') return this.dragCursor()
+    if (!info) return DEFAULT_CURSOR
+    const store = ctx.store
+    const selected = store.getUiState().selectedIds
+    const frame = selectionFrameFor(
+      selectedElements(store, selected).filter(
+        (element) => !isArrowElement(element) && !element.locked,
+      ),
+    )
+    if (frame) {
+      const handle = handleAtScreen(info.screen, frame, ctx.camera)
+      if (handle === 'rotate') return ROTATE_CURSOR
+      if (handle) return resizeCursor(handle, frame.rotation)
+    }
+    const hit = hitTest(info.world, store.getSnapshot(), { includeLocked: info.altKey })
+    if (!hit) return DEFAULT_CURSOR
+    if (hit.locked) return UNLOCK_CURSOR
+    return selected.has(hit.id) ? MOVE_CURSOR : DEFAULT_CURSOR
+  }
+
+  private dragCursor(): string {
+    if (this.mode.kind === 'resize') {
+      return resizeCursor(this.mode.handle, this.mode.frame?.rotation ?? 0)
+    }
+    if (this.mode.kind === 'rotate') return ROTATE_CURSOR
+    if (this.mode.kind === 'move') return MOVE_CURSOR
+    return DEFAULT_CURSOR
+  }
 
   onPointerDown(info: PointerInfo, ctx: ToolContext): ToolResult {
     if (info.button !== 0) return {}

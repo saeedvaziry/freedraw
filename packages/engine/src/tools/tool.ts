@@ -47,6 +47,7 @@ export interface ToolResult {
 
 export interface Tool {
   readonly id: string
+  cursorFor?(info: PointerInfo | null, ctx: ToolContext): string
   onActivate?(ctx: ToolContext): void
   onDeactivate?(ctx: ToolContext): void
   onPointerDown?(info: PointerInfo, ctx: ToolContext): ToolResult | void

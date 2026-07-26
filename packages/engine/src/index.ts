@@ -75,12 +75,18 @@ export type {
 } from './controller/editor-controller.js'
 export type {
   CursorListener,
+  CursorStyleListener,
   CameraListener,
   InteractionListener,
   TransientListener,
 } from './controller/editor-controller.js'
 export { paintPresence } from './render/overlay/presence.js'
-export type { PresenceOverlay, PresenceCursor, PresenceHalo } from './render/overlay/presence.js'
+export type {
+  PresenceOverlay,
+  PresenceCursor,
+  PresenceHalo,
+  PresenceGhost,
+} from './render/overlay/presence.js'
 export {
   renderSceneExport,
   renderSceneSvg,
@@ -176,8 +182,16 @@ export {
   rotateHandleScreen,
   handleAtScreen,
   RESIZE_HANDLE_IDS,
+  resizeCursor,
+  ROTATE_CURSOR,
 } from './geometry/handles.js'
-export type { SelectionFrame, HandleId, ResizeHandleId, Handle } from './geometry/handles.js'
+export type {
+  SelectionFrame,
+  HandleId,
+  ResizeHandleId,
+  Handle,
+  ResizeCursor,
+} from './geometry/handles.js'
 
 export { getOutline, traceOutline, pointInPolygon } from './geometry/shape-outline.js'
 export type { Outline } from './geometry/shape-outline.js'
