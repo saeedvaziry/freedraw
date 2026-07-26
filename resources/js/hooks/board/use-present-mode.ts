@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { EditorController, SceneStore, Slide } from '@freedraw/engine'
 
+export type SlideRect = Slide['rect']
+
 export interface PresentMode {
   active: boolean
   index: number
   count: number
+  slideRect: SlideRect | null
   enter: () => void
   exit: () => void
   next: () => void
@@ -20,6 +23,7 @@ export function usePresentMode(
   const [active, setActive] = useState(false)
   const [index, setIndex] = useState(0)
   const [count, setCount] = useState(0)
+  const [slideRect, setSlideRect] = useState<SlideRect | null>(null)
   const activeRef = useRef(false)
   const indexRef = useRef(0)
   const slidesRef = useRef<Slide[]>([])
@@ -27,8 +31,9 @@ export function usePresentMode(
 
   const frame = useCallback(
     (target: number) => {
-      if (!controller) return
       const slide = slidesRef.current[target]
+      setSlideRect(slide?.rect ?? null)
+      if (!controller) return
       if (slide) controller.zoomToRect(slide.rect)
       else controller.zoomToFit()
     },
@@ -68,6 +73,7 @@ export function usePresentMode(
     if (!activeRef.current) return
     activeRef.current = false
     setActive(false)
+    setSlideRect(null)
     controller?.setReadOnly(wasReadOnly.current)
     if (typeof document !== 'undefined' && document.fullscreenElement) {
       void document.exitFullscreen?.().catch(() => undefined)
@@ -100,7 +106,105 @@ export function usePresentMode(
     }
   }, [active, next, previous, first, last, exit])
 
-  return { active, index, count, enter, exit, next, previous, first, last }
+  return { active, index, count, slideRect, enter, exit, next, previous, first, last }
+}
+
+const TIMER_TARGETS = [0, 5, 10, 15, 20]
+
+interface TimerClock {
+  base: number
+  startedAt: number | null
+}
+
+const STOPPED_CLOCK: TimerClock = { base: 0, startedAt: null }
+
+export interface PresentTimer {
+  visible: boolean
+  running: boolean
+  target: number
+  targetLabel: string
+  label: string
+  overtime: boolean
+  toggle: () => void
+  toggleRunning: () => void
+  reset: () => void
+  cycleTarget: () => void
+}
+
+export function usePresentTimer(): PresentTimer {
+  const [visible, setVisible] = useState(false)
+  const [target, setTarget] = useState(0)
+  const [clock, setClock] = useState<TimerClock>(STOPPED_CLOCK)
+  const [elapsed, setElapsed] = useState(0)
+
+  useEffect(() => {
+    const { base, startedAt } = clock
+    if (startedAt === null) {
+      setElapsed(base)
+      return
+    }
+    const tick = () => setElapsed(base + Date.now() - startedAt)
+    tick()
+    const id = window.setInterval(tick, 250)
+    return () => window.clearInterval(id)
+  }, [clock])
+
+  const toggle = useCallback(() => {
+    if (visible) {
+      setVisible(false)
+      setClock(STOPPED_CLOCK)
+      return
+    }
+    setVisible(true)
+    setClock({ base: 0, startedAt: Date.now() })
+  }, [visible])
+
+  const toggleRunning = useCallback(() => {
+    setClock((current) =>
+      current.startedAt === null
+        ? { base: current.base, startedAt: Date.now() }
+        : { base: current.base + Date.now() - current.startedAt, startedAt: null },
+    )
+  }, [])
+
+  const reset = useCallback(() => {
+    setClock((current) =>
+      current.startedAt === null ? STOPPED_CLOCK : { base: 0, startedAt: Date.now() },
+    )
+  }, [])
+
+  const cycleTarget = useCallback(() => {
+    setTarget((minutes) => {
+      const at = TIMER_TARGETS.indexOf(minutes)
+      return TIMER_TARGETS[(at + 1) % TIMER_TARGETS.length] ?? 0
+    })
+    reset()
+  }, [reset])
+
+  const seconds =
+    target === 0 ? Math.floor(elapsed / 1000) : Math.ceil((target * 60_000 - elapsed) / 1000)
+  const overtime = seconds < 0
+
+  return {
+    visible,
+    running: clock.startedAt !== null,
+    target,
+    targetLabel: target === 0 ? 'Elapsed' : `${target} min countdown`,
+    label: `${overtime ? '-' : ''}${formatClock(Math.abs(seconds))}`,
+    overtime,
+    toggle,
+    toggleRunning,
+    reset,
+    cycleTarget,
+  }
+}
+
+function formatClock(seconds: number): string {
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const rest = seconds % 60
+  const tail = `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`
+  return hours > 0 ? `${hours}:${tail}` : tail
 }
 
 interface KeyActions {

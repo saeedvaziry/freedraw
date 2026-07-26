@@ -195,6 +195,50 @@ describe('usePresentMode navigation', () => {
   })
 })
 
+describe('usePresentMode spotlight rect', () => {
+  it('exposes no rect before it is entered', () => {
+    const { result } = setup()
+
+    expect(result.current.slideRect).toBeNull()
+  })
+
+  it('publishes the rect of the slide being framed', () => {
+    const { result } = setup()
+
+    act(() => {
+      result.current.enter()
+    })
+
+    expect(result.current.slideRect).toEqual(unordered[1].rect)
+
+    act(() => {
+      result.current.next()
+    })
+
+    expect(result.current.slideRect).toEqual(unordered[2].rect)
+  })
+
+  it('stays null on a board without slides and clears on exit', () => {
+    const { result } = setup([])
+
+    act(() => {
+      result.current.enter()
+    })
+
+    expect(result.current.slideRect).toBeNull()
+
+    const deck = setup()
+    act(() => {
+      deck.result.current.enter()
+    })
+    act(() => {
+      deck.result.current.exit()
+    })
+
+    expect(deck.result.current.slideRect).toBeNull()
+  })
+})
+
 describe('usePresentMode keyboard', () => {
   it('ignores presentation keys before it is entered', () => {
     const { result } = setup()
