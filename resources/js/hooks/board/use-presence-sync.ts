@@ -16,6 +16,7 @@ import {
   PRESENCE_STALE_MS,
   type PresenceAwareness,
   type PresenceDrag,
+  type PresenceDragGhost,
   type PresenceDragKind,
   type PresenceParticipant,
   type PresencePoint,
@@ -124,6 +125,29 @@ function dragKindFor(
   return rotated ? 'rotate' : 'move'
 }
 
+function ghostFor(
+  elements: readonly Element[],
+  committed: Record<string, Element>,
+): PresenceDragGhost | null {
+  const ids: string[] = []
+  let dx = 0
+  let dy = 0
+  for (const element of elements) {
+    const before = committed[element.id]
+    if (!before) return null
+    const nextX = element.x - before.x
+    const nextY = element.y - before.y
+    if (ids.length === 0) {
+      dx = nextX
+      dy = nextY
+    } else if (Math.abs(nextX - dx) > DRAG_EPSILON || Math.abs(nextY - dy) > DRAG_EPSILON) {
+      return null
+    }
+    ids.push(element.id)
+  }
+  return ids.length === 0 ? null : { ids, dx, dy }
+}
+
 export function attachPresencePublisher(options: AttachPresencePublisherOptions): () => void {
   const { canvas, scene, publisher, readOnly = false } = options
   const cleanups: Array<() => void> = []
@@ -198,7 +222,13 @@ export function attachPresencePublisher(options: AttachPresencePublisherOptions)
         publisher.setDrag(null)
         return
       }
-      publisher.setDrag({ kind: dragKindFor(dragged, scene.getSnapshot().elements), frame })
+      const committed = scene.getSnapshot().elements
+      const kind = dragKindFor(dragged, committed)
+      publisher.setDrag({
+        kind,
+        frame,
+        ghost: kind === 'move' ? ghostFor(dragged, committed) : null,
+      })
     }
     cleanups.push(canvas.subscribeTransient(publishDrag))
     cleanups.push(scene.subscribeSelection(publishSelection))
@@ -236,6 +266,33 @@ export function attachPresenceOverlay(options: AttachPresenceOverlayOptions): ()
     return found.length === 0 ? null : selectionFrameFor(found)
   }
 
+  const resolveGhost = (
+    ids: readonly string[],
+    dx: number,
+    dy: number,
+  ): SelectionFrame[] | null => {
+    const { elements } = scene.getSnapshot()
+    const frames: SelectionFrame[] = []
+    for (const id of ids) {
+      const element = elements[id]
+      if (!element) continue
+      frames.push({
+        bounds: {
+          x: element.x + dx,
+          y: element.y + dy,
+          width: element.width,
+          height: element.height,
+        },
+        rotation: element.rotation,
+        center: {
+          x: element.x + dx + element.width / 2,
+          y: element.y + dy + element.height / 2,
+        },
+      })
+    }
+    return frames.length === 0 ? null : frames
+  }
+
   const cancel = (): void => {
     if (timer !== null) clearTimeout(timer)
     timer = null
@@ -265,6 +322,7 @@ export function attachPresenceOverlay(options: AttachPresenceOverlayOptions): ()
     const participants = reader.readParticipants()
     const next = mapper.build(participants, {
       resolveFrame,
+      resolveGhost,
       scene: scene.getSnapshot(),
       now: at,
       ttlMs,

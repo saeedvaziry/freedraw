@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PresenceOverlay } from '@freedraw/engine';
-import type { PresenceFrame, PresenceParticipant } from './awareness';
+import type {
+    PresenceDrag,
+    PresenceFrame,
+    PresenceParticipant,
+} from './awareness';
 import { PRESENCE_STALE_MS } from './awareness';
 import { resolvePresenceIdentity } from './identity';
-import type { PresenceFrameResolver } from './overlay';
+import type { PresenceFrameResolver, PresenceGhostResolver } from './overlay';
 import {
     createPresenceOverlayMapper,
     isEmptyPresenceOverlay,
@@ -43,6 +47,16 @@ function frameAt(x: number, y: number): PresenceFrame {
 
 function resolver(frame: PresenceFrame | null): PresenceFrameResolver {
     return vi.fn(() => frame);
+}
+
+function ghostResolver(): PresenceGhostResolver {
+    return vi.fn((ids: readonly string[], dx: number, dy: number) =>
+        ids.map((_, index) => frameAt(index * 100 + dx, dy)),
+    );
+}
+
+function dragOf(ids: string[], dx: number, dy: number): PresenceDrag {
+    return { kind: 'move', frame: frameAt(dx, dy), ghost: { ids, dx, dy } };
 }
 
 describe('createPresenceOverlayMapper', () => {
@@ -406,6 +420,235 @@ describe('createPresenceOverlayMapper', () => {
         expect(resolveFrame).toHaveBeenCalledTimes(2);
     });
 
+    it('rebuilds the peer ghost from the local elements and the peer delta', () => {
+        const mapper = createPresenceOverlayMapper();
+        const resolveGhost = ghostResolver();
+        const peer = participant(2, {
+            selection: ['a', 'b'],
+            drag: dragOf(['a', 'b'], 40, 5),
+        });
+
+        const overlay = mapper.build([peer], {
+            resolveFrame: resolver(frameAt(0, 0)),
+            resolveGhost,
+            scene: {},
+            now: NOW,
+        });
+
+        expect(resolveGhost).toHaveBeenCalledWith(['a', 'b'], 40, 5);
+        expect(overlay.ghosts).toEqual([
+            {
+                id: '2',
+                frames: [frameAt(40, 5), frameAt(140, 5)],
+                color: peer.user.color,
+            },
+        ]);
+    });
+
+    it('paints the drag ghost alongside the live drag frame', () => {
+        const mapper = createPresenceOverlayMapper();
+        const peer = participant(2, { drag: dragOf(['a'], 40, 40) });
+
+        const overlay = mapper.build([peer], {
+            resolveFrame: resolver(null),
+            resolveGhost: ghostResolver(),
+            scene: {},
+            now: NOW,
+        });
+
+        expect(overlay.halos).toHaveLength(1);
+        expect(overlay.ghosts).toHaveLength(1);
+    });
+
+    it('skips the ghost when the dragged ids resolve to nothing locally', () => {
+        const mapper = createPresenceOverlayMapper();
+        const peer = participant(2, {
+            drag: dragOf(['not-synced-yet'], 40, 0),
+        });
+
+        const overlay = mapper.build([peer], {
+            resolveFrame: resolver(null),
+            resolveGhost: vi.fn(() => null),
+            scene: {},
+            now: NOW,
+        });
+
+        expect(overlay.ghosts).toHaveLength(0);
+        expect(overlay.halos).toHaveLength(1);
+    });
+
+    it('skips ghosts entirely when the caller resolves no elements', () => {
+        const mapper = createPresenceOverlayMapper();
+        const peer = participant(2, { drag: dragOf(['a'], 40, 0) });
+
+        const overlay = mapper.build([peer], {
+            resolveFrame: resolver(null),
+            scene: {},
+            now: NOW,
+        });
+
+        expect(overlay.ghosts).toHaveLength(0);
+    });
+
+    it('never paints a ghost for the local participant', () => {
+        const mapper = createPresenceOverlayMapper();
+        const resolveGhost = ghostResolver();
+        const local = participant(1, {
+            isLocal: true,
+            drag: dragOf(['a'], 40, 0),
+        });
+
+        const overlay = mapper.build([local], {
+            resolveFrame: resolver(null),
+            resolveGhost,
+            scene: {},
+            now: NOW,
+        });
+
+        expect(overlay).toBe(EMPTY_PRESENCE_OVERLAY);
+        expect(resolveGhost).not.toHaveBeenCalled();
+    });
+
+    it('drops the drag ghost of a peer that has gone stale', () => {
+        const mapper = createPresenceOverlayMapper();
+        const peer = participant(2, {
+            drag: dragOf(['a'], 40, 0),
+            updatedAt: NOW - PRESENCE_STALE_MS - 1,
+        });
+
+        const overlay = mapper.build([peer], {
+            resolveFrame: resolver(null),
+            resolveGhost: ghostResolver(),
+            scene: {},
+            now: NOW,
+        });
+
+        expect(isEmptyPresenceOverlay(overlay)).toBe(true);
+    });
+
+    it('suspends drag ghosts while the caller previews another scene', () => {
+        const mapper = createPresenceOverlayMapper();
+        const resolveGhost = ghostResolver();
+        const peer = participant(2, {
+            cursor: { x: 4, y: 6 },
+            drag: dragOf(['a'], 40, 0),
+        });
+
+        const overlay = mapper.build([peer], {
+            resolveFrame: resolver(null),
+            resolveGhost,
+            scene: {},
+            now: NOW,
+            halos: false,
+        });
+
+        expect(overlay.cursors).toHaveLength(1);
+        expect(overlay.ghosts).toHaveLength(0);
+        expect(resolveGhost).not.toHaveBeenCalled();
+    });
+
+    it('reuses the ghost while the scene and the delta hold still', () => {
+        const mapper = createPresenceOverlayMapper();
+        const resolveGhost = ghostResolver();
+        const scene = {};
+        const build = (cursor: { x: number; y: number }): PresenceOverlay =>
+            mapper.build(
+                [participant(2, { cursor, drag: dragOf(['a'], 40, 0) })],
+                { resolveFrame: resolver(null), resolveGhost, scene, now: NOW },
+            );
+
+        const first = build({ x: 1, y: 1 });
+        const second = build({ x: 2, y: 2 });
+
+        expect(resolveGhost).toHaveBeenCalledTimes(1);
+        expect(second.ghosts[0]).toBe(first.ghosts[0]);
+    });
+
+    it('recomputes the ghost as the peer delta advances', () => {
+        const mapper = createPresenceOverlayMapper();
+        const resolveGhost = ghostResolver();
+        const scene = {};
+        const build = (dx: number): PresenceOverlay =>
+            mapper.build([participant(2, { drag: dragOf(['a'], dx, 0) })], {
+                resolveFrame: resolver(null),
+                resolveGhost,
+                scene,
+                now: NOW,
+            });
+
+        build(40);
+        const second = build(60);
+
+        expect(resolveGhost).toHaveBeenCalledTimes(2);
+        expect(second.ghosts[0].frames).toEqual([frameAt(60, 0)]);
+    });
+
+    it('recomputes the ghost when the scene changes under a resting drag', () => {
+        const mapper = createPresenceOverlayMapper();
+        const resolveGhost = ghostResolver();
+        const peer = participant(2, { drag: dragOf(['a'], 40, 0) });
+
+        mapper.build([peer], {
+            resolveFrame: resolver(null),
+            resolveGhost,
+            scene: {},
+            now: NOW,
+        });
+        mapper.build([peer], {
+            resolveFrame: resolver(null),
+            resolveGhost,
+            scene: {},
+            now: NOW,
+        });
+
+        expect(resolveGhost).toHaveBeenCalledTimes(2);
+    });
+
+    it('forgets ghosts of peers that left so the cache cannot grow forever', () => {
+        const mapper = createPresenceOverlayMapper();
+        const resolveGhost = ghostResolver();
+        const scene = {};
+        const peer = participant(2, { drag: dragOf(['a'], 40, 0) });
+        const other = participant(3, { drag: dragOf(['b'], 40, 0) });
+        const build = (list: PresenceParticipant[]): void => {
+            mapper.build(list, {
+                resolveFrame: resolver(null),
+                resolveGhost,
+                scene,
+                now: NOW,
+            });
+        };
+
+        build([peer, other]);
+        build([other]);
+        build([peer, other]);
+
+        expect(resolveGhost).toHaveBeenCalledTimes(3);
+    });
+
+    it('drops every cached ghost on reset', () => {
+        const mapper = createPresenceOverlayMapper();
+        const resolveGhost = ghostResolver();
+        const scene = {};
+        const peer = participant(2, { drag: dragOf(['a'], 40, 0) });
+
+        mapper.build([peer], {
+            resolveFrame: resolver(null),
+            resolveGhost,
+            scene,
+            now: NOW,
+        });
+        mapper.reset();
+        mapper.build([peer], {
+            resolveFrame: resolver(null),
+            resolveGhost,
+            scene,
+            now: NOW,
+        });
+
+        expect(resolveGhost).toHaveBeenCalledTimes(2);
+    });
+
     it('returns the shared empty overlay when nobody is present', () => {
         const mapper = createPresenceOverlayMapper();
 
@@ -424,6 +667,7 @@ describe('samePresenceOverlay', () => {
             { id: '2', point: { x: 1, y: 2 }, color: '#fff', label: 'A' },
         ],
         halos: [{ id: '2', frame: frameAt(0, 0), color: '#fff' }],
+        ghosts: [{ id: '2', frames: [frameAt(0, 0)], color: '#fff' }],
     };
 
     it('treats structurally identical overlays as equal', () => {
@@ -438,6 +682,7 @@ describe('samePresenceOverlay', () => {
                     },
                 ],
                 halos: [{ id: '2', frame: frameAt(0, 0), color: '#fff' }],
+                ghosts: [{ id: '2', frames: [frameAt(0, 0)], color: '#fff' }],
             }),
         ).toBe(true);
     });
@@ -454,6 +699,7 @@ describe('samePresenceOverlay', () => {
                     },
                 ],
                 halos: base.halos,
+                ghosts: base.ghosts,
             }),
         ).toBe(false);
     });
@@ -463,16 +709,58 @@ describe('samePresenceOverlay', () => {
             samePresenceOverlay(base, {
                 cursors: base.cursors,
                 halos: [{ id: '2', frame: frameAt(5, 5), color: '#fff' }],
+                ghosts: base.ghosts,
+            }),
+        ).toBe(false);
+    });
+
+    it('detects a ghost that advanced with the drag', () => {
+        expect(
+            samePresenceOverlay(base, {
+                cursors: base.cursors,
+                halos: base.halos,
+                ghosts: [{ id: '2', frames: [frameAt(5, 5)], color: '#fff' }],
+            }),
+        ).toBe(false);
+    });
+
+    it('detects a ghost that gained or lost an element', () => {
+        expect(
+            samePresenceOverlay(base, {
+                cursors: base.cursors,
+                halos: base.halos,
+                ghosts: [
+                    {
+                        id: '2',
+                        frames: [frameAt(0, 0), frameAt(9, 9)],
+                        color: '#fff',
+                    },
+                ],
             }),
         ).toBe(false);
     });
 
     it('detects a peer joining or leaving', () => {
         expect(
-            samePresenceOverlay(base, { cursors: [], halos: base.halos }),
+            samePresenceOverlay(base, {
+                cursors: [],
+                halos: base.halos,
+                ghosts: base.ghosts,
+            }),
         ).toBe(false);
         expect(
-            samePresenceOverlay(base, { cursors: base.cursors, halos: [] }),
+            samePresenceOverlay(base, {
+                cursors: base.cursors,
+                halos: [],
+                ghosts: base.ghosts,
+            }),
+        ).toBe(false);
+        expect(
+            samePresenceOverlay(base, {
+                cursors: base.cursors,
+                halos: base.halos,
+                ghosts: [],
+            }),
         ).toBe(false);
     });
 });
@@ -487,6 +775,17 @@ describe('isEmptyPresenceOverlay', () => {
             isEmptyPresenceOverlay({
                 cursors: [],
                 halos: [{ id: '2', frame: frameAt(0, 0), color: '#fff' }],
+                ghosts: [],
+            }),
+        ).toBe(false);
+    });
+
+    it('reports an overlay with only ghosts as painted', () => {
+        expect(
+            isEmptyPresenceOverlay({
+                cursors: [],
+                halos: [],
+                ghosts: [{ id: '2', frames: [frameAt(0, 0)], color: '#fff' }],
             }),
         ).toBe(false);
     });

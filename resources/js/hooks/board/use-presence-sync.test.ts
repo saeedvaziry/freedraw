@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createShape, type CameraState, type Element, type ToolId } from '@freedraw/engine'
+import {
+  createShape,
+  type CameraState,
+  type Element,
+  type PresenceOverlay,
+  type ToolId,
+} from '@freedraw/engine'
 import {
   createPresenceWriter,
   readPresenceParticipants,
@@ -24,6 +30,7 @@ const NOW = 1_000_000
 
 interface FakeCanvas extends PresenceCanvas {
   overlays: Array<{ cursors: number; halos: number } | null>
+  painted: Array<PresenceOverlay | null>
   cursorSubscribers: number
   cameraSubscribers: number
   transientSubscribers: number
@@ -41,6 +48,7 @@ function createCanvas(camera: CameraState = { x: 0, y: 0, zoom: 1 }): FakeCanvas
 
   return {
     overlays: [],
+    painted: [],
     get cursorSubscribers() {
       return cursorListeners.size
     },
@@ -56,6 +64,7 @@ function createCanvas(camera: CameraState = { x: 0, y: 0, zoom: 1 }): FakeCanvas
     viewportSize: { width: 800, height: 600 },
     getViewport: () => current,
     setPresenceOverlay(presence) {
+      this.painted.push(presence)
       this.overlays.push(
         presence === null
           ? null
@@ -402,7 +411,9 @@ describe('attachPresencePublisher', () => {
     scene.select(['a'])
     canvas.drag([shape('a', 40)])
 
-    expect(publisher.drags).toEqual([{ kind: 'move', frame: frameAt(40) }])
+    expect(publisher.drags).toEqual([
+      { kind: 'move', frame: frameAt(40), ghost: { ids: ['a'], dx: 40, dy: 0 } },
+    ])
   })
 
   it('clears the drag once the transient layer goes away', () => {
@@ -415,7 +426,10 @@ describe('attachPresencePublisher', () => {
     canvas.drag([shape('a', 40)])
     canvas.drag(null)
 
-    expect(publisher.drags).toEqual([{ kind: 'move', frame: frameAt(40) }, null])
+    expect(publisher.drags).toEqual([
+      { kind: 'move', frame: frameAt(40), ghost: { ids: ['a'], dx: 40, dy: 0 } },
+      null,
+    ])
   })
 
   it('reports a resize when the dragged geometry changes size', () => {
@@ -427,7 +441,9 @@ describe('attachPresencePublisher', () => {
     scene.select(['a'])
     canvas.drag([shape('a', 0, { width: 40 })])
 
-    expect(publisher.drags).toEqual([{ kind: 'resize', frame: frameAt(0, 40) }])
+    expect(publisher.drags).toEqual([
+      { kind: 'resize', frame: frameAt(0, 40), ghost: null },
+    ])
   })
 
   it('reports a rotation when only the angle changes', () => {
@@ -463,7 +479,9 @@ describe('attachPresencePublisher', () => {
     scene.select(['a'])
     canvas.drag([shape('a', 40), shape('b', 900)])
 
-    expect(publisher.drags).toEqual([{ kind: 'move', frame: frameAt(40) }])
+    expect(publisher.drags).toEqual([
+      { kind: 'move', frame: frameAt(40), ghost: { ids: ['a'], dx: 40, dy: 0 } },
+    ])
   })
 
   it('frames the whole transient layer when it holds nothing selected', () => {
@@ -474,7 +492,63 @@ describe('attachPresencePublisher', () => {
     attachPresencePublisher({ canvas, scene, publisher })
     canvas.drag([shape('a', 0), shape('b', 90)])
 
-    expect(publisher.drags).toEqual([{ kind: 'move', frame: frameAt(0, 100) }])
+    expect(publisher.drags).toEqual([
+      {
+        kind: 'move',
+        frame: frameAt(0, 100),
+        ghost: { ids: ['a', 'b'], dx: 0, dy: 0 },
+      },
+    ])
+  })
+
+  it('publishes one shared delta for every element the peer moves', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0), shape('b', 90)])
+    const publisher = createPublisher()
+
+    attachPresencePublisher({ canvas, scene, publisher })
+    scene.select(['a', 'b'])
+    canvas.drag([shape('a', 25), shape('b', 115)])
+
+    expect(publisher.drags[0]?.ghost).toEqual({ ids: ['a', 'b'], dx: 25, dy: 0 })
+  })
+
+  it('publishes no ghost for a rotation a delta cannot describe', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const publisher = createPublisher()
+
+    attachPresencePublisher({ canvas, scene, publisher })
+    scene.select(['a'])
+    canvas.drag([shape('a', 0, { rotation: 0.5 })])
+
+    expect(publisher.drags[0]?.kind).toBe('rotate')
+    expect(publisher.drags[0]?.ghost).toBeNull()
+  })
+
+  it('publishes no ghost for an element the scene never committed', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const publisher = createPublisher()
+
+    attachPresencePublisher({ canvas, scene, publisher })
+    canvas.drag([shape('unknown', 40)])
+
+    expect(publisher.drags[0]?.kind).toBe('create')
+    expect(publisher.drags[0]?.ghost).toBeNull()
+  })
+
+  it('publishes no ghost when the moved elements disagree on the delta', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0), shape('b', 90)])
+    const publisher = createPublisher()
+
+    attachPresencePublisher({ canvas, scene, publisher })
+    scene.select(['a', 'b'])
+    canvas.drag([shape('a', 25), shape('b', 90)])
+
+    expect(publisher.drags[0]?.kind).toBe('move')
+    expect(publisher.drags[0]?.ghost).toBeNull()
   })
 
   it('coalesces drag frames onto the writer cursor interval', () => {
@@ -546,7 +620,10 @@ describe('attachPresencePublisher', () => {
     detach()
     canvas.drag([shape('a', 80)])
 
-    expect(publisher.drags).toEqual([{ kind: 'move', frame: frameAt(40) }, null])
+    expect(publisher.drags).toEqual([
+      { kind: 'move', frame: frameAt(40), ghost: { ids: ['a'], dx: 40, dy: 0 } },
+      null,
+    ])
     expect(canvas.transientSubscribers).toBe(0)
   })
 
@@ -838,6 +915,135 @@ describe('attachPresenceOverlay', () => {
     attachPresenceOverlay({ canvas, scene, reader, now: () => NOW, halos: false })
 
     expect(canvas.overlays).toEqual([null])
+  })
+
+  it('rebuilds a peer drag ghost from the local elements', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0), shape('b', 90)])
+    const reader = createReader([
+      participant(2, {
+        selection: ['a', 'b'],
+        drag: {
+          kind: 'move',
+          frame: frameAt(40, 100),
+          ghost: { ids: ['a', 'b'], dx: 40, dy: 5 },
+        },
+      }),
+    ])
+
+    attachPresenceOverlay({ canvas, scene, reader, now: () => NOW })
+
+    expect(canvas.painted[0]?.ghosts).toEqual([
+      {
+        id: '2',
+        color: reader.readParticipants()[0].user.color,
+        frames: [
+          { bounds: { x: 40, y: 5, width: 10, height: 10 }, rotation: 0, center: { x: 45, y: 10 } },
+          {
+            bounds: { x: 130, y: 5, width: 10, height: 10 },
+            rotation: 0,
+            center: { x: 135, y: 10 },
+          },
+        ],
+      },
+    ])
+  })
+
+  it('keeps the ghost of a peer dragging an element this client does not have', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const reader = createReader([
+      participant(2, {
+        drag: {
+          kind: 'move',
+          frame: frameAt(40),
+          ghost: { ids: ['a', 'not-synced-yet'], dx: 40, dy: 0 },
+        },
+      }),
+    ])
+
+    attachPresenceOverlay({ canvas, scene, reader, now: () => NOW })
+
+    expect(canvas.painted[0]?.ghosts[0].frames).toHaveLength(1)
+  })
+
+  it('paints no ghost when none of the dragged elements are local', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const reader = createReader([
+      participant(2, {
+        drag: {
+          kind: 'move',
+          frame: frameAt(40),
+          ghost: { ids: ['not-synced-yet'], dx: 40, dy: 0 },
+        },
+      }),
+    ])
+
+    attachPresenceOverlay({ canvas, scene, reader, now: () => NOW })
+
+    expect(canvas.painted[0]?.ghosts).toEqual([])
+  })
+
+  it('rotates the ghost with the element the peer is dragging', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0, { rotation: 0.5 })])
+    const reader = createReader([
+      participant(2, {
+        drag: { kind: 'move', frame: frameAt(40), ghost: { ids: ['a'], dx: 40, dy: 0 } },
+      }),
+    ])
+
+    attachPresenceOverlay({ canvas, scene, reader, now: () => NOW })
+
+    expect(canvas.painted[0]?.ghosts[0].frames[0].rotation).toBe(0.5)
+  })
+
+  it('drops the ghost of a peer that went silent', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const reader = createReader([
+      participant(2, {
+        updatedAt: NOW - 5_000,
+        drag: { kind: 'move', frame: frameAt(40), ghost: { ids: ['a'], dx: 40, dy: 0 } },
+      }),
+    ])
+
+    attachPresenceOverlay({ canvas, scene, reader, now: () => NOW, ttlMs: 1_000 })
+
+    expect(canvas.painted).toEqual([null])
+  })
+
+  it('suspends peer drag ghosts while a version preview owns the scene', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const reader = createReader([
+      participant(2, {
+        cursor: { x: 1, y: 1 },
+        drag: { kind: 'move', frame: frameAt(40), ghost: { ids: ['a'], dx: 40, dy: 0 } },
+      }),
+    ])
+
+    attachPresenceOverlay({ canvas, scene, reader, now: () => NOW, halos: false })
+
+    expect(canvas.painted[0]?.ghosts).toEqual([])
+    expect(canvas.painted[0]?.cursors).toHaveLength(1)
+  })
+
+  it('repaints the ghost as the peer delta advances', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const drag = (dx: number): PresenceDrag => ({
+      kind: 'move',
+      frame: frameAt(dx),
+      ghost: { ids: ['a'], dx, dy: 0 },
+    })
+    const reader = createReader([participant(2, { drag: drag(40) })])
+
+    attachPresenceOverlay({ canvas, scene, reader, now: () => NOW })
+    reader.emit([participant(2, { drag: drag(80) })])
+
+    expect(canvas.painted.map((overlay) => overlay?.ghosts[0].frames[0].bounds.x)).toEqual([40, 80])
   })
 
   it('clears the overlay and detaches every listener on cleanup', () => {

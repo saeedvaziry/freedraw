@@ -13,6 +13,7 @@ import {
     createPresenceWriter,
     isPresenceStale,
     isSameRoster,
+    normalizePresenceDragGhost,
     normalizePresenceState,
     readPresenceParticipants,
     readPresenceRoster,
@@ -273,6 +274,99 @@ describe('createPresenceWriter', () => {
         expect(readLocal(awareness)?.drag).toBeNull();
     });
 
+    it('carries the ghost delta on the drag and throttles it with the frame', () => {
+        vi.useFakeTimers();
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'), {
+            cursorIntervalMs: 30,
+        });
+        const drag = (dx: number): void => {
+            writer.setDrag({
+                kind: 'move',
+                frame: null,
+                ghost: { ids: ['a', 'b'], dx, dy: 0 },
+            });
+        };
+        awareness.publishes = 0;
+
+        drag(10);
+
+        expect(awareness.publishes).toBe(1);
+        expect(readLocal(awareness)?.drag?.ghost).toEqual({
+            ids: ['a', 'b'],
+            dx: 10,
+            dy: 0,
+        });
+
+        drag(20);
+
+        expect(awareness.publishes).toBe(1);
+
+        vi.advanceTimersByTime(30);
+
+        expect(awareness.publishes).toBe(2);
+        expect(readLocal(awareness)?.drag?.ghost?.dx).toBe(20);
+    });
+
+    it('publishes a ghost appearing or disappearing without waiting', () => {
+        vi.useFakeTimers();
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'), {
+            cursorIntervalMs: 30,
+        });
+        const frame: PresenceFrame = {
+            bounds: { x: 0, y: 0, width: 10, height: 10 },
+            center: { x: 5, y: 5 },
+            rotation: 0,
+        };
+        writer.setDrag({ kind: 'move', frame, ghost: null });
+        awareness.publishes = 0;
+
+        writer.setDrag({
+            kind: 'move',
+            frame,
+            ghost: { ids: ['a'], dx: 1, dy: 2 },
+        });
+
+        expect(awareness.publishes).toBe(1);
+
+        writer.setDrag({ kind: 'move', frame, ghost: null });
+
+        expect(awareness.publishes).toBe(2);
+        expect(readLocal(awareness)?.drag?.ghost).toBeNull();
+    });
+
+    it('skips a redundant ghost write that moved nothing', () => {
+        vi.useFakeTimers();
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'), {
+            cursorIntervalMs: 30,
+        });
+        const ghost = { ids: ['a'], dx: 4, dy: 4 };
+        writer.setDrag({ kind: 'move', frame: null, ghost });
+        awareness.publishes = 0;
+
+        writer.setDrag({ kind: 'move', frame: null, ghost: { ...ghost } });
+        vi.advanceTimersByTime(60);
+
+        expect(awareness.publishes).toBe(0);
+    });
+
+    it('never shares the ghost array it was handed', () => {
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'));
+        const ids = ['a'];
+
+        writer.setDrag({
+            kind: 'move',
+            frame: null,
+            ghost: { ids, dx: 1, dy: 1 },
+        });
+        ids.push('b');
+
+        expect(readLocal(awareness)?.drag?.ghost?.ids).toEqual(['a']);
+    });
+
     it('flushes a pending throttled write on demand', () => {
         vi.useFakeTimers();
         const awareness = createFakeAwareness();
@@ -320,7 +414,11 @@ describe('createPresenceWriter', () => {
 
         writer.setSelection(['a', 'b']);
         writer.setTool('freedraw');
-        writer.setDrag({ kind: 'move', frame: null });
+        writer.setDrag({
+            kind: 'move',
+            frame: null,
+            ghost: { ids: ['a'], dx: 5, dy: 5 },
+        });
 
         expect(writer.readOnly).toBe(true);
         expect(awareness.publishes).toBe(0);
@@ -466,6 +564,79 @@ describe('normalizePresenceState', () => {
 
         expect(state?.selection.slice(0, 2)).toEqual(['a', 'b']);
         expect(state?.selection.length).toBe(256);
+    });
+
+    it('keeps a well formed ghost delta on the drag', () => {
+        const state = normalizePresenceState({
+            user: { id: 'user:1' },
+            drag: {
+                kind: 'move',
+                frame: null,
+                ghost: { ids: ['a', 'b'], dx: -12.5, dy: 4 },
+            },
+        });
+
+        expect(state?.drag?.ghost).toEqual({
+            ids: ['a', 'b'],
+            dx: -12.5,
+            dy: 4,
+        });
+    });
+
+    it('drops a ghost whose delta is not finite', () => {
+        const state = normalizePresenceState({
+            user: { id: 'user:1' },
+            drag: {
+                kind: 'move',
+                frame: null,
+                ghost: { ids: ['a'], dx: Number.NaN, dy: 4 },
+            },
+        });
+
+        expect(state?.drag?.kind).toBe('move');
+        expect(state?.drag?.ghost).toBeNull();
+    });
+
+    it('drops a ghost that names no elements', () => {
+        expect(
+            normalizePresenceDragGhost({ ids: [], dx: 1, dy: 1 }),
+        ).toBeNull();
+        expect(normalizePresenceDragGhost({ dx: 1, dy: 1 })).toBeNull();
+        expect(normalizePresenceDragGhost(null)).toBeNull();
+        expect(normalizePresenceDragGhost('nope')).toBeNull();
+    });
+
+    it('cleans and caps the ghost ids like a selection', () => {
+        const ghost = normalizePresenceDragGhost({
+            ids: ['a', 7, '', 'b', ...Array.from({ length: 400 }, () => 'c')],
+            dx: 1,
+            dy: 1,
+        });
+
+        expect(ghost?.ids.slice(0, 2)).toEqual(['a', 'b']);
+        expect(ghost?.ids.length).toBe(256);
+    });
+
+    it('round-trips a ghost through a real y-protocols awareness', () => {
+        const doc = new Y.Doc();
+        const awareness = new Awareness(doc);
+        const writer = createPresenceWriter(awareness, identityFor(3, 'Lin'));
+
+        writer.setDrag({
+            kind: 'move',
+            frame: null,
+            ghost: { ids: ['el-1', 'el-2'], dx: 8, dy: -3 },
+        });
+
+        expect(readPresenceParticipants(awareness)[0].drag?.ghost).toEqual({
+            ids: ['el-1', 'el-2'],
+            dx: 8,
+            dy: -3,
+        });
+
+        writer.destroy();
+        awareness.destroy();
+        doc.destroy();
     });
 });
 

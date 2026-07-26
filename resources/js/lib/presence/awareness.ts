@@ -47,9 +47,16 @@ export interface PresenceViewport {
 
 export type PresenceDragKind = 'move' | 'resize' | 'rotate' | 'create' | 'draw';
 
+export interface PresenceDragGhost {
+    ids: string[];
+    dx: number;
+    dy: number;
+}
+
 export interface PresenceDrag {
     kind: PresenceDragKind;
     frame: PresenceFrame | null;
+    ghost?: PresenceDragGhost | null;
 }
 
 export interface PresenceState {
@@ -199,20 +206,6 @@ export function normalizePresenceViewport(
     return { ...rect, zoom };
 }
 
-function normalizeDrag(value: unknown): PresenceDrag | null {
-    if (!isRecord(value)) {
-        return null;
-    }
-
-    const kind = DRAG_KINDS.find((candidate) => candidate === value.kind);
-
-    if (kind === undefined) {
-        return null;
-    }
-
-    return { kind, frame: normalizePresenceFrame(value.frame) };
-}
-
 function normalizeSelection(value: unknown): string[] {
     if (!Array.isArray(value)) {
         return [];
@@ -231,6 +224,42 @@ function normalizeSelection(value: unknown): string[] {
     }
 
     return ids;
+}
+
+export function normalizePresenceDragGhost(
+    value: unknown,
+): PresenceDragGhost | null {
+    if (!isRecord(value)) {
+        return null;
+    }
+
+    const dx = finite(value.dx);
+    const dy = finite(value.dy);
+    const ids = normalizeSelection(value.ids);
+
+    if (dx === null || dy === null || ids.length === 0) {
+        return null;
+    }
+
+    return { ids, dx, dy };
+}
+
+function normalizeDrag(value: unknown): PresenceDrag | null {
+    if (!isRecord(value)) {
+        return null;
+    }
+
+    const kind = DRAG_KINDS.find((candidate) => candidate === value.kind);
+
+    if (kind === undefined) {
+        return null;
+    }
+
+    return {
+        kind,
+        frame: normalizePresenceFrame(value.frame),
+        ghost: normalizePresenceDragGhost(value.ghost),
+    };
 }
 
 function normalizeTool(value: unknown): string | null {
@@ -485,16 +514,31 @@ function sameViewport(
     return sameRect(a, b) && a.zoom === b.zoom;
 }
 
+function sameSelection(a: readonly string[], b: readonly string[]): boolean {
+    return a.length === b.length && a.every((id, index) => id === b[index]);
+}
+
+function sameGhost(
+    a: PresenceDragGhost | null,
+    b: PresenceDragGhost | null,
+): boolean {
+    if (a === null || b === null) {
+        return a === b;
+    }
+
+    return a.dx === b.dx && a.dy === b.dy && sameSelection(a.ids, b.ids);
+}
+
 function sameDrag(a: PresenceDrag | null, b: PresenceDrag | null): boolean {
     if (a === null || b === null) {
         return a === b;
     }
 
-    return a.kind === b.kind && sameFrame(a.frame, b.frame);
-}
-
-function sameSelection(a: readonly string[], b: readonly string[]): boolean {
-    return a.length === b.length && a.every((id, index) => id === b[index]);
+    return (
+        a.kind === b.kind &&
+        sameFrame(a.frame, b.frame) &&
+        sameGhost(a.ghost ?? null, b.ghost ?? null)
+    );
 }
 
 function cloneFrame(frame: PresenceFrame | null): PresenceFrame | null {
@@ -507,6 +551,14 @@ function cloneFrame(frame: PresenceFrame | null): PresenceFrame | null {
         center: { ...frame.center },
         rotation: frame.rotation,
     };
+}
+
+function cloneGhost(ghost: PresenceDragGhost | null): PresenceDragGhost | null {
+    if (ghost === null) {
+        return null;
+    }
+
+    return { ids: [...ghost.ids], dx: ghost.dx, dy: ghost.dy };
 }
 
 export function createPresenceWriter(
@@ -645,15 +697,17 @@ export function createPresenceWriter(
                 return;
             }
 
+            const ghost = drag === null ? null : cloneGhost(drag.ghost ?? null);
             const structural =
                 state.drag === null ||
                 drag === null ||
-                state.drag.kind !== drag.kind;
+                state.drag.kind !== drag.kind ||
+                ((state.drag.ghost ?? null) === null) !== (ghost === null);
 
             state.drag =
                 drag === null
                     ? null
-                    : { kind: drag.kind, frame: cloneFrame(drag.frame) };
+                    : { kind: drag.kind, frame: cloneFrame(drag.frame), ghost };
 
             if (structural) {
                 publish();

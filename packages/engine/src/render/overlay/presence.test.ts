@@ -1,19 +1,31 @@
 import { describe, expect, it } from 'vitest'
 import { Camera } from '../../geometry/camera.js'
+import type { SelectionFrame } from '../../geometry/handles.js'
 import { PRESENCE_COLORS, type PresenceColors } from '../color-config.js'
-import { paintPresence, type PresenceOverlay } from './presence.js'
+import {
+  paintPresence,
+  PRESENCE_GHOST_ALPHA,
+  PRESENCE_GHOST_FILL_ALPHA,
+  type PresenceOverlay,
+} from './presence.js'
 
 interface RecordedOp {
   op: string
   fillStyle: string
   strokeStyle: string
+  globalAlpha: number
 }
 
 function recorder(): { ctx: CanvasRenderingContext2D; ops: RecordedOp[] } {
   const ops: RecordedOp[] = []
-  const state = { fillStyle: '#000000', strokeStyle: '#000000' }
+  const state = { fillStyle: '#000000', strokeStyle: '#000000', globalAlpha: 1 }
   const push = (op: string): void => {
-    ops.push({ op, fillStyle: state.fillStyle, strokeStyle: state.strokeStyle })
+    ops.push({
+      op,
+      fillStyle: state.fillStyle,
+      strokeStyle: state.strokeStyle,
+      globalAlpha: state.globalAlpha,
+    })
   }
   const noop = (): void => {}
   const ctx = {
@@ -28,6 +40,12 @@ function recorder(): { ctx: CanvasRenderingContext2D; ops: RecordedOp[] } {
     },
     set strokeStyle(value: string) {
       state.strokeStyle = value
+    },
+    get globalAlpha(): number {
+      return state.globalAlpha
+    },
+    set globalAlpha(value: number) {
+      state.globalAlpha = value
     },
     lineWidth: 1,
     font: '',
@@ -56,6 +74,23 @@ function overlayWithCursor(): PresenceOverlay {
   return {
     cursors: [{ id: 'u1', point: { x: 10, y: 20 }, color: '#123456', label: 'Ada' }],
     halos: [],
+    ghosts: [],
+  }
+}
+
+function frameAt(x: number, rotation = 0): SelectionFrame {
+  return {
+    bounds: { x, y: 0, width: 10, height: 10 },
+    rotation,
+    center: { x: x + 5, y: 5 },
+  }
+}
+
+function overlayWithGhost(frames: SelectionFrame[]): PresenceOverlay {
+  return {
+    cursors: [],
+    halos: [],
+    ghosts: [{ id: 'u1', frames, color: '#abcdef' }],
   }
 }
 
@@ -111,10 +146,62 @@ describe('paintPresence', () => {
             },
           },
         ],
+        ghosts: [],
       },
       camera,
       PRESENCE_COLORS,
     )
     expect(ops.find((entry) => entry.op === 'stroke')?.strokeStyle).toBe('#abcdef')
+  })
+
+  it('paints drag ghosts in the remote user color at half opacity', () => {
+    const { ctx, ops } = recorder()
+    paintPresence(ctx, overlayWithGhost([frameAt(40)]), camera, PRESENCE_COLORS)
+    const stroke = ops.find((entry) => entry.op === 'stroke')
+    const fill = ops.find((entry) => entry.op === 'fill')
+    expect(stroke?.strokeStyle).toBe('#abcdef')
+    expect(stroke?.globalAlpha).toBe(PRESENCE_GHOST_ALPHA)
+    expect(fill?.fillStyle).toBe('#abcdef')
+    expect(fill?.globalAlpha).toBe(PRESENCE_GHOST_FILL_ALPHA)
+  })
+
+  it('paints one ghost outline per dragged element', () => {
+    const { ctx, ops } = recorder()
+    paintPresence(ctx, overlayWithGhost([frameAt(0), frameAt(40), frameAt(80)]), camera)
+    expect(ops.filter((entry) => entry.op === 'stroke')).toHaveLength(3)
+  })
+
+  it('paints nothing for a ghost that carries no frames', () => {
+    const { ctx, ops } = recorder()
+    paintPresence(ctx, overlayWithGhost([]), camera)
+    expect(ops).toEqual([])
+  })
+
+  it('paints ghosts under the halo and the cursor of the same peer', () => {
+    const { ctx, ops } = recorder()
+    paintPresence(
+      ctx,
+      {
+        cursors: [{ id: 'u1', point: { x: 0, y: 0 }, color: '#123456' }],
+        halos: [{ id: 'u1', frame: frameAt(40), color: '#abcdef' }],
+        ghosts: [{ id: 'u1', frames: [frameAt(40)], color: '#abcdef' }],
+      },
+      camera,
+      PRESENCE_COLORS,
+    )
+    expect(ops.map((entry) => entry.op)).toEqual(['fill', 'stroke', 'stroke', 'fill', 'stroke'])
+  })
+
+  it('rotates the ghost outline with the element it shadows', () => {
+    const points: Array<{ x: number; y: number }> = []
+    const { ctx } = recorder()
+    const spy = { ...ctx, lineTo: (x: number, y: number) => points.push({ x, y }) }
+    paintPresence(
+      spy as unknown as CanvasRenderingContext2D,
+      overlayWithGhost([frameAt(0, Math.PI / 2)]),
+      camera,
+    )
+    expect(points[0]?.x).toBeCloseTo(10)
+    expect(points[0]?.y).toBeCloseTo(10)
   })
 })

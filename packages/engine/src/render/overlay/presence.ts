@@ -16,15 +16,26 @@ export interface PresenceHalo {
   color: string
 }
 
+export interface PresenceGhost {
+  id: string
+  frames: SelectionFrame[]
+  color: string
+}
+
 export interface PresenceOverlay {
   cursors: PresenceCursor[]
   halos: PresenceHalo[]
+  ghosts: PresenceGhost[]
 }
 
 const CURSOR_LABEL_FONT = '12px system-ui, -apple-system, sans-serif'
 const CURSOR_LABEL_HEIGHT = 18
 const CURSOR_LABEL_PADDING = 6
 const HALO_LINE_WIDTH = 1.5
+const GHOST_LINE_WIDTH = 1
+
+export const PRESENCE_GHOST_ALPHA = 0.5
+export const PRESENCE_GHOST_FILL_ALPHA = 0.12
 
 export function paintPresence(
   ctx: CanvasRenderingContext2D,
@@ -32,24 +43,45 @@ export function paintPresence(
   camera: Camera,
   colors: PresenceColors = PRESENCE_COLORS,
 ): void {
+  for (const ghost of presence.ghosts) paintGhost(ctx, ghost, camera)
   for (const halo of presence.halos) paintHalo(ctx, halo, camera)
   for (const cursor of presence.cursors) paintCursor(ctx, cursor, camera, colors)
 }
 
 function paintHalo(ctx: CanvasRenderingContext2D, halo: PresenceHalo, camera: Camera): void {
-  const corners = frameCornersScreen(halo.frame, camera)
   ctx.save()
   ctx.strokeStyle = halo.color
   ctx.lineWidth = HALO_LINE_WIDTH
   ctx.setLineDash([])
+  framePath(ctx, halo.frame, camera)
+  ctx.stroke()
+  ctx.restore()
+}
+
+function paintGhost(ctx: CanvasRenderingContext2D, ghost: PresenceGhost, camera: Camera): void {
+  ctx.save()
+  ctx.fillStyle = ghost.color
+  ctx.strokeStyle = ghost.color
+  ctx.lineWidth = GHOST_LINE_WIDTH
+  ctx.setLineDash([])
+  for (const frame of ghost.frames) {
+    framePath(ctx, frame, camera)
+    ctx.globalAlpha = PRESENCE_GHOST_FILL_ALPHA
+    ctx.fill()
+    ctx.globalAlpha = PRESENCE_GHOST_ALPHA
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
+function framePath(ctx: CanvasRenderingContext2D, frame: SelectionFrame, camera: Camera): void {
+  const corners = frameCornersScreen(frame, camera)
   ctx.beginPath()
   corners.forEach((point, index) => {
     if (index === 0) ctx.moveTo(point.x, point.y)
     else ctx.lineTo(point.x, point.y)
   })
   ctx.closePath()
-  ctx.stroke()
-  ctx.restore()
 }
 
 function paintCursor(

@@ -25,6 +25,7 @@ export {
     createPresenceWriter,
     isPresenceStale,
     isSameRoster,
+    normalizePresenceDragGhost,
     normalizePresenceFrame,
     normalizePresenceIdentity,
     normalizePresenceState,
@@ -43,6 +44,7 @@ export type {
     PresenceAwareness,
     PresenceAwarenessEvent,
     PresenceDrag,
+    PresenceDragGhost,
     PresenceDragKind,
     PresenceFrame,
     PresenceParticipant,
@@ -63,6 +65,7 @@ export {
 } from './overlay';
 export type {
     PresenceFrameResolver,
+    PresenceGhostResolver,
     PresenceOverlayBuildOptions,
     PresenceOverlayMapper,
 } from './overlay';
