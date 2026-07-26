@@ -70,6 +70,7 @@ services:
       DB_USERNAME: ${DB_USERNAME:-freedraw}
       DB_PASSWORD: ${DB_PASSWORD:-secret}
       REDIS_HOST: redis
+      COLLAB_INTERNAL_URL: ${COLLAB_INTERNAL_URL:-http://hocuspocus:1234}
 
   web:
     image: freedraw-web:latest
@@ -98,6 +99,7 @@ services:
       DB_USERNAME: ${DB_USERNAME:-freedraw}
       DB_PASSWORD: ${DB_PASSWORD:-secret}
       REDIS_HOST: redis
+      COLLAB_INTERNAL_URL: ${COLLAB_INTERNAL_URL:-http://hocuspocus:1234}
 
   scheduler:
     <<: *app-common
@@ -109,6 +111,7 @@ services:
       DB_USERNAME: ${DB_USERNAME:-freedraw}
       DB_PASSWORD: ${DB_PASSWORD:-secret}
       REDIS_HOST: redis
+      COLLAB_INTERNAL_URL: ${COLLAB_INTERNAL_URL:-http://hocuspocus:1234}
 
   hocuspocus:
     image: freedraw-hocuspocus:latest
@@ -120,6 +123,7 @@ services:
       HOCUSPOCUS_ADDRESS: 0.0.0.0
       COLLAB_SECRET: ${COLLAB_SECRET:-}
       REQUIRE_COLLAB_AUTH: ${COLLAB_ENABLED:-false}
+      COLLAB_INTERNAL_SECRET: ${COLLAB_INTERNAL_SECRET:-}
       DB_HOST: mysql
       DB_PORT: 3306
       DB_DATABASE: ${DB_DATABASE:-freedraw}

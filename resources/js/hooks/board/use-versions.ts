@@ -20,11 +20,16 @@ const EMPTY_VERSIONS: PageVersion[] = []
 
 const CSRF_EXPIRED_MESSAGE = 'Your session expired. Refresh the page and try again.'
 
-const RESTORED_MESSAGE =
-  'Saved as the newest snapshot. Open boards keep their current canvas until they reload from the server.'
+const RESTORED_MESSAGE = 'Restored. Everyone on this page sees the reverted canvas.'
+
+const RESTORE_UNAVAILABLE_MESSAGE =
+  'The realtime service is unreachable, so nothing was changed. Try again in a moment.'
 
 function failureMessage(error: unknown, fallback: string): string {
   if (isCsrfExpired(error)) return CSRF_EXPIRED_MESSAGE
+  if (error instanceof VersionRequestError && error.status === 503) {
+    return RESTORE_UNAVAILABLE_MESSAGE
+  }
   if (error instanceof VersionRequestError && error.status === 422 && error.detail) {
     return error.detail
   }

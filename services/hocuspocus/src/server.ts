@@ -1,6 +1,7 @@
 import { Server, type Extension } from '@hocuspocus/server'
 import { assertAuthConfig, loadConfig } from './config.js'
 import { asQueryable, createPool } from './db.js'
+import { InternalApi } from './internal-api.js'
 import { MysqlPageStore } from './page-store.js'
 import { RealtimeAuth } from './realtime-auth.js'
 import { UpdateLogDatabase, type Logger } from './update-log-database.js'
@@ -31,6 +32,12 @@ async function main(): Promise<void> {
     extensions.push(new RealtimeAuth(config.collabSecret))
   } else {
     logger.warn('COLLAB_SECRET is not set; realtime authentication is disabled')
+  }
+
+  if (config.internalSecret.length > 0) {
+    extensions.push(new InternalApi({ store, logger, secret: config.internalSecret }))
+  } else {
+    logger.warn('COLLAB_INTERNAL_SECRET is not set; the internal version API is disabled')
   }
 
   const server = new Server({

@@ -5,6 +5,9 @@ use App\Enums\PagePermission;
 use App\Models\Page;
 use App\Models\PageSnapshot;
 use App\Models\User;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 
 test('version index returns only labeled snapshots for the page newest first', function () {
     $user = User::factory()->create();
@@ -128,7 +131,10 @@ test('version show is forbidden for users who cannot access the page', function 
         ->assertForbidden();
 });
 
-test('storing a version copies the current head snapshot with a label', function () {
+test('storing a version labels the folded head returned by the realtime service', function () {
+    configureRealtimeService();
+    Http::fake(['*' => Http::response(['state' => base64_encode('folded-state'), 'upToSeq' => 14])]);
+
     $user = User::factory()->create();
     $page = Page::factory()->create([
         'organization_id' => $user->current_organization_id,
@@ -147,21 +153,37 @@ test('storing a version copies the current head snapshot with a label', function
     $response
         ->assertCreated()
         ->assertJsonPath('label', 'Milestone')
-        ->assertJsonPath('upToSeq', 9)
+        ->assertJsonPath('upToSeq', 14)
         ->assertJsonPath('creator.id', $user->id);
-
-    $this->assertDatabaseHas('page_snapshots', [
-        'page_id' => $page->id,
-        'label' => 'Milestone',
-        'up_to_seq' => 9,
-        'created_by' => $user->id,
-    ]);
 
     $created = PageSnapshot::where('label', 'Milestone')->firstOrFail();
 
-    expect($created->state)->toBe('head-state')
+    expect($created->state)->toBe('folded-state')
         ->and($created->id)->not->toBe($head->id)
         ->and($page->snapshots()->count())->toBe(3);
+
+    Http::assertSent(fn (Request $request) => str_ends_with($request->url(), "/internal/pages/{$page->public_id}/fold"));
+});
+
+test('storing a version still labels the stale head when the realtime service is unreachable', function () {
+    configureRealtimeService();
+    Http::fake(fn () => throw new ConnectionException('connection refused'));
+
+    $user = User::factory()->create();
+    $page = Page::factory()->create([
+        'organization_id' => $user->current_organization_id,
+        'created_by' => $user->id,
+    ]);
+
+    PageSnapshot::factory()->for($page)->create(['up_to_seq' => 9, 'state' => 'head-state', 'label' => null]);
+
+    $this
+        ->actingAs($user)
+        ->postJson(route('pages.versions.store', $page), ['label' => 'Milestone'])
+        ->assertCreated()
+        ->assertJsonPath('upToSeq', 9);
+
+    expect(PageSnapshot::where('label', 'Milestone')->firstOrFail()->state)->toBe('head-state');
 });
 
 test('storing a version fails when the page has no snapshot yet', function () {
@@ -200,6 +222,9 @@ test('storing a version is forbidden for members without edit permission', funct
 });
 
 test('restoring a version appends a new head snapshot without deleting anything', function () {
+    configureRealtimeService();
+    Http::fake(['*' => Http::response(['state' => base64_encode('applied-state'), 'upToSeq' => 30])]);
+
     $user = User::factory()->create();
     $page = Page::factory()->create([
         'organization_id' => $user->current_organization_id,
@@ -237,9 +262,12 @@ test('restoring a version appends a new head snapshot without deleting anything'
 
     $restored = PageSnapshot::where('page_id', $page->id)->latest('id')->first();
 
-    expect($restored->state)->toBe('v1-state')
+    expect($restored->state)->toBe('applied-state')
         ->and($restored->up_to_seq)->toBe(30)
         ->and($restored->label)->toBe('Restored: v1');
+
+    Http::assertSent(fn (Request $request) => str_ends_with($request->url(), "/internal/pages/{$page->public_id}/restore")
+        && $request['state'] === base64_encode('v1-state'));
 
     $this
         ->actingAs($user)
@@ -247,6 +275,30 @@ test('restoring a version appends a new head snapshot without deleting anything'
         ->assertOk()
         ->assertJsonPath('0.id', $restored->id)
         ->assertJsonPath('0.label', 'Restored: v1');
+});
+
+test('restoring a version fails loudly when the live document could not be updated', function () {
+    configureRealtimeService();
+    Http::fake(fn () => throw new ConnectionException('connection refused'));
+
+    $user = User::factory()->create();
+    $page = Page::factory()->create([
+        'organization_id' => $user->current_organization_id,
+        'created_by' => $user->id,
+    ]);
+
+    $version = PageSnapshot::factory()->for($page)->labelled('v1')->create([
+        'up_to_seq' => 5,
+        'state' => 'v1-state',
+        'created_by' => $user->id,
+    ]);
+
+    $this
+        ->actingAs($user)
+        ->postJson(route('pages.versions.restore', $page), ['version_id' => $version->id])
+        ->assertStatus(503);
+
+    expect(PageSnapshot::where('page_id', $page->id)->count())->toBe(1);
 });
 
 test('restoring a version is forbidden for members without edit permission', function () {

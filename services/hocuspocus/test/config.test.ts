@@ -17,6 +17,16 @@ describe('loadConfig REQUIRE_COLLAB_AUTH', () => {
   })
 })
 
+describe('loadConfig COLLAB_INTERNAL_SECRET', () => {
+  it('defaults the internal secret to an empty string', () => {
+    expect(loadConfig({}).internalSecret).toBe('')
+  })
+
+  it('reads COLLAB_INTERNAL_SECRET', () => {
+    expect(loadConfig({ COLLAB_INTERNAL_SECRET: 'shared' }).internalSecret).toBe('shared')
+  })
+})
+
 describe('assertAuthConfig', () => {
   it('throws when auth is required but no secret is configured', () => {
     const config = loadConfig({ REQUIRE_COLLAB_AUTH: 'true' })

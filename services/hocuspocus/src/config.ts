@@ -22,6 +22,7 @@ export interface AppConfig {
   pruneSupersededSnapshots: boolean
   collabSecret: string
   requireCollabAuth: boolean
+  internalSecret: string
   db: DbConfig
 }
 
@@ -70,6 +71,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     pruneSupersededSnapshots: readBoolean(env, 'HOCUSPOCUS_PRUNE_SNAPSHOTS', true),
     collabSecret: readString(env, 'COLLAB_SECRET', ''),
     requireCollabAuth: readBoolean(env, 'REQUIRE_COLLAB_AUTH', false),
+    internalSecret: readString(env, 'COLLAB_INTERNAL_SECRET', ''),
     db: {
       host: readString(env, 'DB_HOST', '127.0.0.1'),
       port: readNumber(env, 'DB_PORT', 3306),

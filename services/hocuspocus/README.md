@@ -47,6 +47,46 @@ Prior machine-generated snapshots (`label IS NULL AND created_by IS NULL`) below
 the new boundary are removed to keep growth bounded; labeled / user-created
 snapshots are always kept.
 
+## Internal version API
+
+Version history is owned by Laravel, but two of its operations can only be done
+correctly here, so the `InternalApi` extension exposes them over the same HTTP
+port the WebSocket listens on. Both routes are `POST`, both require
+`Authorization: Bearer $COLLAB_INTERNAL_SECRET`, and `{room}` is the page
+`public_id`. The extension is only registered when `COLLAB_INTERNAL_SECRET` is
+set; otherwise the routes do not exist and the default Hocuspocus response is
+returned.
+
+| Route | Body | Success response |
+| --- | --- | --- |
+| `POST /internal/pages/{room}/fold` | _(none)_ | `{ "state": "<base64>", "upToSeq": <int> }` |
+| `POST /internal/pages/{room}/restore` | `{ "state": "<base64>" }` | `{ "state": "<base64>", "upToSeq": <int> }` |
+
+Errors are JSON `{ "error": "…" }` with `401` (bad/missing secret), `404`
+(unknown room, or nothing to fold), `405`, `400`/`413`/`422` (body problems) and
+`500`.
+
+**Fold** answers "what does the head actually look like right now". It reads the
+latest snapshot, then `Y.mergeUpdates` that state with every `page_updates` row
+beyond its `up_to_seq` (falling back to the `pages.document` bridge when no
+snapshot exists yet). Laravel calls this when a user labels a version, because
+the head snapshot row on its own lags behind by up to one `onStoreDocument`
+debounce. The read is retried when a compaction lands between reading the
+snapshot and reading the tail. Folding never loads the room into memory.
+
+**Restore** is not `Y.applyUpdate(liveDoc, oldState)` — in a CRDT the version's
+operations are already present in the live document, so replaying them changes
+nothing. Instead the target state is decoded into a scratch `Y.Doc` and the
+**content-level** difference (`elements`, `elementOrder`, `appState`) is applied
+to the live document inside a single transaction opened through
+`openDirectConnection`. Because the mutation happens on the server's own
+`Document` instance, it is broadcast to every connected client and then
+persisted by the normal `onChange` / `onStoreDocument` path. The response
+carries the state of the document as it actually ended up, which Laravel stores
+as the `Restored: …` snapshot row. Its `upToSeq` is read before the state is
+encoded, so — exactly like the compaction boundary — it is a lower bound and
+replaying the remaining tail on top of that state is idempotent.
+
 ## Environment variables
 
 The service reads its database configuration from the same variables the Laravel
@@ -74,6 +114,7 @@ app uses, so it can share the project `.env`.
 | `HOCUSPOCUS_PRUNE_SNAPSHOTS` | `true` | Prune superseded auto snapshots on store |
 | `COLLAB_SECRET` | _(empty)_ | HMAC secret used to verify realtime auth tokens |
 | `REQUIRE_COLLAB_AUTH` | `false` | Refuse to start when authentication is disabled |
+| `COLLAB_INTERNAL_SECRET` | _(empty)_ | Bearer secret for the internal version API; empty disables the routes |
 
 ## Authentication
 
@@ -85,6 +126,10 @@ whether the connection is writable or read-only.
 When `COLLAB_SECRET` is empty the `RealtimeAuth` extension is **not** registered
 and every connection is accepted unauthenticated. This fail-open behavior is a
 development convenience only.
+
+The internal version API is authenticated separately, with the
+`COLLAB_INTERNAL_SECRET` bearer secret compared in constant time. It is a
+server-to-server channel only and must never be reachable from the browser.
 
 `REQUIRE_COLLAB_AUTH` is the production guard against shipping that fail-open
 default. When it is set (truthy) and `COLLAB_SECRET` is missing/empty, the

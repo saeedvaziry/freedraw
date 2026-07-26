@@ -47,8 +47,10 @@ const toast = vi.mocked(boardToast)
 
 const CSRF_MESSAGE = 'Your session expired. Refresh the page and try again.'
 
-const RESTORED_MESSAGE =
-  'Saved as the newest snapshot. Open boards keep their current canvas until they reload from the server.'
+const RESTORED_MESSAGE = 'Restored. Everyone on this page sees the reverted canvas.'
+
+const RESTORE_UNAVAILABLE_MESSAGE =
+  'The realtime service is unreachable, so nothing was changed. Try again in a moment.'
 
 function version(id: number, label: string): PageVersion {
   return { id, label, upToSeq: id, createdAt: '2026-07-25T00:00:00Z', creator: null }
@@ -422,6 +424,24 @@ describe('useVersions restoring', () => {
     })
 
     expect(toast).toHaveBeenCalledWith('Could not restore that version.', 'error')
+    expect(result.current.pendingRestoreId).toBe(1)
+    expect(persistence.fetchPageVersions).not.toHaveBeenCalled()
+  })
+
+  it('says nothing changed when the realtime service could not apply the restore', async () => {
+    persistence.restorePageVersion.mockRejectedValue(
+      new persistence.VersionRequestError(503, 'the live document could not be restored'),
+    )
+
+    const { result } = setup()
+    act(() => {
+      result.current.requestRestore(version(1, 'Earlier'))
+    })
+    await act(async () => {
+      result.current.confirmRestore(version(1, 'Earlier'))
+    })
+
+    expect(toast).toHaveBeenCalledWith(RESTORE_UNAVAILABLE_MESSAGE, 'error')
     expect(result.current.pendingRestoreId).toBe(1)
     expect(persistence.fetchPageVersions).not.toHaveBeenCalled()
   })

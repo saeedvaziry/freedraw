@@ -51,3 +51,9 @@ function something()
 {
     // ..
 }
+
+function configureRealtimeService(string $url = 'http://hocuspocus.test:1234', string $secret = 'internal-secret'): void
+{
+    config()->set('services.collab.internal_url', $url);
+    config()->set('services.collab.internal_secret', $secret);
+}
