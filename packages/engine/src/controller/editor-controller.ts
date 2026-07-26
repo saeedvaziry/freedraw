@@ -416,7 +416,7 @@ export class EditorController {
       if (!element || !isArrowElement(element)) continue
       if (element.end?.elementId !== childId) continue
       const parentId = element.start?.elementId
-      if (parentId) return parentId
+      if (parentId && snapshot.elements[parentId]) return parentId
     }
     return null
   }

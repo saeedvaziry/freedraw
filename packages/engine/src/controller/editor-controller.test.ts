@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import * as Y from 'yjs'
 import { arrowRoute } from '../connectors/resolve.js'
+import { spawnConnectedShape } from '../connectors/spawn.js'
 import { fitCamera } from '../geometry/fit.js'
 import { resizeHandlesScreen } from '../geometry/handles.js'
 import { selectionFrameFor } from '../geometry/selection-frame.js'
 import { createArrow, createImage, createShape } from '../model/factory.js'
-import type { ArrowElement, CameraState, Element, Point } from '../model/types.js'
+import { isArrowElement } from '../model/guards.js'
+import type { ArrowElement, Binding, CameraState, Element, ElementId, Point } from '../model/types.js'
 import type { EditRequest } from '../text/edit.js'
 import { Renderer, type OverlayState } from '../render/renderer.js'
 import { SceneStore } from '../store/scene-store.js'
@@ -868,5 +870,102 @@ describe('EditorController.exportSvg image sources', () => {
 
     expect(loadBlob).toHaveBeenCalledTimes(1)
     expect(svg).toContain(`href="data:image/webp;base64,${WEBP_BASE64}"`)
+  })
+})
+
+describe('EditorController.spawnSiblingAndEdit binding liveness', () => {
+  let store: SceneStore
+  let controller: EditorController
+  let childId: ElementId
+
+  function bindingTo(elementId: ElementId): Binding {
+    return { elementId, anchor: { nx: 0.5, ny: 0.5 }, gap: 8, side: 'right' }
+  }
+
+  function mount(seeded: SceneStore): void {
+    store = seeded
+    controller = new EditorController(seeded, fakeCanvas(), fakeCanvas())
+  }
+
+  function boundScene(): void {
+    const seeded = new SceneStore()
+    const parent = createShape({ id: 'parent', type: 'rect', x: 0, y: 0, width: 100, height: 60 })
+    seeded.transact((api) => api.addElement(parent))
+    childId = spawnConnectedShape(seeded, parent, 'right')
+    mount(seeded)
+  }
+
+  function orphanScene(): void {
+    const seeded = new SceneStore()
+    seeded.transact((api) =>
+      api.addElement(createShape({ id: 'child', type: 'rect', x: 200, y: 0, width: 100, height: 60 })),
+    )
+    childId = 'child'
+    mount(seeded)
+  }
+
+  function prependDeadBinding(): void {
+    const live = store.getSnapshot.bind(store)
+    const dead = createArrow({
+      id: 'dead-arrow',
+      points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+      start: bindingTo('ghost'),
+      end: bindingTo(childId),
+    })
+    vi.spyOn(store, 'getSnapshot').mockImplementation(() => {
+      const snapshot = live()
+      return {
+        ...snapshot,
+        elements: { ...snapshot.elements, [dead.id]: dead },
+        order: [dead.id, ...snapshot.order],
+      }
+    })
+  }
+
+  function parentOf(id: ElementId): ElementId | undefined {
+    const snapshot = store.getSnapshot()
+    for (const entry of snapshot.order) {
+      const element = snapshot.elements[entry]
+      if (!element || !isArrowElement(element)) continue
+      if (element.end?.elementId === id) return element.start?.elementId
+    }
+    return undefined
+  }
+
+  beforeEach(() => {
+    stubEnvironment()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  it('spawns the sibling against the parent a live binding points at', () => {
+    boundScene()
+
+    const siblingId = controller.spawnSiblingAndEdit(childId)
+
+    expect(siblingId).not.toBeNull()
+    expect(parentOf(siblingId!)).toBe('parent')
+  })
+
+  it('spawns nothing when the only binding points at an element missing from the snapshot', () => {
+    orphanScene()
+    prependDeadBinding()
+    const before = store.getSnapshot().order.length
+
+    expect(controller.spawnSiblingAndEdit(childId)).toBeNull()
+    expect(store.getSnapshot().order.length).toBe(before)
+  })
+
+  it('keeps resolving past a dead binding to the parent that is still in the snapshot', () => {
+    boundScene()
+    prependDeadBinding()
+
+    const siblingId = controller.spawnSiblingAndEdit(childId)
+
+    expect(siblingId).not.toBeNull()
+    expect(parentOf(siblingId!)).toBe('parent')
   })
 })

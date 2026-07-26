@@ -44,19 +44,22 @@ function strokeSegment(ctx: CanvasRenderingContext2D, from: Point, to: Point, da
   ctx.stroke()
 }
 
+function capOffset(from: Point, to: Point): Point {
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  const length = Math.hypot(dx, dy)
+  if (length === 0) return { x: 0, y: CAP_SIZE }
+  return { x: (-dy / length) * CAP_SIZE, y: (dx / length) * CAP_SIZE }
+}
+
 function paintDistance(ctx: CanvasRenderingContext2D, from: Point, to: Point, label: number): void {
-  const horizontal = Math.abs(to.x - from.x) >= Math.abs(to.y - from.y)
+  const cap = capOffset(from, to)
   strokeSegment(ctx, from, to, [])
   ctx.setLineDash([])
   for (const point of [from, to]) {
     ctx.beginPath()
-    if (horizontal) {
-      ctx.moveTo(point.x, point.y - CAP_SIZE)
-      ctx.lineTo(point.x, point.y + CAP_SIZE)
-    } else {
-      ctx.moveTo(point.x - CAP_SIZE, point.y)
-      ctx.lineTo(point.x + CAP_SIZE, point.y)
-    }
+    ctx.moveTo(point.x - cap.x, point.y - cap.y)
+    ctx.lineTo(point.x + cap.x, point.y + cap.y)
     ctx.stroke()
   }
   const mid = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
