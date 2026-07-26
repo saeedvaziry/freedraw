@@ -336,7 +336,7 @@ function Board({ store: liveStore, readOnly = false, sync, assetSource }: BoardP
             {versionsOpen ? (
               <div
                 className={`pointer-events-none absolute flex justify-start transition-[left] duration-200 ease-linear sm:top-16 ${
-                  versions.previewVersion ? 'top-36' : 'top-16'
+                  versions.previewVersion ? 'top-36' : 'top-20'
                 }`}
                 style={{ left: 'calc(0.75rem + var(--board-sidebar-width, 0px))' }}
               >
