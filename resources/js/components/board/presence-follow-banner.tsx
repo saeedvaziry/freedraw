@@ -20,7 +20,8 @@ export function PresenceFollowBanner({ peer, onStop }: PresenceFollowBannerProps
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground">Following {peer.name}</p>
         <p className="truncate text-xs text-foreground/60">
-          Your view only · pan, zoom or press Esc to stop
+          Your view only · pan or zoom to stop
+          <span className="hidden sm:inline">, or press Esc</span>
         </p>
       </div>
       <Button

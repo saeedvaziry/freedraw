@@ -98,7 +98,8 @@ export function PresenceStack({
           ))}
         </div>
         <p className="border-t border-border px-2 pt-2 pb-1 text-[0.6875rem] leading-relaxed text-foreground/55">
-          Following moves your view only. Pan, zoom or press Esc to stop.
+          Following moves your view only. Pan or zoom to stop
+          <span className="hidden sm:inline">, or press Esc</span>.
         </p>
       </PopoverContent>
     </Popover>
