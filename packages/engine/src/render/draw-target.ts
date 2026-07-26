@@ -274,8 +274,15 @@ interface DrawBounds {
 
 interface Placement {
   attrs: string
+  anchorX: number
+  anchorY: number
+  basis: DrawTransform | null
+}
+
+export interface ShadowGeometry {
   offsetX: number
   offsetY: number
+  blur: number
 }
 
 interface GraphicsState {
@@ -632,7 +639,7 @@ export class SvgDrawTarget implements DrawTarget {
     if (color === 'transparent') return
     const { size, family } = parseFont(this.state.font)
     for (const name of familyNames(family)) this.usedFamilies.add(name)
-    const place = this.placement(x, y)
+    const place = this.shadowActive ? this.anchoredPlacement(x, y) : this.placement(x, y)
     const attrs: string[] = []
     attrs.push(place.attrs)
     attrs.push(`font-family="${escapeAttr(family)}"`)
@@ -643,7 +650,8 @@ export class SvgDrawTarget implements DrawTarget {
     if (this.state.globalAlpha < 1) attrs.push(`opacity="${fmt(this.state.globalAlpha)}"`)
     const filter = this.shadowActive
       ? this.absoluteShadowFilter(
-          textBounds(x + place.offsetX, y + place.offsetY, this.measureText(text).width, size),
+          textBounds(place.anchorX, place.anchorY, this.measureText(text).width, size),
+          place.basis,
         )
       : null
     if (filter) attrs.push(`filter="url(#${filter})"`)
@@ -672,14 +680,17 @@ export class SvgDrawTarget implements DrawTarget {
     attrs.push(`xlink:href="${encoded}"`)
     attrs.push('preserveAspectRatio="none"')
     if (this.state.globalAlpha < 1) attrs.push(`opacity="${fmt(this.state.globalAlpha)}"`)
-    const left = dx + place.offsetX
-    const top = dy + place.offsetY
-    const filter = this.shadowFilter({
-      minX: left,
-      minY: top,
-      maxX: left + dw,
-      maxY: top + dh,
-    })
+    const left = place.anchorX
+    const top = place.anchorY
+    const filter = this.shadowFilter(
+      {
+        minX: left,
+        minY: top,
+        maxX: left + dw,
+        maxY: top + dh,
+      },
+      place.basis,
+    )
     if (filter) attrs.push(`filter="url(#${filter})"`)
     if (this.state.clipId) attrs.push(`clip-path="url(#${this.state.clipId})"`)
     this.body.push(`<image ${attrs.join(' ')}/>`)
@@ -729,7 +740,7 @@ export class SvgDrawTarget implements DrawTarget {
     const attrs = [`d="${d}"`, `fill="${escapeAttr(color)}"`]
     if (fillRule === 'evenodd') attrs.push('fill-rule="evenodd"')
     if (this.state.globalAlpha < 1) attrs.push(`opacity="${fmt(this.state.globalAlpha)}"`)
-    const filter = this.shadowFilter(bounds)
+    const filter = this.shadowFilter(bounds, null)
     if (filter) attrs.push(`filter="url(#${filter})"`)
     if (this.state.clipId) attrs.push(`clip-path="url(#${this.state.clipId})"`)
     this.body.push(`<path ${attrs.join(' ')}/>`)
@@ -751,7 +762,7 @@ export class SvgDrawTarget implements DrawTarget {
       attrs.push(`stroke-dasharray="${this.state.lineDash.map(fmt).join(' ')}"`)
     }
     if (this.state.globalAlpha < 1) attrs.push(`opacity="${fmt(this.state.globalAlpha)}"`)
-    const filter = this.shadowFilter(bounds, this.state.lineWidth / 2)
+    const filter = this.shadowFilter(bounds, null, this.state.lineWidth / 2)
     if (filter) attrs.push(`filter="url(#${filter})"`)
     if (this.state.clipId) attrs.push(`clip-path="url(#${this.state.clipId})"`)
     this.body.push(`<path ${attrs.join(' ')}/>`)
@@ -792,11 +803,30 @@ export class SvgDrawTarget implements DrawTarget {
 
   private placement(x: number, y: number): Placement {
     const m = this.state.matrix
-    if (m.b === 0 && m.c === 0 && m.a === 1 && m.d === 1) {
-      return { attrs: `x="${fmt(x + m.e)}" y="${fmt(y + m.f)}"`, offsetX: m.e, offsetY: m.f }
+    if (isTranslation(m)) {
+      return {
+        attrs: `x="${fmt(x + m.e)}" y="${fmt(y + m.f)}"`,
+        anchorX: x + m.e,
+        anchorY: y + m.f,
+        basis: null,
+      }
     }
-    const transform = `matrix(${fmt(m.a)} ${fmt(m.b)} ${fmt(m.c)} ${fmt(m.d)} ${fmt(m.e)} ${fmt(m.f)})`
-    return { attrs: `x="${fmt(x)}" y="${fmt(y)}" transform="${transform}"`, offsetX: 0, offsetY: 0 }
+    return {
+      attrs: `x="${fmt(x)}" y="${fmt(y)}" transform="${matrixTransform(m)}"`,
+      anchorX: x,
+      anchorY: y,
+      basis: m,
+    }
+  }
+
+  private anchoredPlacement(x: number, y: number): Placement {
+    const m = this.state.matrix
+    if (isTranslation(m)) {
+      const shift = `translate(${fmt(x + m.e)} ${fmt(y + m.f)})`
+      return { attrs: `x="0" y="0" transform="${shift}"`, anchorX: 0, anchorY: 0, basis: null }
+    }
+    const transform = `${matrixTransform(m)} translate(${fmt(x)} ${fmt(y)})`
+    return { attrs: `x="0" y="0" transform="${transform}"`, anchorX: 0, anchorY: 0, basis: m }
   }
 
   private get shadowActive(): boolean {
@@ -806,41 +836,45 @@ export class SvgDrawTarget implements DrawTarget {
     return shadowBlur !== 0 || shadowOffsetX !== 0 || shadowOffsetY !== 0
   }
 
-  private shadowFilter(bounds: DrawBounds | null, pad = 0): string | null {
+  private shadowFilter(
+    bounds: DrawBounds | null,
+    basis: DrawTransform | null,
+    pad = 0,
+  ): string | null {
     if (!this.shadowActive) return null
-    const { marginX, marginY } = this.shadowMargins(pad)
-    return this.filterFor(boundingBoxRegion(bounds, marginX, marginY))
+    const shadow = this.localShadow(basis)
+    const { marginX, marginY } = shadowMargins(shadow, pad)
+    return this.filterFor(boundingBoxRegion(bounds, marginX, marginY), shadow)
   }
 
-  private absoluteShadowFilter(bounds: DrawBounds | null): string | null {
+  private absoluteShadowFilter(
+    bounds: DrawBounds | null,
+    basis: DrawTransform | null,
+  ): string | null {
     if (!this.shadowActive) return null
-    const { marginX, marginY } = this.shadowMargins(0)
-    return this.filterFor(userSpaceRegion(bounds, marginX, marginY))
+    const shadow = this.localShadow(basis)
+    const { marginX, marginY } = shadowMargins(shadow, 0)
+    return this.filterFor(userSpaceRegion(bounds, marginX, marginY), shadow)
   }
 
-  private shadowMargins(pad: number): { marginX: number; marginY: number } {
-    const spread = this.state.shadowBlur * SHADOW_BLUR_EXTENT + pad
-    return {
-      marginX: spread + Math.abs(this.state.shadowOffsetX),
-      marginY: spread + Math.abs(this.state.shadowOffsetY),
+  private localShadow(basis: DrawTransform | null): ShadowGeometry {
+    const device: ShadowGeometry = {
+      offsetX: this.state.shadowOffsetX,
+      offsetY: this.state.shadowOffsetY,
+      blur: this.state.shadowBlur,
     }
+    return basis ? shadowInUserSpace(basis, device) : device
   }
 
-  private filterFor(region: string): string {
-    const color = this.state.shadowColor
-    const blur = this.state.shadowBlur
-    const offsetX = this.state.shadowOffsetX
-    const offsetY = this.state.shadowOffsetY
-    const key = `${color}|${blur}|${offsetX}|${offsetY}|${region}`
+  private filterFor(region: string, shadow: ShadowGeometry): string {
+    const drop =
+      `dx="${fmt(shadow.offsetX)}" dy="${fmt(shadow.offsetY)}" ` +
+      `stdDeviation="${fmt(shadow.blur / 2)}" flood-color="${escapeAttr(this.state.shadowColor)}"`
+    const key = `${region}|${drop}`
     const existing = this.filters.get(key)
     if (existing) return existing
     const id = `fd-shadow-${this.idSeq++}`
-    const deviation = fmt(blur / 2)
-    this.defs.push(
-      `<filter id="${id}" ${region}>` +
-        `<feDropShadow dx="${fmt(offsetX)}" dy="${fmt(offsetY)}" ` +
-        `stdDeviation="${deviation}" flood-color="${escapeAttr(color)}"/></filter>`,
-    )
+    this.defs.push(`<filter id="${id}" ${region}><feDropShadow ${drop}/></filter>`)
     this.filters.set(key, id)
     return id
   }
@@ -861,6 +895,32 @@ function boundsOf(points: readonly Point[]): DrawBounds {
     if (point.y > bounds.maxY) bounds.maxY = point.y
   }
   return bounds
+}
+
+function isTranslation(m: DrawTransform): boolean {
+  return m.a === 1 && m.b === 0 && m.c === 0 && m.d === 1
+}
+
+function matrixTransform(m: DrawTransform): string {
+  return `matrix(${fmt(m.a)} ${fmt(m.b)} ${fmt(m.c)} ${fmt(m.d)} ${fmt(m.e)} ${fmt(m.f)})`
+}
+
+function shadowMargins(shadow: ShadowGeometry, pad: number): { marginX: number; marginY: number } {
+  const spread = shadow.blur * SHADOW_BLUR_EXTENT + pad
+  return {
+    marginX: spread + Math.abs(shadow.offsetX),
+    marginY: spread + Math.abs(shadow.offsetY),
+  }
+}
+
+export function shadowInUserSpace(basis: DrawTransform, shadow: ShadowGeometry): ShadowGeometry {
+  const determinant = basis.a * basis.d - basis.b * basis.c
+  if (determinant === 0) return shadow
+  return {
+    offsetX: (basis.d * shadow.offsetX - basis.c * shadow.offsetY) / determinant,
+    offsetY: (basis.a * shadow.offsetY - basis.b * shadow.offsetX) / determinant,
+    blur: shadow.blur / Math.sqrt(Math.abs(determinant)),
+  }
 }
 
 function textBounds(x: number, y: number, width: number, size: number): DrawBounds {

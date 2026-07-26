@@ -4,7 +4,7 @@ import { createImage, createShape, createSticky, createText } from '../model/fac
 import { defaultAppState } from '../model/schema.js'
 import type { Element, SceneSnapshot } from '../model/types.js'
 import { clearDrawCaches } from './draw-cache.js'
-import { SvgDrawTarget, setSvgFontFaces } from './draw-target.js'
+import { SvgDrawTarget, setSvgFontFaces, shadowInUserSpace } from './draw-target.js'
 import { renderSceneSvg } from './export-scene.js'
 import { invertColor } from './invert.js'
 import { setImageCache } from './painters/image.js'
@@ -354,6 +354,63 @@ describe('SvgDrawTarget', () => {
     const out = svg.toSvg()
     expect(out).toMatch(/<text[^>]*filter="url\(#fd-shadow-/)
     expect(out).toContain('flood-color="rgba(0, 0, 0, 0.5)"')
+    expect(out).toContain('filterUnits="userSpaceOnUse"')
+  })
+
+  it('anchors shadowed text through a translate so its filter region is position free', () => {
+    const svg = target()
+    svg.fillStyle = '#000000'
+    svg.font = '20px sans-serif'
+    svg.shadowColor = '#000000'
+    svg.shadowBlur = 6
+    svg.fillText('hi', 10, 20)
+    const out = svg.toSvg()
+    expect(out).toContain('<text x="0" y="0" transform="translate(10 20)"')
+    expect(out).toMatch(/<filter [^>]*x="-[\d.]+" y="-[\d.]+"/)
+  })
+
+  it('keeps plain x and y placement for text without a shadow', () => {
+    const svg = target()
+    svg.fillStyle = '#000000'
+    svg.font = '20px sans-serif'
+    svg.fillText('hi', 10, 20)
+    const out = svg.toSvg()
+    expect(out).toContain('<text x="10" y="20"')
+    expect(out).not.toContain('transform=')
+  })
+
+  it('shares one text shadow filter across identical labels at different positions', () => {
+    const svg = target()
+    svg.fillStyle = '#000000'
+    svg.font = '20px sans-serif'
+    svg.shadowColor = '#000000'
+    svg.shadowBlur = 6
+    svg.fillText('note', 10, 20)
+    svg.fillText('note', 320, 480)
+    const out = svg.toSvg()
+    expect(out.match(/filter="url\(#fd-shadow-/g) ?? []).toHaveLength(2)
+    expect(out.match(/<filter /g) ?? []).toHaveLength(1)
+  })
+
+  it('keeps a positive user-space region for flat geometry with no bounding box', () => {
+    const svg = target()
+    svg.strokeStyle = '#123456'
+    svg.lineWidth = 2
+    svg.shadowColor = '#000000'
+    svg.shadowBlur = 6
+    svg.beginPath()
+    svg.moveTo(10, 50)
+    svg.lineTo(90, 50)
+    svg.stroke()
+    svg.beginPath()
+    svg.moveTo(10, 80)
+    svg.lineTo(90, 80)
+    svg.stroke()
+    const out = svg.toSvg()
+    const regions = [...out.matchAll(/<filter [^>]*width="([\d.]+)" height="([\d.]+)"/g)]
+    expect(out.match(/filterUnits="userSpaceOnUse"/g) ?? []).toHaveLength(2)
+    expect(regions).toHaveLength(2)
+    expect(regions.every(([, width, height]) => Number(width) > 0 && Number(height) > 0)).toBe(true)
   })
 
   it('applies the shadow filter to images', () => {
@@ -371,6 +428,44 @@ describe('SvgDrawTarget', () => {
     const out = svg.toSvg()
     expect(out).toMatch(/<image[^>]*filter="url\(#fd-shadow-/)
     expect(out).toContain('x="-87.5%" y="-87.5%" width="275%" height="275%"')
+  })
+
+  it('keeps the shadow in device units when the element carries no transform', () => {
+    const svg = target()
+    svg.shadowColor = '#ff00ff'
+    svg.shadowBlur = 8
+    svg.shadowOffsetY = 10
+    svg.drawImage({} as unknown as CanvasImageSource, 0, 0, 20, 20, () => 'data:image/png;base64,X')
+    const out = svg.toSvg()
+    expect(out).not.toMatch(/<image[^>]*transform=/)
+    expect(out).toContain('dx="0" dy="10" stdDeviation="4"')
+    expect(out).toContain('x="-62.5%" y="-112.5%" width="225%" height="325%"')
+  })
+
+  it('counter-rotates the shadow offset into the local space of a rotated element', () => {
+    const svg = target()
+    svg.shadowColor = '#ff00ff'
+    svg.shadowBlur = 8
+    svg.shadowOffsetY = 10
+    svg.rotate(Math.PI / 2)
+    svg.drawImage({} as unknown as CanvasImageSource, 0, 0, 20, 20, () => 'data:image/png;base64,X')
+    const out = svg.toSvg()
+    expect(out).toContain('transform="matrix(0 1 -1 0 0 0)"')
+    expect(out).toContain('dx="10" dy="0" stdDeviation="4"')
+    expect(out).toContain('x="-112.5%" y="-62.5%" width="325%" height="225%"')
+  })
+
+  it('keeps the device-space shadow on baked path geometry under rotation', () => {
+    const svg = target()
+    svg.fillStyle = '#000000'
+    svg.shadowColor = '#ff00ff'
+    svg.shadowBlur = 8
+    svg.shadowOffsetY = 10
+    svg.rotate(Math.PI / 2)
+    svg.fillRect(0, 0, 20, 20)
+    const out = svg.toSvg()
+    expect(out).not.toMatch(/<path[^>]*transform=/)
+    expect(out).toContain('dx="0" dy="10" stdDeviation="4"')
   })
 
   it('leaves strokes, text and images unfiltered when no shadow is set', () => {
@@ -425,5 +520,40 @@ describe('SvgDrawTarget', () => {
     svg.fillStyle = '#000000'
     svg.fillText('hi', 0, 0)
     expect(svg.toSvg()).toContain('src:url("data:font/woff2;base64,A\\"B")')
+  })
+})
+
+describe('shadowInUserSpace', () => {
+  const shadow = { offsetX: 3, offsetY: 4, blur: 8 }
+
+  it('leaves a device shadow untouched at scale 1', () => {
+    expect(shadowInUserSpace({ a: 1, b: 0, c: 0, d: 1, e: 20, f: -5 }, shadow)).toEqual(shadow)
+  })
+
+  it('divides the offset and blur by a uniform scale', () => {
+    expect(shadowInUserSpace({ a: 2, b: 0, c: 0, d: 2, e: 0, f: 0 }, shadow)).toEqual({
+      offsetX: 1.5,
+      offsetY: 2,
+      blur: 4,
+    })
+  })
+
+  it('divides by each axis of a non-uniform scale and by the mean for the blur', () => {
+    const local = shadowInUserSpace({ a: 4, b: 0, c: 0, d: 1, e: 0, f: 0 }, shadow)
+    expect(local.offsetX).toBeCloseTo(0.75, 10)
+    expect(local.offsetY).toBeCloseTo(4, 10)
+    expect(local.blur).toBeCloseTo(4, 10)
+  })
+
+  it('counter-rotates and rescales under a combined rotation and scale', () => {
+    const basis = { a: 0, b: 2, c: -2, d: 0, e: 0, f: 0 }
+    const local = shadowInUserSpace(basis, { offsetX: 0, offsetY: 10, blur: 8 })
+    expect(local).toEqual({ offsetX: 5, offsetY: 0, blur: 4 })
+    expect(basis.a * local.offsetX + basis.c * local.offsetY).toBeCloseTo(0, 10)
+    expect(basis.b * local.offsetX + basis.d * local.offsetY).toBeCloseTo(10, 10)
+  })
+
+  it('keeps the device shadow when the basis is singular', () => {
+    expect(shadowInUserSpace({ a: 0, b: 0, c: 0, d: 0, e: 0, f: 0 }, shadow)).toEqual(shadow)
   })
 })
