@@ -8,12 +8,41 @@ import {
   type AlignCandidate,
   type AlignSpace,
 } from './align-snap.js'
+import type { Point } from '../model/types.js'
 import type { Rect } from './rect.js'
 import { rotatePoint } from './rotate.js'
 
 const r = (x: number, y: number, width = 20, height = 20): Rect => ({ x, y, width, height })
 
 const spaceAt = (rotation: number): AlignSpace => ({ center: { x: 0, y: 0 }, rotation })
+
+const cornersOf = (rect: Rect): Point[] => [
+  { x: rect.x, y: rect.y },
+  { x: rect.x + rect.width, y: rect.y },
+  { x: rect.x + rect.width, y: rect.y + rect.height },
+  { x: rect.x, y: rect.y + rect.height },
+]
+
+function boundsIn(points: Point[], space: AlignSpace): Rect {
+  const local = points.map((point) => rotatePoint(point, space.center, -space.rotation))
+  const xs = local.map((point) => point.x)
+  const ys = local.map((point) => point.y)
+  const x = Math.min(...xs)
+  const y = Math.min(...ys)
+  return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y }
+}
+
+function footprintRect(candidate: AlignCandidate, space: AlignSpace): Rect {
+  return boundsIn(cornersOf(candidate), space)
+}
+
+function outlineRect(candidate: AlignCandidate, space: AlignSpace): Rect {
+  const center = { x: candidate.x + candidate.width / 2, y: candidate.y + candidate.height / 2 }
+  return boundsIn(
+    cornersOf(candidate).map((corner) => rotatePoint(corner, center, candidate.rotation)),
+    space,
+  )
+}
 
 function candidateFromLocal(local: Rect, space: AlignSpace): AlignCandidate {
   const center = rotatePoint(
@@ -111,13 +140,42 @@ describe('snapMove distance indicators', () => {
 })
 
 describe('localAlignRects', () => {
-  it('leaves candidates untouched in an unrotated space', () => {
+  it('leaves an unrotated candidate untouched in an unrotated space', () => {
     const candidates: AlignCandidate[] = [
       { ...r(0, 0), rotation: 0 },
-      { ...r(50, 10), rotation: 1.2 },
+      { ...r(50, 10), rotation: 1e-12 },
     ]
 
     expect(localAlignRects(candidates, spaceAt(0))).toEqual([r(0, 0), r(50, 10)])
+  })
+
+  it('pins an unrotated candidate to the footprint numbers it had before rotated outlines', () => {
+    const candidate: AlignCandidate = { ...r(100, 40, 30, 70), rotation: 0 }
+
+    for (const rotation of [0, 0.6, -1.1, Math.PI / 4]) {
+      const space = spaceAt(rotation)
+      expect(localAlignRects([candidate], space)).toEqual([footprintRect(candidate, space)])
+    }
+  })
+
+  it('bounds a rotated candidate by its true outline in an unrotated space', () => {
+    const space = spaceAt(0)
+    const candidate: AlignCandidate = { ...r(50, 10, 40, 80), rotation: Math.PI / 3 }
+    const local = localAlignRects([candidate], space)[0]!
+
+    expect(local).toEqual(outlineRect(candidate, space))
+    expect(local.width).toBeGreaterThan(footprintRect(candidate, space).width)
+  })
+
+  it('bounds a candidate rotated at a third angle by its true outline', () => {
+    const space = spaceAt(0.6)
+    const candidate: AlignCandidate = { ...r(100, 100, 200, 40), rotation: 0.6 + Math.PI / 2 }
+    const local = localAlignRects([candidate], space)[0]!
+
+    expect(local).toEqual(outlineRect(candidate, space))
+    expect(local.width).toBeCloseTo(40, 6)
+    expect(local.height).toBeCloseTo(200, 6)
+    expect(footprintRect(candidate, space).width).toBeGreaterThan(180)
   })
 
   it('maps a candidate that shares the space rotation onto a tight local rect', () => {
@@ -174,6 +232,25 @@ describe('snapMove in a rotated space', () => {
       { x: candidate.x, y: candidate.y + candidate.height },
     ].map((corner) => rotatePoint(corner, space.center, -space.rotation))
     expect(Math.min(...corners.map((corner) => corner.x))).toBeCloseTo(local.x, 6)
+
+    const guide = alignGuides(res.lines, res.distances, space).find(
+      (candidateGuide): candidateGuide is Extract<typeof candidateGuide, { kind: 'align' }> =>
+        candidateGuide.kind === 'align',
+    )
+    expect(guide).toBeDefined()
+    expect(rotatePoint(guide!.from, space.center, -space.rotation).x).toBeCloseTo(local.x, 6)
+  })
+
+  it('snaps to the real edge of a neighbour rotated at a third angle instead of its footprint', () => {
+    const space = spaceAt(0.6)
+    const candidate: AlignCandidate = { ...r(100, 100, 200, 40), rotation: 0.6 + Math.PI / 2 }
+    const local = localAlignRects([candidate], space)[0]!
+    const footprint = footprintRect(candidate, space)
+    const moving = { ...r(0, 0, 300, 100), x: local.x - 2, y: local.y - 260 }
+
+    const res = snapMove(moving, [local], 5)
+    expect(moving.x + res.dx).toBeCloseTo(local.x, 6)
+    expect(Math.abs(footprint.x - (moving.x + res.dx))).toBeGreaterThan(5)
 
     const guide = alignGuides(res.lines, res.distances, space).find(
       (candidateGuide): candidateGuide is Extract<typeof candidateGuide, { kind: 'align' }> =>

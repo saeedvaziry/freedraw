@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createBinding } from '../connectors/binding.js'
 import { arrowRoute } from '../connectors/resolve.js'
 import { spawnConnectedShape, type SpawnDirection } from '../connectors/spawn.js'
+import { ALIGN_SNAP_DISTANCE } from '../geometry/align-snap.js'
 import { Camera } from '../geometry/camera.js'
 import { snapPointToGrid } from '../geometry/grid.js'
 import {
@@ -11,7 +12,7 @@ import {
   type SelectionFrame,
 } from '../geometry/handles.js'
 import type { Rect } from '../geometry/rect.js'
-import { rotatePoint, rotateVector } from '../geometry/rotate.js'
+import { rotatedBounds, rotatePoint, rotateVector } from '../geometry/rotate.js'
 import { selectionFrameFor } from '../geometry/selection-frame.js'
 import type { SnapGuide } from '../geometry/snap.js'
 import { createArrow, createShape } from '../model/factory.js'
@@ -170,6 +171,37 @@ function addFrameLocalShape(store: SceneStore, id: ElementId, local: Rect, frame
   )
 }
 
+function addRotatedShape(
+  store: SceneStore,
+  id: ElementId,
+  frame: SelectionFrame,
+  localCenter: Point,
+  size: { width: number; height: number },
+  rotation: number,
+): void {
+  const center = rotatePoint(localCenter, frame.center, frame.rotation)
+  store.transact((api) =>
+    api.addElement(
+      createShape({ id, x: center.x - size.width / 2, y: center.y - size.height / 2, ...size, rotation }),
+    ),
+  )
+}
+
+function frameLocalBounds(element: Element, rotation: number, frame: SelectionFrame): Rect {
+  const center = { x: element.x + element.width / 2, y: element.y + element.height / 2 }
+  const points = [
+    { x: element.x, y: element.y },
+    { x: element.x + element.width, y: element.y },
+    { x: element.x + element.width, y: element.y + element.height },
+    { x: element.x, y: element.y + element.height },
+  ].map((corner) => rotatePoint(rotatePoint(corner, center, rotation), frame.center, -frame.rotation))
+  const xs = points.map((point) => point.x)
+  const ys = points.map((point) => point.y)
+  const x = Math.min(...xs)
+  const y = Math.min(...ys)
+  return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y }
+}
+
 function frameLocalRect(element: Element, frame: SelectionFrame): Rect {
   const center = rotatePoint(
     { x: element.x + element.width / 2, y: element.y + element.height / 2 },
@@ -304,6 +336,69 @@ describe('SelectTool align snap on a tilted frame', () => {
     for (const point of [guide!.from, guide!.to]) {
       expect(rotatePoint(point, frame.center, -rotation).x).toBeCloseTo(neighbour.x, 6)
     }
+  })
+
+  it('snaps a dragged group to the real edge of a neighbour tilted at a third angle', () => {
+    const rotation = 0.6
+    const { store, ctx } = tiltedPairStore(rotation)
+    const tool = new SelectTool()
+    const frame = selectionFrameFor(selectedShapes(store))!
+    const down = rotatePoint({ x: 50, y: 50 }, frame.center, rotation)
+    const up = { x: down.x + 20, y: down.y + 30 }
+    const start = snapPointToGrid(down)
+    const end = snapPointToGrid(up)
+    const drag = rotateVector({ x: end.x - start.x, y: end.y - start.y }, -rotation)
+    addRotatedShape(store, 'c', frame, { x: drag.x + 22, y: 400 }, { width: 200, height: 40 }, rotation + Math.PI / 2)
+    const guides = captureGuides(ctx)
+
+    tool.onPointerDown(pointerAt(down), ctx)
+    tool.onPointerMove(pointerAt(up), ctx)
+    const applied = guides[guides.length - 1] ?? []
+    tool.onPointerUp(pointerAt(up), ctx)
+
+    const neighbour = store.getSnapshot().elements['c']!
+    const outline = frameLocalBounds(neighbour, neighbour.rotation, frame)
+    const footprint = frameLocalBounds(neighbour, 0, frame)
+    const moved = frameLocalRect(store.getSnapshot().elements['a']!, frame)
+    expect(moved.x).toBeCloseTo(outline.x, 6)
+    expect(moved.y).toBeCloseTo(drag.y, 6)
+    expect(Math.abs(footprint.x - moved.x)).toBeGreaterThan(ALIGN_SNAP_DISTANCE)
+
+    const guide = alignGuideOf(applied)
+    expect(guide).toBeDefined()
+    for (const point of [guide!.from, guide!.to]) {
+      expect(rotatePoint(point, frame.center, -rotation).x).toBeCloseTo(outline.x, 6)
+    }
+  })
+
+  it('snaps an unrotated group to the real edge of a rotated neighbour', () => {
+    const { store, ctx } = setup()
+    const tool = new SelectTool()
+    const rotation = Math.PI / 6
+    const halfWidth = (120 * Math.cos(rotation) + 80 * Math.sin(rotation)) / 2
+    store.transact((api) =>
+      api.addElement(
+        createShape({ id: 'shape-2', x: 3 + halfWidth - 60, y: 300, width: 120, height: 80, rotation }),
+      ),
+    )
+    const guides = captureGuides(ctx)
+
+    tool.onPointerDown(pointerAt({ x: 60, y: 40 }), ctx)
+    tool.onPointerMove(pointerAt({ x: 65, y: 45 }), ctx)
+    const applied = guides[guides.length - 1] ?? []
+    tool.onPointerUp(pointerAt({ x: 65, y: 45 }), ctx)
+
+    const neighbour = store.getSnapshot().elements['shape-2']!
+    const outline = rotatedBounds(neighbour)
+    const moved = store.getSnapshot().elements['shape-1']!
+    expect(moved.x).toBeCloseTo(outline.x, 6)
+    expect(moved.y).toBe(5)
+    expect(Math.abs(neighbour.x - moved.x)).toBeGreaterThan(ALIGN_SNAP_DISTANCE)
+
+    const guide = alignGuideOf(applied)
+    expect(guide).toBeDefined()
+    expect(guide!.from.x).toBeCloseTo(outline.x, 6)
+    expect(guide!.to.x).toBeCloseTo(outline.x, 6)
   })
 
   it('keeps an unrotated group snapping on the world axes', () => {

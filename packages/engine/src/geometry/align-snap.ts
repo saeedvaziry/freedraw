@@ -109,7 +109,6 @@ export function arrayCandidateSource(others: Rect[]): AlignCandidateSource {
 }
 
 export function localAlignRects(candidates: AlignCandidate[], space: AlignSpace): Rect[] {
-  if (!space.rotation) return candidates.map(plainRect)
   return candidates.map((candidate) => localAlignRect(candidate, space))
 }
 
@@ -119,6 +118,7 @@ function plainRect(rect: Rect): Rect {
 
 function localAlignRect(candidate: AlignCandidate, space: AlignSpace): Rect {
   if (!sameOrientation(candidate.rotation, space.rotation)) return localCornerBounds(candidate, space)
+  if (!space.rotation) return plainRect(candidate)
   const center = toLocal({ x: candidate.x + candidate.width / 2, y: candidate.y + candidate.height / 2 }, space)
   return {
     x: center.x - candidate.width / 2,
@@ -128,12 +128,12 @@ function localAlignRect(candidate: AlignCandidate, space: AlignSpace): Rect {
   }
 }
 
-function localCornerBounds(candidate: Rect, space: AlignSpace): Rect {
+function localCornerBounds(candidate: AlignCandidate, space: AlignSpace): Rect {
   let minX = Infinity
   let minY = Infinity
   let maxX = -Infinity
   let maxY = -Infinity
-  for (const corner of rectCorners(candidate)) {
+  for (const corner of candidateCorners(candidate)) {
     const local = toLocal(corner, space)
     minX = Math.min(minX, local.x)
     minY = Math.min(minY, local.y)
@@ -141,6 +141,13 @@ function localCornerBounds(candidate: Rect, space: AlignSpace): Rect {
     maxY = Math.max(maxY, local.y)
   }
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+}
+
+function candidateCorners(candidate: AlignCandidate): Point[] {
+  const corners = rectCorners(candidate)
+  if (!candidate.rotation) return corners
+  const center = { x: candidate.x + candidate.width / 2, y: candidate.y + candidate.height / 2 }
+  return corners.map((corner) => rotatePoint(corner, center, candidate.rotation))
 }
 
 function rectCorners(rect: Rect): Point[] {
