@@ -14,6 +14,7 @@ export interface PresenceHalo {
   id: string
   frame: SelectionFrame
   color: string
+  preview?: boolean
 }
 
 export interface PresenceGhost {
@@ -36,6 +37,8 @@ const GHOST_LINE_WIDTH = 1
 
 export const PRESENCE_GHOST_ALPHA = 0.5
 export const PRESENCE_GHOST_FILL_ALPHA = 0.12
+export const PRESENCE_PREVIEW_DASH: readonly number[] = [6, 4]
+export const PRESENCE_PREVIEW_ALPHA = 0.7
 
 export function paintPresence(
   ctx: CanvasRenderingContext2D,
@@ -52,7 +55,12 @@ function paintHalo(ctx: CanvasRenderingContext2D, halo: PresenceHalo, camera: Ca
   ctx.save()
   ctx.strokeStyle = halo.color
   ctx.lineWidth = HALO_LINE_WIDTH
-  ctx.setLineDash([])
+  if (halo.preview === true) {
+    ctx.setLineDash([...PRESENCE_PREVIEW_DASH])
+    ctx.globalAlpha = PRESENCE_PREVIEW_ALPHA
+  } else {
+    ctx.setLineDash([])
+  }
   framePath(ctx, halo.frame, camera)
   ctx.stroke()
   ctx.restore()

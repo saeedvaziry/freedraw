@@ -5,6 +5,7 @@ import {
   type Element,
   type PresenceOverlay,
   type ToolId,
+  type TransientKind,
 } from '@freedraw/engine'
 import {
   createPresenceWriter,
@@ -37,12 +38,15 @@ interface FakeCanvas extends PresenceCanvas {
   moveCursor(point: { x: number; y: number } | null): void
   moveCamera(camera: CameraState): void
   drag(elements: Element[] | null): void
+  preview(element: Element | null): void
 }
 
 function createCanvas(camera: CameraState = { x: 0, y: 0, zoom: 1 }): FakeCanvas {
   const cursorListeners = new Set<(point: { x: number; y: number } | null) => void>()
   const cameraListeners = new Set<(camera: CameraState) => void>()
-  const transientListeners = new Set<(elements: readonly Element[] | null) => void>()
+  const transientListeners = new Set<
+    (elements: readonly Element[] | null, kind?: TransientKind) => void
+  >()
   let current = camera
   let world: { x: number; y: number } | null = null
 
@@ -92,7 +96,12 @@ function createCanvas(camera: CameraState = { x: 0, y: 0, zoom: 1 }): FakeCanvas
       cameraListeners.forEach((listener) => listener(next))
     },
     drag(elements) {
-      transientListeners.forEach((listener) => listener(elements))
+      transientListeners.forEach((listener) => listener(elements, 'transient'))
+    },
+    preview(element) {
+      transientListeners.forEach((listener) =>
+        listener(element === null ? null : [element], 'preview'),
+      )
     },
   }
 }
@@ -468,6 +477,87 @@ describe('attachPresencePublisher', () => {
     canvas.drag([shape('ghost', 0)])
 
     expect(publisher.drags[0]?.kind).toBe('create')
+  })
+
+  it('publishes a preview frame while the peer is drawing a shape that does not exist yet', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const publisher = createPublisher()
+
+    attachPresencePublisher({ canvas, scene, publisher })
+    scene.setTool('shape')
+    canvas.preview(shape('not-committed', 40))
+
+    expect(publisher.drags).toEqual([
+      { kind: 'create', frame: frameAt(40), ghost: null, preview: true },
+    ])
+  })
+
+  it('publishes a freehand preview as a draw', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const publisher = createPublisher()
+
+    attachPresencePublisher({ canvas, scene, publisher })
+    scene.setTool('freedraw')
+    canvas.preview(shape('stroke', 40))
+
+    expect(publisher.drags[0]?.kind).toBe('draw')
+    expect(publisher.drags[0]?.preview).toBe(true)
+    expect(publisher.drags[0]?.ghost).toBeNull()
+  })
+
+  it('never publishes a preview ghost even for an element the scene already holds', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const publisher = createPublisher()
+
+    attachPresencePublisher({ canvas, scene, publisher })
+    scene.select(['a'])
+    canvas.preview(shape('a', 40))
+
+    expect(publisher.drags[0]?.preview).toBe(true)
+    expect(publisher.drags[0]?.ghost).toBeNull()
+  })
+
+  it('clears the drag when the creation preview goes away', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const publisher = createPublisher()
+
+    attachPresencePublisher({ canvas, scene, publisher })
+    scene.setTool('shape')
+    canvas.preview(shape('not-committed', 40))
+    canvas.preview(null)
+
+    expect(publisher.drags).toEqual([
+      { kind: 'create', frame: frameAt(40), ghost: null, preview: true },
+      null,
+    ])
+  })
+
+  it('leaves a committed move drag unmarked so it keeps its ghost', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const publisher = createPublisher()
+
+    attachPresencePublisher({ canvas, scene, publisher })
+    scene.select(['a'])
+    canvas.drag([shape('a', 40)])
+
+    expect(publisher.drags[0]?.preview).toBeUndefined()
+    expect(publisher.drags[0]?.ghost).toEqual({ ids: ['a'], dx: 40, dy: 0 })
+  })
+
+  it('never subscribes to the preview channel for a read-only viewer', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const publisher = createPublisher()
+
+    attachPresencePublisher({ canvas, scene, publisher, readOnly: true })
+    canvas.preview(shape('not-committed', 40))
+
+    expect(publisher.drags).toEqual([null])
   })
 
   it('frames only the dragged selection while bound arrows re-route', () => {
@@ -983,6 +1073,50 @@ describe('attachPresenceOverlay', () => {
     attachPresenceOverlay({ canvas, scene, reader, now: () => NOW })
 
     expect(canvas.painted[0]?.ghosts).toEqual([])
+  })
+
+  it('paints a preview frame for a peer drawing and reconstructs no ghost', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const reader = createReader([
+      participant(2, {
+        drag: {
+          kind: 'create',
+          frame: frameAt(40),
+          ghost: { ids: ['a'], dx: 40, dy: 0 },
+          preview: true,
+        },
+      }),
+    ])
+
+    attachPresenceOverlay({ canvas, scene, reader, now: () => NOW })
+
+    expect(canvas.painted[0]?.ghosts).toEqual([])
+    expect(canvas.painted[0]?.halos).toEqual([
+      {
+        id: '2',
+        frame: frameAt(40),
+        color: reader.readParticipants()[0].user.color,
+        preview: true,
+      },
+    ])
+  })
+
+  it('still ghosts a drag payload that predates the preview marker', () => {
+    const canvas = createCanvas()
+    const scene = createScene([shape('a', 0)])
+    const reader = createReader([
+      participant(2, {
+        drag: { kind: 'move', frame: frameAt(40), ghost: { ids: ['a'], dx: 40, dy: 0 } },
+      }),
+    ])
+
+    attachPresenceOverlay({ canvas, scene, reader, now: () => NOW })
+
+    expect(canvas.painted[0]?.ghosts).toHaveLength(1)
+    expect(canvas.painted[0]?.halos).toEqual([
+      { id: '2', frame: frameAt(40), color: reader.readParticipants()[0].user.color },
+    ])
   })
 
   it('rotates the ghost with the element the peer is dragging', () => {

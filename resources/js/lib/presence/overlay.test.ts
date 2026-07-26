@@ -300,6 +300,78 @@ describe('createPresenceOverlayMapper', () => {
         ]);
     });
 
+    it('marks the halo of a peer drawing something that does not exist yet', () => {
+        const mapper = createPresenceOverlayMapper();
+        const peer = participant(2, {
+            drag: { kind: 'create', frame: frameAt(5, 5), preview: true },
+        });
+
+        const overlay = mapper.build([peer], {
+            resolveFrame: resolver(null),
+            scene: {},
+            now: NOW,
+        });
+
+        expect(overlay.halos).toEqual([
+            {
+                id: '2',
+                frame: frameAt(5, 5),
+                color: peer.user.color,
+                preview: true,
+            },
+        ]);
+    });
+
+    it('never rebuilds a ghost from the ids of a preview drag', () => {
+        const mapper = createPresenceOverlayMapper();
+        const resolveGhost = ghostResolver();
+        const peer = participant(2, {
+            drag: {
+                ...dragOf(['a'], 40, 0),
+                kind: 'draw',
+                preview: true,
+            },
+        });
+
+        const overlay = mapper.build([peer], {
+            resolveFrame: resolver(null),
+            resolveGhost,
+            scene: {},
+            now: NOW,
+        });
+
+        expect(overlay.ghosts).toEqual([]);
+        expect(resolveGhost).not.toHaveBeenCalled();
+        expect(overlay.halos[0].preview).toBe(true);
+    });
+
+    it('repaints when a drag turns from a preview into a committed move', () => {
+        const mapper = createPresenceOverlayMapper();
+        const scene = {};
+        const preview = mapper.build(
+            [
+                participant(2, {
+                    drag: {
+                        kind: 'create',
+                        frame: frameAt(5, 5),
+                        preview: true,
+                    },
+                }),
+            ],
+            { resolveFrame: resolver(null), scene, now: NOW },
+        );
+        const committed = mapper.build(
+            [
+                participant(2, {
+                    drag: { kind: 'move', frame: frameAt(5, 5) },
+                }),
+            ],
+            { resolveFrame: resolver(null), scene, now: NOW },
+        );
+
+        expect(samePresenceOverlay(preview, committed)).toBe(false);
+    });
+
     it('falls back to the committed halo once the drag ends', () => {
         const mapper = createPresenceOverlayMapper();
         const resolveFrame = resolver(frameAt(0, 0));

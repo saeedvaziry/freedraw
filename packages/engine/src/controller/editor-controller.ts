@@ -91,7 +91,11 @@ export type CursorListener = (point: Point | null) => void
 export type CursorStyleListener = (cursor: string) => void
 export type CameraListener = (camera: CameraState) => void
 export type InteractionListener = (interaction: SelectionInteraction | null) => void
-export type TransientListener = (elements: readonly Element[] | null) => void
+export type TransientKind = 'transient' | 'preview'
+export type TransientListener = (
+  elements: readonly Element[] | null,
+  kind?: TransientKind,
+) => void
 
 export interface FlowContext {
   editingId: ElementId
@@ -108,6 +112,7 @@ export class EditorController {
   private readonly toolContext: ToolContext
   private readonly cleanups: Cleanup[] = []
   private preview: Element | null = null
+  private previewShared = false
   private transientElements: Element[] | null = null
   private transientById: Map<ElementId, Element> | null = null
   private lockedSource: SceneSnapshot | null = null
@@ -160,9 +165,7 @@ export class EditorController {
       store,
       camera: this.camera,
       emitCameraInput: () => this.emitCameraInput(),
-      setPreview: (element) => {
-        this.preview = element
-      },
+      setPreview: (element, active) => this.setPreview(element, active),
       setSpawnPreview: (preview) => {
         this.spawnPreview = preview
       },
@@ -804,7 +807,19 @@ export class EditorController {
     this.transientById = index
     this.store.setTransientIds(index ? [...index.keys()] : null)
     this.loop.markOverlayDirty()
-    this.transientListeners.forEach((listener) => listener(next))
+    this.transientListeners.forEach((listener) => listener(next, 'transient'))
+  }
+
+  private setPreview(element: Element | null, active = true): void {
+    this.preview = element
+    if (element !== null && active) {
+      this.previewShared = true
+      this.transientListeners.forEach((listener) => listener([element], 'preview'))
+      return
+    }
+    if (!this.previewShared) return
+    this.previewShared = false
+    this.transientListeners.forEach((listener) => listener(null, 'preview'))
   }
 
   private resize(): void {

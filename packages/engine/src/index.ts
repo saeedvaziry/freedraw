@@ -78,6 +78,7 @@ export type {
   CursorStyleListener,
   CameraListener,
   InteractionListener,
+  TransientKind,
   TransientListener,
 } from './controller/editor-controller.js'
 export { paintPresence } from './render/overlay/presence.js'

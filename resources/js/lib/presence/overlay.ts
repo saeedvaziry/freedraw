@@ -99,7 +99,12 @@ function sameHalo(a: PresenceHalo, b: PresenceHalo): boolean {
         return true;
     }
 
-    return a.id === b.id && a.color === b.color && sameFrame(a.frame, b.frame);
+    return (
+        a.id === b.id &&
+        a.color === b.color &&
+        (a.preview ?? false) === (b.preview ?? false) &&
+        sameFrame(a.frame, b.frame)
+    );
 }
 
 function sameGhost(a: PresenceGhost, b: PresenceGhost): boolean {
@@ -298,7 +303,10 @@ export function createPresenceOverlayMapper(): PresenceOverlayMapper {
                     continue;
                 }
 
-                const delta = participant.drag?.ghost ?? null;
+                const preview = participant.drag?.preview === true;
+                const delta = preview
+                    ? null
+                    : (participant.drag?.ghost ?? null);
 
                 if (delta !== null) {
                     const ghost = ghostFor(participant, delta, options);
@@ -317,6 +325,7 @@ export function createPresenceOverlayMapper(): PresenceOverlayMapper {
                         id: String(participant.clientId),
                         frame: dragged,
                         color: participant.user.color,
+                        ...(preview ? { preview: true } : {}),
                     });
 
                     continue;

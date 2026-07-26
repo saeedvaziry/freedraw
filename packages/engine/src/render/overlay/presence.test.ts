@@ -6,6 +6,8 @@ import {
   paintPresence,
   PRESENCE_GHOST_ALPHA,
   PRESENCE_GHOST_FILL_ALPHA,
+  PRESENCE_PREVIEW_ALPHA,
+  PRESENCE_PREVIEW_DASH,
   type PresenceOverlay,
 } from './presence.js'
 
@@ -14,17 +16,20 @@ interface RecordedOp {
   fillStyle: string
   strokeStyle: string
   globalAlpha: number
+  lineDash: number[]
 }
 
 function recorder(): { ctx: CanvasRenderingContext2D; ops: RecordedOp[] } {
   const ops: RecordedOp[] = []
   const state = { fillStyle: '#000000', strokeStyle: '#000000', globalAlpha: 1 }
+  let lineDash: number[] = []
   const push = (op: string): void => {
     ops.push({
       op,
       fillStyle: state.fillStyle,
       strokeStyle: state.strokeStyle,
       globalAlpha: state.globalAlpha,
+      lineDash: [...lineDash],
     })
   }
   const noop = (): void => {}
@@ -54,7 +59,9 @@ function recorder(): { ctx: CanvasRenderingContext2D; ops: RecordedOp[] } {
     save: noop,
     restore: noop,
     translate: noop,
-    setLineDash: noop,
+    setLineDash: (segments: number[]) => {
+      lineDash = segments
+    },
     beginPath: noop,
     moveTo: noop,
     lineTo: noop,
@@ -152,6 +159,37 @@ describe('paintPresence', () => {
       PRESENCE_COLORS,
     )
     expect(ops.find((entry) => entry.op === 'stroke')?.strokeStyle).toBe('#abcdef')
+  })
+
+  it('dashes the halo of a peer previewing an element that does not exist yet', () => {
+    const { ctx, ops } = recorder()
+    paintPresence(
+      ctx,
+      {
+        cursors: [],
+        halos: [{ id: 'u1', frame: frameAt(0), color: '#abcdef', preview: true }],
+        ghosts: [],
+      },
+      camera,
+      PRESENCE_COLORS,
+    )
+    const stroke = ops.find((entry) => entry.op === 'stroke')
+    expect(stroke?.lineDash).toEqual([...PRESENCE_PREVIEW_DASH])
+    expect(stroke?.globalAlpha).toBe(PRESENCE_PREVIEW_ALPHA)
+    expect(stroke?.strokeStyle).toBe('#abcdef')
+  })
+
+  it('keeps a committed selection halo solid', () => {
+    const { ctx, ops } = recorder()
+    paintPresence(
+      ctx,
+      { cursors: [], halos: [{ id: 'u1', frame: frameAt(0), color: '#abcdef' }], ghosts: [] },
+      camera,
+      PRESENCE_COLORS,
+    )
+    const stroke = ops.find((entry) => entry.op === 'stroke')
+    expect(stroke?.lineDash).toEqual([])
+    expect(stroke?.globalAlpha).toBe(1)
   })
 
   it('paints drag ghosts in the remote user color at half opacity', () => {

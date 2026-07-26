@@ -27,7 +27,7 @@ export type SelectionInteraction = 'marquee' | 'transform'
 export interface ToolContext {
   store: SceneStore
   camera: Camera
-  setPreview(element: Element | null): void
+  setPreview(element: Element | null, active?: boolean): void
   setSpawnPreview(preview: SpawnPreview | null): void
   setTransient?(elements: Element[] | null): void
   setMarquee(rect: Rect | null): void

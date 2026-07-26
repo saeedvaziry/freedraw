@@ -32,7 +32,7 @@ export class StickyTool implements Tool {
     const ghost = this.buildElement(bounds, ctx)
     ghost.label = { text: '', align: 'center', verticalAlign: 'middle' }
     ghost.style = { ...ghost.style, opacity: ghost.style.opacity * GHOST_OPACITY }
-    ctx.setPreview(ghost)
+    ctx.setPreview(ghost, this.start !== null)
     return { overlay: true }
   }
 

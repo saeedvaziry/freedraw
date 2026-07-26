@@ -352,6 +352,49 @@ describe('createPresenceWriter', () => {
         expect(awareness.publishes).toBe(0);
     });
 
+    it('carries the preview marker and drops any ghost that came with it', () => {
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'));
+
+        writer.setDrag({
+            kind: 'create',
+            frame: null,
+            ghost: { ids: ['a'], dx: 4, dy: 4 },
+            preview: true,
+        });
+
+        expect(readLocal(awareness)?.drag?.preview).toBe(true);
+        expect(readLocal(awareness)?.drag?.ghost).toBeNull();
+    });
+
+    it('publishes a preview flipping to a committed drag without waiting', () => {
+        vi.useFakeTimers();
+        const awareness = createFakeAwareness();
+        const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'), {
+            cursorIntervalMs: 30,
+        });
+        const frame: PresenceFrame = {
+            bounds: { x: 0, y: 0, width: 10, height: 10 },
+            center: { x: 5, y: 5 },
+            rotation: 0,
+        };
+        writer.setDrag({ kind: 'create', frame, preview: true });
+        awareness.publishes = 0;
+
+        writer.setDrag({
+            kind: 'create',
+            frame: { ...frame, center: { x: 6, y: 5 } },
+            preview: true,
+        });
+
+        expect(awareness.publishes).toBe(0);
+
+        writer.setDrag({ kind: 'create', frame });
+
+        expect(awareness.publishes).toBe(1);
+        expect(readLocal(awareness)?.drag?.preview).toBe(false);
+    });
+
     it('never shares the ghost array it was handed', () => {
         const awareness = createFakeAwareness();
         const writer = createPresenceWriter(awareness, identityFor(1, 'Ada'));
@@ -581,6 +624,44 @@ describe('normalizePresenceState', () => {
             dx: -12.5,
             dy: 4,
         });
+    });
+
+    it('reads a drag without a preview marker as a committed drag', () => {
+        const state = normalizePresenceState({
+            user: { id: 'user:1' },
+            drag: {
+                kind: 'move',
+                frame: null,
+                ghost: { ids: ['a'], dx: 4, dy: 4 },
+            },
+        });
+
+        expect(state?.drag?.preview).toBe(false);
+        expect(state?.drag?.ghost).toEqual({ ids: ['a'], dx: 4, dy: 4 });
+    });
+
+    it('keeps the preview marker and refuses the ghost that rode with it', () => {
+        const state = normalizePresenceState({
+            user: { id: 'user:1' },
+            drag: {
+                kind: 'create',
+                frame: null,
+                ghost: { ids: ['a'], dx: 4, dy: 4 },
+                preview: true,
+            },
+        });
+
+        expect(state?.drag?.preview).toBe(true);
+        expect(state?.drag?.ghost).toBeNull();
+    });
+
+    it('treats a non-boolean preview marker as no preview', () => {
+        const state = normalizePresenceState({
+            user: { id: 'user:1' },
+            drag: { kind: 'move', frame: null, preview: 'yes' },
+        });
+
+        expect(state?.drag?.preview).toBe(false);
     });
 
     it('drops a ghost whose delta is not finite', () => {

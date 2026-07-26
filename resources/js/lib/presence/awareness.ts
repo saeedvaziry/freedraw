@@ -57,6 +57,7 @@ export interface PresenceDrag {
     kind: PresenceDragKind;
     frame: PresenceFrame | null;
     ghost?: PresenceDragGhost | null;
+    preview?: boolean;
 }
 
 export interface PresenceState {
@@ -255,10 +256,13 @@ function normalizeDrag(value: unknown): PresenceDrag | null {
         return null;
     }
 
+    const preview = value.preview === true;
+
     return {
         kind,
         frame: normalizePresenceFrame(value.frame),
-        ghost: normalizePresenceDragGhost(value.ghost),
+        ghost: preview ? null : normalizePresenceDragGhost(value.ghost),
+        preview,
     };
 }
 
@@ -536,6 +540,7 @@ function sameDrag(a: PresenceDrag | null, b: PresenceDrag | null): boolean {
 
     return (
         a.kind === b.kind &&
+        (a.preview ?? false) === (b.preview ?? false) &&
         sameFrame(a.frame, b.frame) &&
         sameGhost(a.ghost ?? null, b.ghost ?? null)
     );
@@ -697,17 +702,27 @@ export function createPresenceWriter(
                 return;
             }
 
-            const ghost = drag === null ? null : cloneGhost(drag.ghost ?? null);
+            const preview = drag !== null && drag.preview === true;
+            const ghost =
+                drag === null || preview
+                    ? null
+                    : cloneGhost(drag.ghost ?? null);
             const structural =
                 state.drag === null ||
                 drag === null ||
                 state.drag.kind !== drag.kind ||
+                (state.drag.preview ?? false) !== preview ||
                 ((state.drag.ghost ?? null) === null) !== (ghost === null);
 
             state.drag =
                 drag === null
                     ? null
-                    : { kind: drag.kind, frame: cloneFrame(drag.frame), ghost };
+                    : {
+                          kind: drag.kind,
+                          frame: cloneFrame(drag.frame),
+                          ghost,
+                          ...(preview ? { preview: true } : {}),
+                      };
 
             if (structural) {
                 publish();

@@ -287,6 +287,166 @@ describe('EditorController overlay chrome during transient drags', () => {
     expect(frames).toHaveLength(seen)
   })
 
+  it('marks the select-tool transient layer as transient and never as preview', () => {
+    mountWith(shapeScene())
+    store.setUiState({ selectedIds: new Set(['a']) })
+    flushFrame()
+
+    const frames: (readonly Element[] | null)[] = []
+    const kinds: (string | undefined)[] = []
+    const unsubscribe = controller.subscribeTransient((elements, kind) => {
+      frames.push(elements)
+      kinds.push(kind)
+    })
+
+    dispatchPointer(overlayCanvas, 'pointerdown', { x: 60, y: 40 })
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 110, y: 40 })
+    dispatchPointer(overlayCanvas, 'pointerup', { x: 110, y: 40 })
+
+    expect(kinds.length).toBeGreaterThan(0)
+    expect([...new Set(kinds)]).toEqual(['transient'])
+    expect(frames.some((entry) => entry?.[0]?.x === 50)).toBe(true)
+    expect(frames.at(-1)).toBeNull()
+
+    unsubscribe()
+  })
+
+  it('publishes a freehand stroke on the transient channel as a preview', () => {
+    mountWith(shapeScene())
+    store.setUiState({ activeTool: 'freedraw' })
+    flushFrame()
+
+    const frames: (readonly Element[] | null)[] = []
+    const kinds: (string | undefined)[] = []
+    const unsubscribe = controller.subscribeTransient((elements, kind) => {
+      frames.push(elements)
+      kinds.push(kind)
+    })
+
+    dispatchPointer(overlayCanvas, 'pointerdown', { x: 200, y: 200 })
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 260, y: 240 })
+
+    expect(kinds.at(-1)).toBe('preview')
+    expect(frames.at(-1)).toHaveLength(1)
+    expect(frames.at(-1)?.[0]?.type).toBe('freedraw')
+    expect(controller.activeTransient).toBeNull()
+
+    dispatchPointer(overlayCanvas, 'pointerup', { x: 260, y: 240 })
+
+    expect(frames.at(-1)).toBeNull()
+    expect(kinds.at(-1)).toBe('preview')
+    expect(store.getSnapshot().order).toHaveLength(2)
+
+    unsubscribe()
+  })
+
+  it('publishes a creation ghost on the transient channel as a preview', () => {
+    mountWith(shapeScene())
+    store.setUiState({ activeTool: 'shape' })
+    flushFrame()
+
+    const frames: (readonly Element[] | null)[] = []
+    const kinds: (string | undefined)[] = []
+    const unsubscribe = controller.subscribeTransient((elements, kind) => {
+      frames.push(elements)
+      kinds.push(kind)
+    })
+
+    dispatchPointer(overlayCanvas, 'pointerdown', { x: 300, y: 300 })
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 400, y: 380 })
+
+    expect(kinds.at(-1)).toBe('preview')
+    expect(frames.at(-1)?.[0]?.width).toBe(100)
+    expect(frames.at(-1)?.[0]?.height).toBe(80)
+
+    unsubscribe()
+  })
+
+  it('keeps a hovered shape placement ghost off the transient channel', () => {
+    mountWith(shapeScene())
+    store.setUiState({ activeTool: 'shape' })
+    flushFrame()
+
+    const frames: (readonly Element[] | null)[] = []
+    const unsubscribe = controller.subscribeTransient((elements) => frames.push(elements))
+
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 300, y: 300 })
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 340, y: 320 })
+
+    expect(frames).toHaveLength(0)
+
+    dispatchPointer(overlayCanvas, 'pointerdown', { x: 340, y: 320 })
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 420, y: 400 })
+
+    expect(frames.at(-1)?.[0]).toBeDefined()
+
+    unsubscribe()
+  })
+
+  it('keeps a hovered sticky placement ghost off the transient channel', () => {
+    mountWith(shapeScene())
+    store.setUiState({ activeTool: 'sticky' })
+    flushFrame()
+
+    const frames: (readonly Element[] | null)[] = []
+    const unsubscribe = controller.subscribeTransient((elements) => frames.push(elements))
+
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 300, y: 300 })
+
+    expect(frames).toHaveLength(0)
+
+    dispatchPointer(overlayCanvas, 'pointerdown', { x: 300, y: 300 })
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 380, y: 360 })
+
+    expect(frames.at(-1)?.[0]).toBeDefined()
+
+    unsubscribe()
+  })
+
+  it('clears a shared creation preview when the tool falls back to hovering', () => {
+    mountWith(shapeScene())
+    store.setUiState({ activeTool: 'shape' })
+    flushFrame()
+
+    const frames: (readonly Element[] | null)[] = []
+    const unsubscribe = controller.subscribeTransient((elements) => frames.push(elements))
+
+    dispatchPointer(overlayCanvas, 'pointerdown', { x: 300, y: 300 })
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 400, y: 380 })
+    dispatchPointer(overlayCanvas, 'pointerup', { x: 400, y: 380 })
+
+    expect(frames.at(-1)).toBeNull()
+
+    const seen = frames.length
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 460, y: 420 })
+
+    expect(frames).toHaveLength(seen)
+
+    unsubscribe()
+  })
+
+  it('emits a single clear when a creation preview is dismissed more than once', () => {
+    mountWith(shapeScene())
+    store.setUiState({ activeTool: 'freedraw' })
+    flushFrame()
+
+    const frames: (readonly Element[] | null)[] = []
+    const unsubscribe = controller.subscribeTransient((elements) => frames.push(elements))
+
+    dispatchPointer(overlayCanvas, 'pointerdown', { x: 200, y: 200 })
+    dispatchPointer(overlayCanvas, 'pointermove', { x: 260, y: 240 })
+    dispatchPointer(overlayCanvas, 'pointerup', { x: 260, y: 240 })
+
+    const seen = frames.length
+    expect(frames.at(-1)).toBeNull()
+
+    store.setUiState({ activeTool: 'select' })
+
+    expect(frames).toHaveLength(seen)
+
+    unsubscribe()
+  })
+
   it('grows the selection frame with a transient resize preview', () => {
     mountWith(shapeScene())
     store.setUiState({ selectedIds: new Set(['a']) })

@@ -8,6 +8,7 @@ import type {
   SceneStore,
   SelectionFrame,
   ToolId,
+  TransientKind,
 } from '@freedraw/engine'
 import {
   createPresenceOverlayMapper,
@@ -31,7 +32,9 @@ const DRAG_EPSILON = 1e-6
 export interface PresenceCanvas {
   subscribeCursor(listener: (point: PresencePoint | null) => void): () => void
   subscribeCamera(listener: (camera: CameraState) => void): () => void
-  subscribeTransient(listener: (elements: readonly Element[] | null) => void): () => void
+  subscribeTransient(
+    listener: (elements: readonly Element[] | null, kind?: TransientKind) => void,
+  ): () => void
   setPresenceOverlay(presence: PresenceOverlay | null): void
   getViewport(): CameraState
   readonly cursorWorldPoint: PresencePoint | null
@@ -125,6 +128,10 @@ function dragKindFor(
   return rotated ? 'rotate' : 'move'
 }
 
+function previewKindFor(tool: ToolId): PresenceDragKind {
+  return tool === 'freedraw' ? 'draw' : 'create'
+}
+
 function ghostFor(
   elements: readonly Element[],
   committed: Record<string, Element>,
@@ -209,17 +216,29 @@ export function attachPresencePublisher(options: AttachPresencePublisherOptions)
     const publishTool = (): void => {
       publisher.setTool(scene.getUiState().activeTool)
     }
-    const publishDrag = (elements: readonly Element[] | null): void => {
+    const publishDrag = (
+      elements: readonly Element[] | null,
+      source: TransientKind = 'transient',
+    ): void => {
       if (elements === null || elements.length === 0) {
         publisher.setDrag(null)
         return
       }
-      const ids = scene.getUiState().selectedIds
-      const owned = elements.filter((element) => ids.has(element.id))
+      const ui = scene.getUiState()
+      const owned = elements.filter((element) => ui.selectedIds.has(element.id))
       const dragged = owned.length === 0 ? [...elements] : owned
       const frame = selectionFrameFor(dragged)
       if (frame === null) {
         publisher.setDrag(null)
+        return
+      }
+      if (source === 'preview') {
+        publisher.setDrag({
+          kind: previewKindFor(ui.activeTool),
+          frame,
+          ghost: null,
+          preview: true,
+        })
         return
       }
       const committed = scene.getSnapshot().elements
