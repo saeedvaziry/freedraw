@@ -29,6 +29,8 @@ import { SaveStencilHost } from './save-stencil-host.js'
 import { SceneImportHost } from './scene-import-host.js'
 import { SelectionToolbarHost } from './selection-toolbar/selection-toolbar-host.js'
 import { ShortcutsSheetHost } from './shortcuts-sheet.js'
+import { SlidesButton } from './slides/slides-button.js'
+import { SlidesPanelHost } from './slides/slides-panel-host.js'
 import { StylePanelHost } from './style-panel-host.js'
 import { SyncStatus } from './sync-status.js'
 import { VersionPanelHost } from './version-panel-host.js'
@@ -182,6 +184,7 @@ function Board({ store: liveStore, readOnly = false, sync, assetSource }: BoardP
   const [controller, setController] = useState<EditorController | null>(null)
   const [diagramOpen, setDiagramOpen] = useState(false)
   const [libraryOpen, setLibraryOpen] = useState(false)
+  const [slidesOpen, setSlidesOpen] = useState(false)
   const [versionsOpen, setVersionsOpen] = useState(false)
   const versions = useVersions()
   const previewing = versions.previewStore !== null
@@ -333,6 +336,14 @@ function Board({ store: liveStore, readOnly = false, sync, assetSource }: BoardP
                 <LibraryPanelHost onClose={() => setLibraryOpen(false)} />
               </div>
             ) : null}
+            {slidesOpen ? (
+              <div
+                className="pointer-events-none absolute top-16 hidden justify-start transition-[left] duration-200 ease-linear sm:flex"
+                style={{ left: 'calc(0.75rem + var(--board-sidebar-width, 0px))' }}
+              >
+                <SlidesPanelHost onClose={() => setSlidesOpen(false)} />
+              </div>
+            ) : null}
             {versionsOpen ? (
               <div
                 className={`pointer-events-none absolute flex justify-start transition-[left] duration-200 ease-linear sm:top-16 ${
@@ -381,6 +392,12 @@ function Board({ store: liveStore, readOnly = false, sync, assetSource }: BoardP
               />
             </div>
             <div className="pointer-events-none absolute right-3 bottom-3 hidden items-center gap-2 sm:flex">
+              {!locked ? (
+                <SlidesButton
+                  active={slidesOpen}
+                  onToggle={() => setSlidesOpen((open) => !open)}
+                />
+              ) : null}
               <PresentButton onEnter={present.enter} />
               <LinksBar />
               <ZoomIndicator />
