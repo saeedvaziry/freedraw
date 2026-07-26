@@ -39,7 +39,7 @@ const TRANSPARENT_PATTERN =
   'bg-[conic-gradient(#ccc_25%,#fff_0_50%,#ccc_0_75%,#fff_0)] bg-[length:8px_8px]'
 
 const SWATCH_CLASS =
-  'h-7 w-full rounded-md border border-[color:var(--panel-border)] transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)] coarse:h-9'
+  'h-7 w-full rounded-md border border-[color:var(--panel-border)] transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)] coarse:h-11'
 
 const SELECTED_RING = 'ring-2 ring-[color:var(--selection-accent)] ring-offset-1 ring-offset-background'
 
@@ -164,7 +164,7 @@ export function ColorPicker({
             <TooltipTrigger asChild>
               <label
                 className={cn(
-                  'relative flex size-7 cursor-pointer items-center justify-center overflow-hidden rounded-md border border-[color:var(--panel-border)] coarse:size-9',
+                  'relative flex size-7 cursor-pointer items-center justify-center overflow-hidden rounded-md border border-[color:var(--panel-border)] coarse:size-11',
                   showPattern && TRANSPARENT_PATTERN,
                 )}
                 style={showPattern ? undefined : { backgroundColor: swatchValue }}
@@ -183,7 +183,12 @@ export function ColorPicker({
         </span>
       </span>
 
-      <div className={cn('grid gap-1.5', allowTransparent ? 'grid-cols-8' : 'grid-cols-7')}>
+      <div
+        className={cn(
+          'grid gap-1.5 coarse:grid-cols-4',
+          allowTransparent ? 'grid-cols-8' : 'grid-cols-7',
+        )}
+      >
         {swatches.map((swatch) => {
           const color = resolveSwatchColor(swatch)
           const current = normalizeHex(value)
@@ -314,7 +319,7 @@ function PaletteRow({ label, colors, selected, onSelect }: PaletteRowProps) {
                 onClick={() => onSelect(color)}
                 style={{ backgroundColor: color }}
                 className={cn(
-                  'size-6 shrink-0 rounded-md border border-[color:var(--panel-border)] transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)] coarse:size-8',
+                  'size-6 shrink-0 rounded-md border border-[color:var(--panel-border)] transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)] coarse:size-11',
                   selected === color && SELECTED_RING,
                 )}
               />

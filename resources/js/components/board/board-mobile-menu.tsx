@@ -50,6 +50,7 @@ export function BoardMobileMenu({
   const cleanup = useMobileNavigation()
 
   const [open, setOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const close = useCallback(() => setOpen(false), [])
 
   const pages = usePages(close)
@@ -111,7 +112,14 @@ export function BoardMobileMenu({
 
               <div className="my-1 h-px bg-border" />
 
-              <PagesSection pages={pages} onNavigate={close} />
+              <PagesSection
+                pages={pages}
+                onNavigate={close}
+                onShare={() => {
+                  close()
+                  setShareOpen(true)
+                }}
+              />
 
               <div className="my-1 h-px bg-border" />
 
@@ -190,6 +198,13 @@ export function BoardMobileMenu({
           ) : null}
         </div>
       </SheetContent>
+      {pages.activePage?.canShare ? (
+        <SharePageModal
+          boardPage={pages.activePage}
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+        />
+      ) : null}
     </Sheet>
   )
 }
@@ -347,9 +362,11 @@ function OrganizationSwitcher({
 function PagesSection({
   pages,
   onNavigate,
+  onShare,
 }: {
   pages: ReturnType<typeof usePages>
   onNavigate(): void
+  onShare(): void
 }) {
   const {
     boardPages,
@@ -367,7 +384,6 @@ function PagesSection({
     saveRename,
     confirmDelete,
   } = pages
-  const [shareOpen, setShareOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
 
   return (
@@ -400,10 +416,7 @@ function PagesSection({
       {activePage?.canShare ? (
         <button
           type="button"
-          onClick={() => {
-            onNavigate()
-            setShareOpen(true)
-          }}
+          onClick={onShare}
           className="flex items-center gap-2 rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <Share2 className="size-4 shrink-0" />
@@ -448,9 +461,6 @@ function PagesSection({
           ))}
         </CollapsibleContent>
       </Collapsible>
-      {activePage ? (
-        <SharePageModal boardPage={activePage} open={shareOpen} onOpenChange={setShareOpen} />
-      ) : null}
     </div>
   )
 }

@@ -127,6 +127,17 @@ describe('ColorPicker palettes', () => {
 
     expect(screen.getByLabelText('Recent #112233').getAttribute('aria-pressed')).toBe('true')
   })
+
+  it('gives coarse pointers 44px swatch targets without crowding the palette', () => {
+    renderPicker({ palette })
+
+    const preset = screen.getByLabelText('Stroke #1e1e1e')
+    const recent = screen.getByLabelText('Recent #112233')
+
+    expect(preset.className).toContain('coarse:h-11')
+    expect(preset.parentElement?.className).toContain('coarse:grid-cols-4')
+    expect(recent.className).toContain('coarse:size-11')
+  })
 })
 
 describe('ColorPicker eyedropper', () => {

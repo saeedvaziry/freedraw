@@ -6,6 +6,7 @@ import {
   type ElementId,
   type SpawnDirection,
 } from '@freedraw/engine'
+import { Button } from '@/components/ui/button'
 import { FlowHud } from './flow-hud.js'
 
 const ARROW_LABEL_BACKGROUND = '#fafafa'
@@ -39,10 +40,22 @@ interface ActiveEdit {
 
 const TEXT_PADDING = 6
 const LINE_RATIO = 1.25
+const MOBILE_EDITOR_MARGIN = 12
+const MOBILE_DONE_HEIGHT = 44
+const MOBILE_DONE_GAP = 8
+
+interface ViewportRect {
+  left: number
+  top: number
+  width: number
+  height: number
+}
 
 export function TextEditorOverlay({ controller }: TextEditorOverlayProps) {
   const [edit, setEdit] = useState<ActiveEdit | null>(null)
   const [spawnDirection, setSpawnDirection] = useState<SpawnDirection>(DEFAULT_SPAWN_DIRECTION)
+  const coarsePointer = useCoarsePointer()
+  const viewport = useVisualViewport(coarsePointer && edit !== null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const committedRef = useRef(false)
   const readyRef = useRef(false)
@@ -108,10 +121,22 @@ export function TextEditorOverlay({ controller }: TextEditorOverlayProps) {
   }
 
   const onBlur = (): void => {
+    if (coarsePointer) {
+      requestAnimationFrame(() => {
+        if (!committedRef.current) textareaRef.current?.focus()
+      })
+      return
+    }
     if (!readyRef.current) {
       requestAnimationFrame(() => textareaRef.current?.focus())
       return
     }
+    const placeholderId = abandonedPlaceholderId()
+    commit()
+    if (placeholderId) controller.deleteFlowPlaceholder(placeholderId)
+  }
+
+  const finish = (): void => {
     const placeholderId = abandonedPlaceholderId()
     commit()
     if (placeholderId) controller.deleteFlowPlaceholder(placeholderId)
@@ -153,13 +178,15 @@ export function TextEditorOverlay({ controller }: TextEditorOverlayProps) {
   }
 
   const hudAnchor = flowHudAnchor(controller, edit.request)
+  const style = editorStyle(controller, edit.request, edit.value)
+  const mobileStyle = coarsePointer ? clampEditorStyle(style, viewport) : style
 
   return (
     <>
       <textarea
         ref={textareaRef}
-        className="pointer-events-auto absolute resize-none overflow-hidden border-none bg-transparent p-0 leading-none outline-none"
-        style={editorStyle(controller, edit.request, edit.value)}
+        className="pointer-events-auto absolute resize-none overflow-hidden border-none bg-transparent p-0 leading-none outline-none coarse:overflow-auto"
+        style={mobileStyle}
         value={edit.value}
         onChange={(event) => {
           const value = event.target.value
@@ -174,11 +201,124 @@ export function TextEditorOverlay({ controller }: TextEditorOverlayProps) {
         onKeyDown={onKeyDown}
         spellCheck={false}
       />
+      {coarsePointer ? (
+        <Button
+          type="button"
+          data-test="text-editor-done"
+          className="pointer-events-auto absolute z-20 h-11 min-w-24 shadow-lg"
+          style={{
+            left: `${viewport.left + viewport.width / 2}px`,
+            top: `${viewport.top + viewport.height - MOBILE_EDITOR_MARGIN}px`,
+            transform: 'translate(-50%, -100%)',
+          }}
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={finish}
+        >
+          Done
+        </Button>
+      ) : null}
       {hudAnchor ? (
         <FlowHud direction={spawnDirection} x={hudAnchor.x} y={hudAnchor.y} />
       ) : null}
     </>
   )
+}
+
+function useCoarsePointer(): boolean {
+  const [coarse, setCoarse] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
+    return window.matchMedia('(pointer: coarse)').matches
+  })
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return
+    const query = window.matchMedia('(pointer: coarse)')
+    const update = (): void => setCoarse(query.matches)
+    update()
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
+
+  return coarse
+}
+
+function readVisualViewport(): ViewportRect {
+  if (typeof window === 'undefined') return { left: 0, top: 0, width: 0, height: 0 }
+  const current = window.visualViewport
+  if (!current) {
+    return { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight }
+  }
+  return {
+    left: current.offsetLeft,
+    top: current.offsetTop,
+    width: current.width,
+    height: current.height,
+  }
+}
+
+function useVisualViewport(active: boolean): ViewportRect {
+  const [viewport, setViewport] = useState(readVisualViewport)
+
+  useEffect(() => {
+    if (!active) return
+    const current = window.visualViewport
+    const update = (): void => setViewport(readVisualViewport())
+    update()
+    if (!current) {
+      window.addEventListener('resize', update)
+      return () => window.removeEventListener('resize', update)
+    }
+    current.addEventListener('resize', update)
+    current.addEventListener('scroll', update)
+    return () => {
+      current.removeEventListener('resize', update)
+      current.removeEventListener('scroll', update)
+    }
+  }, [active])
+
+  return viewport
+}
+
+function clampEditorStyle(style: React.CSSProperties, viewport: ViewportRect): React.CSSProperties {
+  const rawLeft = numericStyle(style.left)
+  const rawTop = numericStyle(style.top)
+  const rawWidth = numericStyle(style.width)
+  const rawHeight = numericStyle(style.height)
+  if (rawLeft === null || rawTop === null || rawWidth === null || rawHeight === null) return style
+
+  const minLeft = viewport.left + MOBILE_EDITOR_MARGIN
+  const minTop = viewport.top + MOBILE_EDITOR_MARGIN
+  const maxRight = viewport.left + viewport.width - MOBILE_EDITOR_MARGIN
+  const maxBottom =
+    viewport.top +
+    viewport.height -
+    MOBILE_EDITOR_MARGIN -
+    MOBILE_DONE_HEIGHT -
+    MOBILE_DONE_GAP
+  const width = Math.min(rawWidth, Math.max(MOBILE_DONE_HEIGHT, maxRight - minLeft))
+  const height = Math.min(rawHeight, Math.max(MOBILE_DONE_HEIGHT, maxBottom - minTop))
+  const centered = style.transform === 'translate(-50%, -50%)'
+  const currentLeft = centered ? rawLeft - width / 2 : rawLeft
+  const currentTop = centered ? rawTop - height / 2 : rawTop
+  const maxLeft = Math.max(minLeft, maxRight - width)
+  const maxTop = Math.max(minTop, maxBottom - height)
+  const nextLeft = Math.min(Math.max(currentLeft, minLeft), maxLeft)
+  const nextTop = Math.min(Math.max(currentTop, minTop), maxTop)
+
+  return {
+    ...style,
+    left: `${centered ? nextLeft + width / 2 : nextLeft}px`,
+    top: `${centered ? nextTop + height / 2 : nextTop}px`,
+    width: `${width}px`,
+    height: `${height}px`,
+  }
+}
+
+function numericStyle(value: React.CSSProperties['left']): number | null {
+  if (typeof value === 'number') return value
+  if (typeof value !== 'string') return null
+  const parsed = Number.parseFloat(value)
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 function flowHudAnchor(

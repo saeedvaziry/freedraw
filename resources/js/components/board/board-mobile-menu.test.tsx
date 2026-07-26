@@ -260,6 +260,21 @@ describe('BoardMobileMenu authenticated rendering', () => {
     expect(screen.getByText('No pages yet. Add one to get started.')).not.toBeNull()
     expect(screen.queryByText('First page')).toBeNull()
   })
+
+  it('keeps the share dialog mounted after closing the mobile sheet', async () => {
+    const firstPage = { ...boardPage('abc', 'First page'), canShare: true }
+    pageProps.current = {
+      ...pageProps.current,
+      boardPage: firstPage,
+      boardPages: [firstPage, boardPage('def', 'Second page')],
+    }
+
+    await openMenu()
+    fireEvent.click(screen.getByText('Share page'))
+
+    expect(await screen.findByText('Share “First page”')).not.toBeNull()
+    expect(screen.queryByText('Pages')).toBeNull()
+  })
 })
 
 describe('BoardMobileMenu selection section', () => {

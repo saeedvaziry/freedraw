@@ -1,6 +1,6 @@
 import { act, fireEvent, render } from '@testing-library/react'
 import { createElement } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defaultStyle } from '@freedraw/engine'
 import type {
   EditListener,
@@ -29,9 +29,10 @@ function request(overrides: Partial<EditRequest> = {}): EditRequest {
 interface FakeOptions {
   readOnly?: boolean
   flow?: FlowContext | null
+  center?: { x: number; y: number }
 }
 
-function fakeController({ readOnly = false, flow = null }: FakeOptions = {}) {
+function fakeController({ readOnly = false, flow = null, center = { x: 0, y: 0 } }: FakeOptions = {}) {
   const listeners = new Set<EditListener>()
   let currentFlow = flow
   const setFlowDirection = vi.fn((direction: SpawnDirection) => {
@@ -56,7 +57,7 @@ function fakeController({ readOnly = false, flow = null }: FakeOptions = {}) {
     resizeTextWhileEditing: vi.fn(),
     resizeShapeForLabel: vi.fn(),
     worldToScreen: (point: { x: number; y: number }) => point,
-    elementCenterScreen: () => ({ x: 0, y: 0 }),
+    elementCenterScreen: () => center,
     measureTextSize: () => ({ width: 40, height: 20 }),
     subscribeEdit(listener: EditListener) {
       listeners.add(listener)
@@ -66,6 +67,7 @@ function fakeController({ readOnly = false, flow = null }: FakeOptions = {}) {
 
   return {
     controller: controller as unknown as EditorController,
+    commitText: controller.commitText,
     setFlowDirection,
     spawnChildAndEdit: controller.spawnChildAndEdit,
     emit(next: EditRequest | null) {
@@ -91,6 +93,56 @@ function activeDirection(): string | null {
 function textarea(): HTMLTextAreaElement {
   return document.querySelector('textarea') as HTMLTextAreaElement
 }
+
+const originalMatchMedia = window.matchMedia
+const originalVisualViewport = window.visualViewport
+
+function setCoarsePointer(matches: boolean): void {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: () =>
+      ({
+        matches,
+        media: '(pointer: coarse)',
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }) as unknown as MediaQueryList,
+  })
+}
+
+function setVisualViewport(rect: { left: number; top: number; width: number; height: number }): void {
+  Object.defineProperty(window, 'visualViewport', {
+    configurable: true,
+    value: {
+      offsetLeft: rect.left,
+      offsetTop: rect.top,
+      width: rect.width,
+      height: rect.height,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as VisualViewport,
+  })
+}
+
+beforeEach(() => {
+  setCoarsePointer(false)
+  setVisualViewport({ left: 0, top: 0, width: 800, height: 600 })
+})
+
+afterAll(() => {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: originalMatchMedia,
+  })
+  Object.defineProperty(window, 'visualViewport', {
+    configurable: true,
+    value: originalVisualViewport,
+  })
+})
 
 describe('FlowHud', () => {
   it('marks only the current spawn direction as active', () => {
@@ -214,5 +266,38 @@ describe('TextEditorOverlay flow hint', () => {
     emit(null)
 
     expect(hud()).toBeNull()
+  })
+})
+
+describe('TextEditorOverlay mobile editing', () => {
+  it('requires the explicit Done action instead of committing on blur', () => {
+    setCoarsePointer(true)
+    const { controller, commitText, emit } = fakeController()
+
+    render(createElement(TextEditorOverlay, { controller }))
+    emit(request({ target: 'text', labelKind: undefined, text: 'Mobile' }))
+
+    const done = document.querySelector<HTMLButtonElement>('[data-test="text-editor-done"]')
+    expect(done?.textContent).toBe('Done')
+
+    fireEvent.blur(textarea())
+    expect(commitText).not.toHaveBeenCalled()
+
+    fireEvent.pointerDown(done!)
+    fireEvent.click(done!)
+    expect(commitText).toHaveBeenCalledWith('node-1', 'text', 'Mobile')
+  })
+
+  it('keeps the editor and Done action above the visual viewport keyboard edge', () => {
+    setCoarsePointer(true)
+    setVisualViewport({ left: 0, top: 0, width: 320, height: 300 })
+    const { controller, emit } = fakeController({ center: { x: 160, y: 280 } })
+
+    render(createElement(TextEditorOverlay, { controller }))
+    emit(request({ target: 'text', labelKind: undefined, text: 'Mobile' }))
+
+    expect(textarea().style.top).toBe('226px')
+    const done = document.querySelector<HTMLButtonElement>('[data-test="text-editor-done"]')
+    expect(done?.style.top).toBe('288px')
   })
 })

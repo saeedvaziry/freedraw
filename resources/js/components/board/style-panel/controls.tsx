@@ -50,7 +50,7 @@ export function SliderControl({
         onPointerDown={onInteractStart}
         onPointerUp={onInteractEnd}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-border accent-primary coarse:h-3"
+        className="h-6 w-full cursor-pointer accent-primary coarse:h-11"
       />
     </label>
   )
