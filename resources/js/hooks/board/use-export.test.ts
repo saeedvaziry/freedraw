@@ -9,13 +9,19 @@ import {
   type SceneStore,
 } from '@freedraw/engine'
 import { boardToast } from '@/lib/board-toast'
+import { ensureSvgExportFonts } from '@/lib/svg-export-fonts'
 import { useExport, type BoardExport } from './use-export.js'
 
 vi.mock('@/lib/board-toast', () => ({
   boardToast: vi.fn(),
 }))
 
+vi.mock('@/lib/svg-export-fonts', () => ({
+  ensureSvgExportFonts: vi.fn(() => Promise.resolve()),
+}))
+
 const toast = vi.mocked(boardToast)
+const ensureFonts = vi.mocked(ensureSvgExportFonts)
 
 interface Download {
   filename: string
@@ -222,10 +228,40 @@ describe('useExport svg export', () => {
     expect(toast).toHaveBeenCalledWith('Exported as SVG')
   })
 
+  it('embeds the export font faces before rendering the svg', async () => {
+    const controller = createController()
+    const order: string[] = []
+    ensureFonts.mockImplementation(() => {
+      order.push('fonts')
+      return Promise.resolve()
+    })
+    controller.exportSvg.mockImplementation(() => {
+      order.push('svg')
+      return Promise.resolve({ ok: true, svg: '<svg></svg>' })
+    })
+
+    await setup(controller, createStore(createSnapshot([]))).exportSvg(false)
+
+    expect(order).toEqual(['fonts', 'svg'])
+  })
+
+  it('leaves image exports untouched by the font embed', async () => {
+    const controller = createController()
+    controller.exportImage.mockResolvedValue({
+      ok: true,
+      blob: new Blob(['png'], { type: 'image/png' }),
+    })
+
+    await setup(controller, createStore(createSnapshot([]))).exportImage('png', false, false)
+
+    expect(ensureFonts).not.toHaveBeenCalled()
+  })
+
   it('does nothing at all without a controller', async () => {
     await setup(null, createStore(createSnapshot([]))).exportSvg(false)
 
     expect(downloads).toEqual([])
+    expect(ensureFonts).not.toHaveBeenCalled()
     expect(toast).not.toHaveBeenCalled()
   })
 

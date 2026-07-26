@@ -12,6 +12,7 @@ import {
   type SceneStore,
 } from '@freedraw/engine'
 import { boardToast } from '@/lib/board-toast'
+import { ensureSvgExportFonts } from '@/lib/svg-export-fonts'
 
 type ExportFormat = ExportImageOptions['format']
 
@@ -70,6 +71,7 @@ export function useExport(controller: EditorController | null, store: SceneStore
     async (dark: boolean, options?: BoardExportOptions): Promise<void> => {
       if (!controller) return
       try {
+        await ensureSvgExportFonts()
         const result = await controller.exportSvg({
           dark,
           scale: options?.scale,

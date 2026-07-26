@@ -69,7 +69,7 @@ export function useImageInsert(
         y: center.y - element.height / 2,
       }
 
-      controller.cacheImageBitmap(assetId, bitmap)
+      controller.cacheImageBitmap(assetId, bitmap, blob)
       store.stopCapturing()
       store.transact((api) => api.addElement(centered))
       store.setUiState({ selectedIds: new Set([centered.id]), activeTool: 'select' })

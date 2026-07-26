@@ -238,8 +238,9 @@ describe('useImageInsert drop', () => {
     const controller = createController()
     const store = createStore()
     const { result } = setup(controller, store)
+    const dropped = imageBlob()
 
-    result.current.onDrop(dropEvent([imageBlob()]))
+    result.current.onDrop(dropEvent([dropped]))
 
     await waitFor(() => {
       expect(store.added).toHaveLength(1)
@@ -248,6 +249,11 @@ describe('useImageInsert drop', () => {
     expect(store.added[0].x).toBe(100 - store.added[0].width / 2)
     expect(store.added[0].y).toBe(200 - store.added[0].height / 2)
     expect(controller.cacheImageBitmap).toHaveBeenCalledTimes(1)
+    expect(controller.cacheImageBitmap).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.anything(),
+      dropped,
+    )
     expect(store.setUiState).toHaveBeenCalledWith({
       selectedIds: new Set([store.added[0].id]),
       activeTool: 'select',
